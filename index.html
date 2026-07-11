@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Thuốc Lá Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚬</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --card: #0f3460;
+      --accent: #e94560;
+      --accent-light: #ff6b81;
+      --text: #eee;
+      --text-dim: #8899aa;
+      --green: #2ecc71;
+      --yellow: #f1c40f;
+      --orange: #e67e22;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 20px;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0 8px;
+    }
+    header h1 { font-size: 20px; font-weight: 700; }
+    .header-date { font-size: 13px; color: var(--text-dim); }
+
+    /* Timer */
+    .timer-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 14px 20px;
+      margin: 8px 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .timer-left { display: flex; align-items: center; gap: 12px; }
+    .timer-icon { font-size: 22px; }
+    .timer-info { }
+    .timer-label { font-size: 12px; color: var(--text-dim); }
+    .timer-value {
+      font-size: 24px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .timer-value.good { color: var(--green); }
+    .timer-value.warn { color: var(--yellow); }
+    .timer-value.bad { color: var(--accent); }
+    .timer-target {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+    .timer-ring {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      border: 3px solid rgba(255,255,255,0.08);
+    }
+    .timer-ring.good { border-color: var(--green); color: var(--green); }
+    .timer-ring.warn { border-color: var(--yellow); color: var(--yellow); }
+    .timer-ring.bad { border-color: var(--accent); color: var(--accent); }
+
+    /* Main counter */
+    .counter-card {
+      background: linear-gradient(135deg, var(--surface), var(--card));
+      border-radius: 20px;
+      padding: 28px 24px 24px;
+      text-align: center;
+      margin: 4px 0 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .counter-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -30%;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(233,69,96,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .counter-label { font-size: 14px; color: var(--text-dim); margin-bottom: 2px; }
+    .counter-number {
+      font-size: 72px;
+      font-weight: 800;
+      line-height: 1;
+      margin: 6px 0;
+      background: linear-gradient(180deg, #fff, #e94560);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .counter-goal { font-size: 13px; color: var(--text-dim); }
+
+    /* Goal progress bar */
+    .progress-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      margin: 14px 0 6px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--green), var(--yellow), var(--orange), var(--accent));
+      transition: width 0.3s ease;
+    }
+    .progress-text { font-size: 12px; color: var(--text-dim); text-align: right; }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 18px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn:active { transform: scale(0.95); }
+    .btn-add {
+      flex: 2;
+      background: linear-gradient(135deg, var(--accent), #c0392b);
+      color: white;
+      box-shadow: 0 4px 20px rgba(233,69,96,0.4);
+      font-size: 22px;
+    }
+    .btn-sub {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-dim);
+      font-size: 22px;
+    }
+    .btn-reset {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-dim);
+      font-size: 18px;
+      flex: 0.6;
+    }
+    .btn-add-back {
+      width: 100%;
+      padding: 12px;
+      border: 1px dashed rgba(255,255,255,0.15);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    .btn-add-back:active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(233,69,96,0.06);
+    }
+
+    /* Quick presets */
+    .preset-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .preset-row::-webkit-scrollbar { display: none; }
+    .preset-btn {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      color: var(--text-dim);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-btn:active { background: rgba(255,255,255,0.12); }
+
+    /* Stats grid */
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 18px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title span { color: var(--text-dim); font-weight: 400; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-number { font-size: 22px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+    .stat-card.green .stat-number { color: var(--green); }
+    .stat-card.accent .stat-number { color: var(--accent); }
+    .stat-card.yellow .stat-number { color: var(--yellow); }
+    .stat-card.orange .stat-number { color: var(--orange); }
+
+    /* Chart */
+    .chart-container {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 100px;
+      padding-top: 8px;
+    }
+    .chart-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .chart-bar {
+      width: 100%;
+      max-width: 36px;
+      border-radius: 6px 6px 2px 2px;
+      min-height: 4px;
+      transition: height 0.3s;
+      background: linear-gradient(180deg, var(--accent), var(--accent-light));
+    }
+    .chart-bar.today { background: linear-gradient(180deg, var(--accent-light), var(--accent)); }
+    .chart-bar-wrap .bar-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      text-align: center;
+    }
+    .chart-bar-wrap .bar-value {
+      font-size: 10px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    /* Timeline */
+    .timeline {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 8px 16px;
+    }
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor: pointer;
+      transition: background 0.15s;
+      border-radius: 8px;
+      margin: 0 -8px;
+      padding: 10px 8px;
+    }
+    .timeline-item:active { background: rgba(255,255,255,0.05); }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-item .edit-hint {
+      margin-left: auto;
+      font-size: 11px;
+      color: rgba(255,255,255,0.15);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .timeline-item:active .edit-hint,
+    .timeline-item .edit-hint.show { opacity: 1; }
+    .timeline-time {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-dim);
+      min-width: 48px;
+    }
+    .timeline-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .timeline-label {
+      font-size: 14px;
+      color: var(--text);
+      flex: 1;
+    }
+    .timeline-gap {
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+    }
+    .timeline-gap.bad { color: var(--accent); }
+    .empty-state {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    /* Settings panel */
+    .settings-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+    }
+    .setting-row + .setting-row { border-top: 1px solid rgba(255,255,255,0.04); }
+    .setting-row label { font-size: 14px; }
+    .setting-row .setting-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .setting-row input, .setting-row select {
+      width: 80px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      color: white;
+      font-size: 14px;
+      text-align: center;
+    }
+    .setting-row input:focus { outline: none; border-color: var(--accent); }
+    .setting-left { display: flex; flex-direction: column; gap: 2px; }
+    .btn-save {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .btn-save:active { opacity: 0.8; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 4px;
+      margin: 8px 0 16px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--card);
+      color: white;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 24px;
+      width: 320px;
+      max-width: 90vw;
+    }
+    .modal h3 {
+      font-size: 17px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .modal .modal-desc {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .time-input-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .time-input-row select {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      color: white;
+      font-size: 18px;
+      text-align: center;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .time-input-row select:focus { border-color: var(--accent); outline: none; }
+    .time-sep { font-size: 22px; color: var(--text-dim); align-self: center; }
+    .modal-btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .modal-btn:active { opacity: 0.8; }
+    .modal-btn-cancel {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-dim);
+    }
+    .modal-btn-confirm {
+      background: var(--accent);
+      color: white;
+    }
+    .modal-btn-danger {
+      background: rgba(233,69,96,0.15);
+      color: var(--accent);
+    }
+
+    /* Animations */
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .pop { animation: pop 0.2s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.3s ease; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <div>
+        <h1>🚬 Thuốc Lá</h1>
+        <div class="header-date" id="dateDisplay"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="preset-btn" onclick="switchTab('stats')" style="padding:6px 12px;">📊</button>
+        <button class="preset-btn" onclick="switchTab('settings')" style="padding:6px 12px;">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('main')" data-tab="main">Hôm nay</div>
+      <div class="tab" onclick="switchTab('stats')" data-tab="stats">Thống kê</div>
+      <div class="tab" onclick="switchTab('settings')" data-tab="settings">Cài đặt</div>
+    </div>
+
+    <!-- ========== MAIN TAB ========== -->
+    <div id="tab-main" class="tab-content active">
+
+      <!-- Timer from last cigarette -->
+      <div class="timer-card" id="timerCard">
+        <div class="timer-left">
+          <div class="timer-icon">⏱️</div>
+          <div class="timer-info">
+            <div class="timer-label">Từ điếu cuối</div>
+            <div class="timer-value good" id="timerDisplay">--:--</div>
+            <div class="timer-target" id="timerTarget"></div>
+          </div>
+        </div>
+        <div class="timer-ring good" id="timerRing">--</div>
+      </div>
+
+      <!-- Counter -->
+      <div class="counter-card">
+        <div class="counter-label">Hôm nay đã hút</div>
+        <div class="counter-number" id="todayCount">0</div>
+        <div class="counter-goal">Mục tiêu: <span id="goalDisplay">10</span> điếu/ngày</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">0 / 10</div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="btn-row">
+        <button class="btn btn-reset" onclick="undoLast()" title="Xoá điếu cuối">⟲</button>
+        <button class="btn btn-add" onclick="addCig()">+1 🚬</button>
+        <button class="btn btn-sub" onclick="addHalf()">½</button>
+      </div>
+
+      <!-- Presets -->
+      <div class="preset-row">
+        <button class="preset-btn" onclick="addCustom(1)">+1</button>
+        <button class="preset-btn" onclick="addCustom(2)">+2</button>
+        <button class="preset-btn" onclick="addCustom(3)">+3</button>
+        <button class="preset-btn" onclick="addCustom(5)">+5</button>
+      </div>
+
+      <!-- Add back button -->
+      <button class="btn-add-back" onclick="openTimePicker()">⏪ Thêm điếu quên note</button>
+
+      <!-- Quick stats -->
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-number" id="todayCountSmall">0</div>
+          <div class="stat-label">Hôm nay</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-number" id="yesterdayCount">-</div>
+          <div class="stat-label">Hôm qua</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-number" id="avg7">-</div>
+          <div class="stat-label">TB 7 ngày</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-number" id="thisMonth">-</div>
+          <div class="stat-label">Tháng này</div>
+        </div>
+      </div>
+
+      <!-- Today timeline -->
+      <div class="section-title">📋 Hôm nay <span id="timelineCount">(0 điếu)</span> <span style="font-size:11px;color:var(--text-dim);font-weight:400;">— chạm để sửa giờ</span></div>
+      <div class="timeline" id="timeline">
+        <div class="empty-state">Chưa hút điếu nào. Cố gắng lên! 💪</div>
+      </div>
+    </div>
+
+    <!-- ========== STATS TAB ========== -->
+    <div id="tab-stats" class="tab-content">
+      <div class="section-title">📊 7 ngày qua</div>
+      <div class="chart-container">
+        <div class="chart-bars" id="chartBars"></div>
+      </div>
+
+      <div class="section-title">📈 Chi tiết</div>
+      <div class="timeline" id="historyTimeline"></div>
+    </div>
+
+    <!-- ========== SETTINGS TAB ========== -->
+    <div id="tab-settings" class="tab-content">
+      <div class="settings-card">
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>🎯 Mục tiêu mỗi ngày</label>
+          </div>
+          <input type="number" id="dailyGoalInput" min="1" max="99" value="10">
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>⏱️ Khoảng cách tối thiểu giữa 2 điếu</label>
+            <span class="setting-desc">Cảnh báo nếu hút gần nhau quá</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" id="intervalGoalInput" min="0" max="999" value="60" style="width:60px;">
+            <span style="font-size:12px;color:var(--text-dim);">phút</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>💰 Giá mỗi bao (VND)</label>
+          </div>
+          <input type="number" id="pricePerPack" min="0" step="5000" value="25000">
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>📦 Số điếu / bao</label>
+          </div>
+          <input type="number" id="cigsPerPack" min="1" max="40" value="20">
+        </div>
+        <button class="btn-save" onclick="saveSettings()">💾 Lưu cài đặt</button>
+      </div>
+
+      <div class="section-title">💸 Tính nhanh</div>
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-number" id="moneyToday">0₫</div>
+          <div class="stat-label">Hôm nay</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-number" id="moneyWeek">0₫</div>
+          <div class="stat-label">Tuần này</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-number" id="moneyMonth">0₫</div>
+          <div class="stat-label">Tháng này</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-number" id="moneySaved">0₫</div>
+          <div class="stat-label">Tiết kiệm so với mục tiêu</div>
+        </div>
+      </div>
+
+      <!-- Export CSV -->
+      <div class="settings-card" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:14px;font-weight:600;">📤 Xuất CSV</div>
+            <div style="font-size:12px;color:var(--text-dim);">Tải toàn bộ lịch sử làm báo cáo</div>
+          </div>
+          <button class="btn-save" style="width:auto;padding:8px 16px;background:var(--green);" onclick="exportCSV()">📥 Tải CSV</button>
+        </div>
+      </div>
+
+      <div class="settings-card" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:14px;font-weight:600;">🗑️ Xoá dữ liệu</div>
+            <div style="font-size:12px;color:var(--text-dim);">Xoá toàn bộ lịch sử</div>
+          </div>
+          <button class="btn-save" style="width:auto;padding:8px 16px;background:var(--accent);" onclick="clearAllData()">Xoá</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL ========== -->
+  <div class="modal-overlay" id="timePickerModal">
+    <div class="modal">
+      <h3 id="modalTitle">⏰ Sửa giờ</h3>
+      <div class="modal-desc" id="modalDesc">Chọn giờ cho điếu này</div>
+      <div class="time-input-row">
+        <select id="modalHour">
+          <option value="0">00</option><option value="1">01</option><option value="2">02</option>
+          <option value="3">03</option><option value="4">04</option><option value="5">05</option>
+          <option value="6">06</option><option value="7">07</option><option value="8">08</option>
+          <option value="9">09</option><option value="10">10</option><option value="11">11</option>
+          <option value="12">12</option><option value="13">13</option><option value="14">14</option>
+          <option value="15">15</option><option value="16">16</option><option value="17">17</option>
+          <option value="18">18</option><option value="19">19</option><option value="20">20</option>
+          <option value="21">21</option><option value="22">22</option><option value="23">23</option>
+        </select>
+        <span class="time-sep">:</span>
+        <select id="modalMinute">
+          <option value="0">00</option><option value="5">05</option><option value="10">10</option>
+          <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+          <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+          <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+        </select>
+      </div>
+      <div class="modal-btn-row">
+        <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Huỷ</button>
+        <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn" onclick="confirmModal()">Xác nhận</button>
+      </div>
+      <div style="margin-top:10px;text-align:center;" id="modalDeleteRow">
+        <button class="modal-btn modal-btn-danger" style="width:100%;" onclick="deleteModalItem()">🗑️ Xoá điếu này</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== DATA LAYER ==========
+    const DB_KEY = 'smoking_data';
+    const CFG_KEY = 'smoking_config';
+
+    function getToday() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function getWeekBounds() {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      return { start: fmt(monday), end: fmt(sunday) };
+    }
+
+    function getMonthBounds() {
+      const now = new Date();
+      const start = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const end = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(endDate).padStart(2,'0')}`;
+      return { start, end };
+    }
+
+    function loadData() {
+      try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; }
+      catch { return {}; }
+    }
+
+    function saveData(data) {
+      localStorage.setItem(DB_KEY, JSON.stringify(data));
+    }
+
+    function loadConfig() {
+      try {
+        const cfg = JSON.parse(localStorage.getItem(CFG_KEY));
+        return cfg || { goal: 10, intervalGoal: 60, pricePerPack: 25000, cigsPerPack: 20 };
+      } catch { return { goal: 10, intervalGoal: 60, pricePerPack: 25000, cigsPerPack: 20 }; }
+    }
+
+    function saveConfig(cfg) {
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    }
+
+    function getTodayData() {
+      const data = loadData();
+      return (data[getToday()] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+    }
+
+    function setTodayData(records) {
+      const data = loadData();
+      const today = getToday();
+      // Sort by time for consistency
+      records.sort((a, b) => new Date(a.time) - new Date(b.time));
+      data[today] = records;
+      saveData(data);
+    }
+
+    function addRecord(isoTime) {
+      const records = getTodayData();
+      records.push({ time: isoTime || new Date().toISOString() });
+      setTodayData(records);
+      return records;
+    }
+
+    function removeLastRecord() {
+      const records = getTodayData();
+      if (records.length === 0) return records;
+      records.pop();
+      setTodayData(records);
+      return records;
+    }
+
+    function getDayCount(dateStr) {
+      const data = loadData();
+      return (data[dateStr] || []).length;
+    }
+
+    function getLast7Days() {
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        days.push({ key, dayName: getDayName(d), count: getDayCount(key) });
+      }
+      return days;
+    }
+
+    function getDayName(date) {
+      return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()];
+    }
+
+    // ========== MONEY ==========
+    function calcCost(count) {
+      const cfg = loadConfig();
+      if (!cfg.pricePerPack || !cfg.cigsPerPack) return 0;
+      return (count / cfg.cigsPerPack) * cfg.pricePerPack;
+    }
+
+    function getWeekCount() {
+      const bounds = getWeekBounds();
+      const data = loadData();
+      let total = 0;
+      for (const [key, records] of Object.entries(data)) {
+        if (key >= bounds.start && key <= bounds.end) total += records.length;
+      }
+      return total;
+    }
+
+    function getMonthCount() {
+      const bounds = getMonthBounds();
+      const data = loadData();
+      let total = 0;
+      for (const [key, records] of Object.entries(data)) {
+        if (key >= bounds.start && key <= bounds.end) total += records.length;
+      }
+      return total;
+    }
+
+    function formatMoney(n) {
+      if (n < 1000) return n + '₫';
+      return Math.round(n).toLocaleString('vi-VN') + '₫';
+    }
+
+    // ========== TIMER ==========
+    let timerInterval = null;
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+      updateTimer();
+    }
+
+    function updateTimer() {
+      const records = getTodayData();
+      const cfg = loadConfig();
+      const intervalGoal = cfg.intervalGoal || 0;
+      const el = document.getElementById('timerDisplay');
+      const ring = document.getElementById('timerRing');
+      const target = document.getElementById('timerTarget');
+
+      if (records.length === 0) {
+        el.textContent = '--:--';
+        el.className = 'timer-value';
+        ring.textContent = '--';
+        ring.className = 'timer-ring';
+        target.textContent = intervalGoal > 0 ? `Mục tiêu: ≥${intervalGoal}ph` : '';
+        return;
+      }
+
+      const last = new Date(records[records.length - 1].time);
+      const now = new Date();
+      const diffMs = now - last;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const secPart = diffSec % 60;
+
+      // Format as H:MM:SS or MM:SS
+      let display;
+      if (diffMin >= 60) {
+        const h = Math.floor(diffMin / 60);
+        const m = diffMin % 60;
+        display = `${h}:${String(m).padStart(2,'0')}:${String(secPart).padStart(2,'0')}`;
+      } else {
+        display = `${String(diffMin).padStart(2,'0')}:${String(secPart).padStart(2,'0')}`;
+      }
+
+      el.textContent = display;
+
+      // Color coding based on interval goal
+      if (intervalGoal > 0) {
+        const pct = Math.min(100, (diffMin / intervalGoal) * 100);
+        target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${pct >= 100 ? '✅ Đạt' : Math.round(pct) + '%'}`;
+
+        if (diffMin >= intervalGoal) {
+          el.className = 'timer-value good';
+          ring.className = 'timer-ring good';
+          ring.textContent = '✅';
+        } else if (diffMin >= intervalGoal * 0.7) {
+          el.className = 'timer-value warn';
+          ring.className = 'timer-ring warn';
+          ring.textContent = diffMin + "'";
+        } else {
+          el.className = 'timer-value bad';
+          ring.className = 'timer-ring bad';
+          ring.textContent = diffMin + "'";
+        }
+      } else {
+        target.textContent = '';
+        el.className = 'timer-value';
+        ring.className = 'timer-ring';
+        ring.textContent = diffMin + "'";
+      }
+    }
+
+    // ========== UI ==========
+    function formatTime(isoStr) {
+      const d = new Date(isoStr);
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function updateDisplay() {
+      const records = getTodayData();
+      const count = records.length;
+      const cfg = loadConfig();
+
+      // Today number
+      document.getElementById('todayCount').textContent = count;
+      document.getElementById('todayCountSmall').textContent = count;
+
+      // Goal
+      document.getElementById('goalDisplay').textContent = cfg.goal;
+      const pct = Math.min(100, (count / cfg.goal) * 100);
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressText').textContent = `${count} / ${cfg.goal}`;
+
+      // Yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+      document.getElementById('yesterdayCount').textContent = getDayCount(yKey);
+
+      // 7-day average
+      const last7 = getLast7Days();
+      const total7 = last7.reduce((s, d) => s + d.count, 0);
+      document.getElementById('avg7').textContent = (total7 / 7).toFixed(1);
+
+      // This month
+      document.getElementById('thisMonth').textContent = getMonthCount();
+
+      // Timeline
+      renderTimeline();
+
+      // Date
+      const now = new Date();
+      const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      document.getElementById('dateDisplay').textContent = `${dayNames[now.getDay()]}, ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
+
+      // Chart
+      renderChart();
+      renderHistoryTimeline();
+
+      // Money
+      updateMoneyStats();
+
+      // Timer
+      updateTimer();
+    }
+
+    function renderTimeline() {
+      const records = getTodayData();
+      const count = records.length;
+      const timeline = document.getElementById('timeline');
+      const timelineCount = document.getElementById('timelineCount');
+      const cfg = loadConfig();
+      const intervalGoal = cfg.intervalGoal || 0;
+
+      if (count === 0) {
+        timeline.innerHTML = '<div class="empty-state">Chưa hút điếu nào. Cố gắng lên! 💪</div>';
+        timelineCount.textContent = '(0 điếu)';
+        return;
+      }
+
+      timelineCount.textContent = `(${count} điếu)`;
+      let html = '';
+      // Show chronological order (oldest first)
+      for (let i = 0; i < records.length; i++) {
+        const r = records[i];
+        const isHalf = r.note === '½';
+        let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
+
+        // Gap since previous
+        let gapStr = '';
+        let gapBad = false;
+        if (i > 0) {
+          const prev = new Date(records[i-1].time);
+          const curr = new Date(r.time);
+          const diffMin = Math.round((curr - prev) / 60000);
+          if (diffMin > 0) {
+            gapStr = `${diffMin}ph sau`;
+            if (intervalGoal > 0 && diffMin < intervalGoal) {
+              gapBad = true;
+              gapStr += ` ⚠️ <${intervalGoal}ph`;
+            }
+          }
+        } else if (i === 0) {
+          // First cig - show time since start of day
+          const dayStart = new Date();
+          dayStart.setHours(0, 0, 0, 0);
+          const cigTime = new Date(r.time);
+          const diffMin = Math.round((cigTime - dayStart) / 60000);
+          if (diffMin > 0) gapStr = `${diffMin}ph sau thức dậy`;
+        }
+
+        html += `
+          <div class="timeline-item fade-in" onclick="openTimeEditor(${i})">
+            <div class="timeline-time">${formatTime(r.time)}</div>
+            <div class="timeline-dot"></div>
+            <div class="timeline-label">
+              ${label}
+              ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : ''}"> — ${gapStr}</span>` : ''}
+            </div>
+            <div class="edit-hint show">✏️</div>
+          </div>
+        `;
+      }
+      timeline.innerHTML = html;
+    }
+
+    function renderChart() {
+      const last7 = getLast7Days();
+      const maxCount = Math.max(1, ...last7.map(d => d.count));
+      const chart = document.getElementById('chartBars');
+      const today = getToday();
+      let html = '';
+      last7.forEach(d => {
+        const height = (d.count / maxCount) * 100;
+        const isToday = d.key === today;
+        html += `
+          <div class="chart-bar-wrap">
+            <div class="bar-value">${d.count}</div>
+            <div class="chart-bar ${isToday ? 'today' : ''}" style="height:${height}%"></div>
+            <div class="bar-label">${d.dayName}</div>
+          </div>
+        `;
+      });
+      chart.innerHTML = html;
+    }
+
+    function renderHistoryTimeline() {
+      const el = document.getElementById('historyTimeline');
+      const last7 = getLast7Days().reverse();
+      const today = getToday();
+      let html = '';
+      for (const d of last7) {
+        const isToday = d.key === today;
+        const label = isToday ? 'Hôm nay' : d.dayName;
+        html += `
+          <div class="timeline-item">
+            <div style="min-width:48px;font-size:12px;color:var(--text-dim);">${d.key.slice(5)}</div>
+            <div style="flex:1;">
+              <div style="height:8px;border-radius:4px;background:rgba(255,255,255,0.06);overflow:hidden;">
+                <div style="height:100%;width:${Math.min(100, (d.count / Math.max(1, loadConfig().goal)) * 100)}%;background:${isToday ? 'var(--accent)' : 'var(--card)'};border-radius:4px;transition:width 0.3s;"></div>
+              </div>
+            </div>
+            <div style="font-size:13px;font-weight:600;min-width:24px;text-align:right;">${d.count}</div>
+          </div>
+        `;
+      }
+      el.innerHTML = html;
+    }
+
+    function updateMoneyStats() {
+      const cfg = loadConfig();
+      const todayCount = getTodayData().length;
+      const weekCount = getWeekCount();
+      const monthCount = getMonthCount();
+
+      document.getElementById('moneyToday').textContent = formatMoney(calcCost(todayCount));
+      document.getElementById('moneyWeek').textContent = formatMoney(calcCost(weekCount));
+      document.getElementById('moneyMonth').textContent = formatMoney(calcCost(monthCount));
+
+      const actualCost = calcCost(monthCount);
+      const goalCost = calcCost(loadConfig().goal * 30);
+      document.getElementById('moneySaved').textContent = formatMoney(Math.max(0, goalCost - actualCost));
+    }
+
+    // ========== ACTIONS ==========
+    function addCig() {
+      const records = addRecord();
+      updateDisplay();
+      const el = document.getElementById('todayCount');
+      el.classList.remove('pop');
+      void el.offsetWidth;
+      el.classList.add('pop');
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    function addHalf() {
+      const records = getTodayData();
+      records.push({ time: new Date().toISOString(), note: '½' });
+      setTodayData(records);
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function addCustom(n) {
+      for (let i = 0; i < n; i++) addRecord();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    function undoLast() {
+      const records = removeLastRecord();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    // ========== TIME PICKER MODAL ==========
+    let modalMode = 'add'; // 'add' or 'edit'
+    let editingIndex = -1;
+
+    function openTimePicker() {
+      modalMode = 'add';
+      editingIndex = -1;
+      document.getElementById('modalTitle').textContent = '⏪ Thêm điếu quên note';
+      document.getElementById('modalDesc').textContent = 'Chọn giờ đã hút nhưng chưa note';
+      document.getElementById('modalDeleteRow').style.display = 'none';
+      document.getElementById('modalConfirmBtn').textContent = '➕ Thêm';
+      setModalTime(new Date());
+      document.getElementById('timePickerModal').classList.add('active');
+    }
+
+    function openTimeEditor(index) {
+      const records = getTodayData();
+      if (!records[index]) return;
+      modalMode = 'edit';
+      editingIndex = index;
+      document.getElementById('modalTitle').textContent = '✏️ Sửa giờ điếu thuốc';
+      document.getElementById('modalDesc').textContent = `Điếu #${index + 1}`;
+      document.getElementById('modalDeleteRow').style.display = 'block';
+      document.getElementById('modalConfirmBtn').textContent = '💾 Lưu';
+      setModalTime(new Date(records[index].time));
+      document.getElementById('timePickerModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('timePickerModal').classList.remove('active');
+    }
+
+    function setModalTime(date) {
+      document.getElementById('modalHour').value = date.getHours();
+      // Round to nearest 5 min
+      const min = Math.round(date.getMinutes() / 5) * 5;
+      document.getElementById('modalMinute').value = Math.min(55, min);
+    }
+
+    function confirmModal() {
+      const h = parseInt(document.getElementById('modalHour').value);
+      const m = parseInt(document.getElementById('modalMinute').value);
+      const records = getTodayData();
+      const today = getToday();
+
+      // Build ISO time for today
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      const iso = d.toISOString();
+
+      if (modalMode === 'add') {
+        records.push({ time: iso });
+      } else if (modalMode === 'edit' && editingIndex >= 0) {
+        records[editingIndex].time = iso;
+      }
+
+      setTodayData(records);
+      closeModal();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function deleteModalItem() {
+      if (editingIndex < 0) return;
+      if (!confirm('Xoá điếu này?')) return;
+      const records = getTodayData();
+      records.splice(editingIndex, 1);
+      setTodayData(records);
+      closeModal();
+      updateDisplay();
+    }
+
+    // ========== SETTINGS ==========
+    function loadSettingsUI() {
+      const cfg = loadConfig();
+      document.getElementById('dailyGoalInput').value = cfg.goal || 10;
+      document.getElementById('intervalGoalInput').value = cfg.intervalGoal || 0;
+      document.getElementById('pricePerPack').value = cfg.pricePerPack || 25000;
+      document.getElementById('cigsPerPack').value = cfg.cigsPerPack || 20;
+    }
+
+    function saveSettings() {
+      const goal = parseInt(document.getElementById('dailyGoalInput').value) || 10;
+      const intervalGoal = parseInt(document.getElementById('intervalGoalInput').value) || 0;
+      const pricePerPack = parseInt(document.getElementById('pricePerPack').value) || 25000;
+      const cigsPerPack = parseInt(document.getElementById('cigsPerPack').value) || 20;
+      saveConfig({ goal, intervalGoal, pricePerPack, cigsPerPack });
+      updateDisplay();
+      const btn = document.querySelector('.btn-save');
+      const orig = btn.textContent;
+      btn.textContent = '✅ Đã lưu!';
+      btn.style.background = '#2ecc71';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 1500);
+    }
+
+    function exportCSV() {
+      const data = loadData();
+      const cfg = loadConfig();
+      const dates = Object.keys(data).sort();
+
+      if (dates.length === 0) {
+        alert('Chưa có dữ liệu để xuất!');
+        return;
+      }
+
+      // Build CSV rows
+      let rows = [
+        ['Ngày', 'Giờ', 'Ghi chú', 'Khoảng cách (phút)', 'STT trong ngày']
+      ];
+      const header = rows[0].join(',');
+
+      for (const dateKey of dates) {
+        const records = data[dateKey] || [];
+        records.sort((a, b) => new Date(a.time) - new Date(b.time));
+        for (let i = 0; i < records.length; i++) {
+          const r = records[i];
+          const d = new Date(r.time);
+          const timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          const note = r.note || '';
+
+          // Gap from previous cigarette
+          let gap = '';
+          if (i > 0) {
+            const prev = new Date(records[i-1].time);
+            const curr = new Date(r.time);
+            gap = Math.round((curr - prev) / 60000);
+          }
+
+          rows.push(`"${dateKey}","${timeStr}","${note}","${gap}","${i + 1}"`);
+        }
+      }
+
+      const csv = rows.join('\n');
+
+      // Download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const filename = `thuocla_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.csv`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Feedback
+      if (navigator.vibrate) navigator.vibrate(15);
+      const btn = document.querySelector('[onclick="exportCSV()"]');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Đã xuất!';
+        btn.style.background = '#2ecc71';
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.style.background = '';
+        }, 2000);
+      }
+
+      // Show success with record count
+      const totalRecords = rows.length - 1; // minus header
+      if (totalRecords > 1) {
+        // Brief notification
+        const notification = document.createElement('div');
+        notification.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:9999;animation:fadeIn 0.3s ease;';
+        notification.textContent = `📥 Đã xuất ${totalRecords} dòng → ${filename}`;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          notification.style.transition = 'opacity 0.3s';
+          setTimeout(() => document.body.removeChild(notification), 300);
+        }, 3000);
+      }
+    }
+
+    function clearAllData() {
+      if (confirm('Xoá toàn bộ lịch sử hút thuốc?')) {
+        localStorage.removeItem(DB_KEY);
+        updateDisplay();
+      }
+    }
+
+    // ========== TABS ==========
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('active');
+      if (name === 'main' || name === 'stats' || name === 'settings') updateDisplay();
+      if (name === 'settings') loadSettingsUI();
+    }
+
+    // Close modal on overlay click
+    document.getElementById('timePickerModal')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('timePickerModal')) closeModal();
+    });
+
+    // ========== INIT ==========
+    updateDisplay();
+    loadSettingsUI();
+    startTimer();
+
+    // Auto-refresh every 30s, timer every 1s
+    setInterval(() => { updateDisplay(); loadSettingsUI(); }, 30000);
+  </script>
+</body>
+</html>
