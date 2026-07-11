@@ -1,0 +1,10 @@
+{
+  "name": "thuocla-tracker",
+  "version": 2,
+  "public": true,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
