@@ -613,14 +613,6 @@
         <button class="btn btn-sub" onclick="addHalf()">½</button>
       </div>
 
-      <!-- Presets -->
-      <div class="preset-row">
-        <button class="preset-btn" onclick="addCustom(1)">+1</button>
-        <button class="preset-btn" onclick="addCustom(2)">+2</button>
-        <button class="preset-btn" onclick="addCustom(3)">+3</button>
-        <button class="preset-btn" onclick="addCustom(5)">+5</button>
-      </div>
-
       <!-- Add back button -->
       <button class="btn-add-back" onclick="openTimePicker()">⏪ Thêm điếu quên note</button>
 
@@ -1255,12 +1247,6 @@
       setTodayData(records);
       updateDisplay();
       if (navigator.vibrate) navigator.vibrate(10);
-    }
-
-    function addCustom(n) {
-      for (let i = 0; i < n; i++) addRecord();
-      updateDisplay();
-      if (navigator.vibrate) navigator.vibrate(20);
     }
 
     function undoLast() {
