@@ -1183,6 +1183,8 @@
       if (records.length === 0) {
         content.innerHTML = '<div class="day-detail-empty">Không có điếu nào trong ngày này</div>';
       } else {
+        const cfg = loadConfig();
+        const intervalGoal = cfg.intervalGoal || 0;
         let html = '';
         for (let i = 0; i < records.length; i++) {
           const r = records[i];
@@ -1191,16 +1193,18 @@
 
           // Gap since previous
           let gapStr = '';
+          let gapBad = false;
           if (i > 0) {
             const prev = new Date(records[i-1].time);
             const curr = new Date(r.time);
             const diffMin = Math.round((curr - prev) / 60000);
-            if (diffMin > 0) gapStr = `${diffMin}ph sau`;
-          } else if (i === 0 && records.length > 1) {
-            const first = new Date(r.time);
-            const next = new Date(records[1].time);
-            const diffMin = Math.round((next - first) / 60000);
-            if (diffMin > 0) gapStr = `cách điếu kế ${diffMin}ph`;
+            if (diffMin > 0) {
+              gapStr = `${diffMin}ph sau`;
+              if (intervalGoal > 0 && diffMin < intervalGoal) {
+                gapBad = true;
+                gapStr += ` ⚠️ <${intervalGoal}ph`;
+              }
+            }
           }
 
           html += `
@@ -1209,7 +1213,7 @@
               <div class="timeline-dot"></div>
               <div class="timeline-label">
                 ${label}
-                ${gapStr ? `<span class="timeline-gap"> — ${gapStr}</span>` : ''}
+                ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : ''}"> — ${gapStr}</span>` : ''}
               </div>
             </div>
           `;
