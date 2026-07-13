@@ -1457,6 +1457,9 @@
     });
 
     // ========== INIT ==========
+    // Check URL hash for tab
+    const hash = window.location.hash.slice(1);
+    if (['stats', 'settings'].includes(hash)) switchTab(hash);
     updateDisplay();
     loadSettingsUI();
     startTimer();
