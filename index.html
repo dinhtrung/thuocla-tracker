@@ -274,6 +274,15 @@
       background: linear-gradient(180deg, var(--accent), var(--accent-light));
     }
     .chart-bar.today { background: linear-gradient(180deg, var(--accent-light), var(--accent)); }
+    .chart-bar-wrap {
+      cursor: pointer;
+    }
+    .chart-bar-wrap:active .chart-bar {
+      opacity: 0.6;
+    }
+    .chart-bar-wrap.selected .chart-bar {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
     .chart-bar-wrap .bar-label {
       font-size: 10px;
       color: var(--text-dim);
@@ -343,6 +352,47 @@
       padding: 24px;
       color: var(--text-dim);
       font-size: 14px;
+    }
+
+    /* Day detail (clicked day in stats) */
+    .day-detail {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .day-detail.active { display: block; }
+    .day-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .day-detail-header h4 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .day-detail-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+    }
+    .day-detail-close:active { background: rgba(255,255,255,0.05); }
+    .day-detail .timeline-item {
+      padding: 8px 4px;
+      cursor: default;
+    }
+    .day-detail .timeline-item:active { background: transparent; }
+    .day-detail-empty {
+      text-align: center;
+      padding: 20px;
+      font-size: 13px;
+      color: var(--text-dim);
     }
 
     /* Settings panel */
@@ -610,6 +660,15 @@
 
       <div class="section-title">📈 Chi tiết</div>
       <div class="timeline" id="historyTimeline"></div>
+
+      <!-- Day detail panel -->
+      <div class="day-detail" id="dayDetail">
+        <div class="day-detail-header">
+          <h4 id="dayDetailTitle">📋 </h4>
+          <button class="day-detail-close" onclick="closeDayDetail()">✕</button>
+        </div>
+        <div id="dayDetailContent"></div>
+      </div>
     </div>
 
     <!-- ========== SETTINGS TAB ========== -->
@@ -1048,8 +1107,9 @@
       last7.forEach(d => {
         const height = (d.count / maxCount) * 100;
         const isToday = d.key === today;
+        const isSel = d.key === selectedDate;
         html += `
-          <div class="chart-bar-wrap">
+          <div class="chart-bar-wrap ${isSel ? 'selected' : ''}" onclick="selectDay('${d.key}')">
             <div class="bar-value">${d.count}</div>
             <div class="chart-bar ${isToday ? 'today' : ''}" style="height:${height}%"></div>
             <div class="bar-label">${d.dayName}</div>
@@ -1066,9 +1126,10 @@
       let html = '';
       for (const d of last7) {
         const isToday = d.key === today;
+        const isSel = d.key === selectedDate;
         const label = isToday ? 'Hôm nay' : d.dayName;
         html += `
-          <div class="timeline-item">
+          <div class="timeline-item" style="${isSel ? 'background:rgba(233,69,96,0.08);' : ''}" onclick="selectDay('${d.key}')">
             <div style="min-width:48px;font-size:12px;color:var(--text-dim);">${d.key.slice(5)}</div>
             <div style="flex:1;">
               <div style="height:8px;border-radius:4px;background:rgba(255,255,255,0.06);overflow:hidden;">
@@ -1080,6 +1141,82 @@
         `;
       }
       el.innerHTML = html;
+    }
+
+    // ========== DAY DETAIL (STATS TAB) ==========
+    let selectedDate = '';
+
+    function selectDay(dateKey) {
+      if (selectedDate === dateKey) {
+        closeDayDetail();
+        return;
+      }
+      selectedDate = dateKey;
+      renderDayDetail();
+      renderChart(); // update highlight
+      renderHistoryTimeline();
+    }
+
+    function closeDayDetail() {
+      selectedDate = '';
+      document.getElementById('dayDetail').classList.remove('active');
+      renderChart();
+      renderHistoryTimeline();
+    }
+
+    function renderDayDetail() {
+      if (!selectedDate) return;
+      const data = loadData();
+      const records = (data[selectedDate] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+      const el = document.getElementById('dayDetail');
+      const title = document.getElementById('dayDetailTitle');
+      const content = document.getElementById('dayDetailContent');
+
+      const now = new Date();
+      const today = getToday();
+      const parts = selectedDate.split('-');
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      const dayLabel = selectedDate === today ? 'Hôm nay' : `${dayNames[d.getDay()]} ${parts[2]}/${parts[1]}`;
+      title.textContent = `📋 ${dayLabel} (${records.length} điếu)`;
+
+      if (records.length === 0) {
+        content.innerHTML = '<div class="day-detail-empty">Không có điếu nào trong ngày này</div>';
+      } else {
+        let html = '';
+        for (let i = 0; i < records.length; i++) {
+          const r = records[i];
+          const isHalf = r.note === '½';
+          let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
+
+          // Gap since previous
+          let gapStr = '';
+          if (i > 0) {
+            const prev = new Date(records[i-1].time);
+            const curr = new Date(r.time);
+            const diffMin = Math.round((curr - prev) / 60000);
+            if (diffMin > 0) gapStr = `${diffMin}ph sau`;
+          } else if (i === 0 && records.length > 1) {
+            const first = new Date(r.time);
+            const next = new Date(records[1].time);
+            const diffMin = Math.round((next - first) / 60000);
+            if (diffMin > 0) gapStr = `cách điếu kế ${diffMin}ph`;
+          }
+
+          html += `
+            <div class="timeline-item">
+              <div class="timeline-time">${formatTime(r.time)}</div>
+              <div class="timeline-dot"></div>
+              <div class="timeline-label">
+                ${label}
+                ${gapStr ? `<span class="timeline-gap"> — ${gapStr}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }
+        content.innerHTML = html;
+      }
+      el.classList.add('active');
     }
 
     function updateMoneyStats() {
