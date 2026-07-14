@@ -348,6 +348,7 @@
       color: rgba(255,255,255,0.2);
     }
     .timeline-gap.bad { color: var(--accent); }
+    .timeline-gap.good { color: var(--green); }
     .empty-state {
       text-align: center;
       padding: 24px;
@@ -1070,16 +1071,23 @@
         // Gap since previous
         let gapStr = '';
         let gapBad = false;
+        let gapGood = false;
         if (i > 0) {
           const prev = new Date(records[i-1].time);
           const curr = new Date(r.time);
           const diffMin = Math.round((curr - prev) / 60000);
           if (diffMin > 0) {
             gapStr = `${diffMin}ph sau`;
-            if (intervalGoal > 0 && diffMin < intervalGoal) {
-              gapBad = true;
-              const earlyBy = intervalGoal - diffMin;
-              gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+            if (intervalGoal > 0) {
+              if (diffMin < intervalGoal) {
+                gapBad = true;
+                const earlyBy = intervalGoal - diffMin;
+                gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+              } else {
+                gapGood = true;
+                const extra = diffMin - intervalGoal;
+                gapStr += ` ✅ +${extra}ph`;
+              }
             }
           }
         }
@@ -1090,7 +1098,7 @@
             <div class="timeline-dot"></div>
             <div class="timeline-label">
               ${label}
-              ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : ''}"> — ${gapStr}</span>` : ''}
+              ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
             </div>
             <div class="edit-hint show">✏️</div>
           </div>
@@ -1195,16 +1203,23 @@
           // Gap since previous
           let gapStr = '';
           let gapBad = false;
+          let gapGood = false;
           if (i > 0) {
             const prev = new Date(records[i-1].time);
             const curr = new Date(r.time);
             const diffMin = Math.round((curr - prev) / 60000);
             if (diffMin > 0) {
               gapStr = `${diffMin}ph sau`;
-              if (intervalGoal > 0 && diffMin < intervalGoal) {
-                gapBad = true;
-                const earlyBy = intervalGoal - diffMin;
-                gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+              if (intervalGoal > 0) {
+                if (diffMin < intervalGoal) {
+                  gapBad = true;
+                  const earlyBy = intervalGoal - diffMin;
+                  gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+                } else {
+                  gapGood = true;
+                  const extra = diffMin - intervalGoal;
+                  gapStr += ` ✅ +${extra}ph`;
+                }
               }
             }
           }
@@ -1215,7 +1230,7 @@
               <div class="timeline-dot"></div>
               <div class="timeline-label">
                 ${label}
-                ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : ''}"> — ${gapStr}</span>` : ''}
+                ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
               </div>
             </div>
           `;
