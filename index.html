@@ -621,11 +621,11 @@
 
       <!-- Quick stats -->
       <div class="stats-grid">
-        <div class="stat-card accent">
-          <div class="stat-number" id="todayCountSmall">0</div>
-          <div class="stat-label">Hôm nay</div>
+        <div class="stat-card green" style="cursor:pointer;" onclick="goToDay(getLowestDay().key)" title="Bấm xem chi tiết">
+          <div class="stat-number" id="lowestDayCount">-</div>
+          <div class="stat-label" id="lowestDayLabel">Ngày ít nhất</div>
         </div>
-        <div class="stat-card green">
+        <div class="stat-card green" style="cursor:pointer;" onclick="goToDay(getYesterdayKey())" title="Bấm xem chi tiết">
           <div class="stat-number" id="yesterdayCount">-</div>
           <div class="stat-label">Hôm qua</div>
         </div>
@@ -876,6 +876,21 @@
       return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()];
     }
 
+    function getLowestDay() {
+      const last7 = getLast7Days();
+      let min = { key: '', count: Infinity, dayName: '' };
+      for (const d of last7) {
+        if (d.count < min.count) min = d;
+      }
+      return min;
+    }
+
+    function getYesterdayKey() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
     // ========== MONEY ==========
     function calcCost(count) {
       const cfg = loadConfig();
@@ -1005,13 +1020,20 @@
 
       // Today number
       document.getElementById('todayCount').textContent = count;
-      document.getElementById('todayCountSmall').textContent = count;
 
       // Goal
       document.getElementById('goalDisplay').textContent = cfg.goal;
       const pct = Math.min(100, (count / cfg.goal) * 100);
       document.getElementById('progressFill').style.width = pct + '%';
       document.getElementById('progressText').textContent = `${count} / ${cfg.goal}`;
+
+      // Lowest day in last 7
+      const lowest = getLowestDay();
+      document.getElementById('lowestDayCount').textContent = lowest.count < Infinity ? lowest.count : '-';
+      const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      const lowDate = new Date(lowest.key + 'T00:00:00');
+      const lowLabel = lowest.key === getToday() ? 'Hôm nay' : (dayNamesShort[lowDate.getDay()] || '');
+      document.getElementById('lowestDayLabel').textContent = `Ít nhất • ${lowLabel}`;
 
       // Yesterday
       const yesterday = new Date();
@@ -1310,6 +1332,11 @@
 
     function closeModal() {
       document.getElementById('timePickerModal').classList.remove('active');
+    }
+
+    function goToDay(dateKey) {
+      switchTab('stats');
+      setTimeout(() => selectDay(dateKey), 100);
     }
 
     function setModalTime(date) {
