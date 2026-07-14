@@ -1523,10 +1523,27 @@
       if (e.target === document.getElementById('timePickerModal')) closeModal();
     });
 
+    // ========== CLEANUP ==========
+    function cleanupOldData() {
+      const data = loadData();
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 31);
+      const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
+      let changed = false;
+      for (const key of Object.keys(data)) {
+        if (key < cutoffStr) {
+          delete data[key];
+          changed = true;
+        }
+      }
+      if (changed) saveData(data);
+    }
+
     // ========== INIT ==========
     // Check URL hash for tab
     const hash = window.location.hash.slice(1);
     if (['stats', 'settings'].includes(hash)) switchTab(hash);
+    cleanupOldData();
     updateDisplay();
     loadSettingsUI();
     startTimer();
