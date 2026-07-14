@@ -878,10 +878,11 @@
 
     function getLowestDay() {
       const last7 = getLast7Days();
+      const today = getToday();
       let min = { key: '', count: Infinity, dayName: '' };
       let hasData = false;
       for (const d of last7) {
-        if (d.count > 0 && d.count < min.count) {
+        if (d.key !== today && d.count > 0 && d.count < min.count) {
           min = d;
           hasData = true;
         }
