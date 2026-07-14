@@ -879,9 +879,14 @@
     function getLowestDay() {
       const last7 = getLast7Days();
       let min = { key: '', count: Infinity, dayName: '' };
+      let hasData = false;
       for (const d of last7) {
-        if (d.count < min.count) min = d;
+        if (d.count > 0 && d.count < min.count) {
+          min = d;
+          hasData = true;
+        }
       }
+      if (!hasData) return null;
       return min;
     }
 
@@ -1029,11 +1034,16 @@
 
       // Lowest day in last 7
       const lowest = getLowestDay();
-      document.getElementById('lowestDayCount').textContent = lowest.count < Infinity ? lowest.count : '-';
-      const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-      const lowDate = new Date(lowest.key + 'T00:00:00');
-      const lowLabel = lowest.key === getToday() ? 'Hôm nay' : (dayNamesShort[lowDate.getDay()] || '');
-      document.getElementById('lowestDayLabel').textContent = `Ít nhất • ${lowLabel}`;
+      if (lowest && lowest.count > 0) {
+        document.getElementById('lowestDayCount').textContent = lowest.count;
+        const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const lowDate = new Date(lowest.key + 'T00:00:00');
+        const lowLabel = lowest.key === getToday() ? 'Hôm nay' : (dayNamesShort[lowDate.getDay()] || '');
+        document.getElementById('lowestDayLabel').textContent = `Ít nhất • ${lowLabel}`;
+      } else {
+        document.getElementById('lowestDayCount').textContent = '-';
+        document.getElementById('lowestDayLabel').textContent = 'Ít nhất';
+      }
 
       // Yesterday
       const yesterday = new Date();
