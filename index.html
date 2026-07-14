@@ -1066,13 +1066,6 @@
               gapStr += ` ⚠️ <${intervalGoal}ph`;
             }
           }
-        } else if (i === 0) {
-          // First cig - show time since start of day
-          const dayStart = new Date();
-          dayStart.setHours(0, 0, 0, 0);
-          const cigTime = new Date(r.time);
-          const diffMin = Math.round((cigTime - dayStart) / 60000);
-          if (diffMin > 0) gapStr = `${diffMin}ph sau thức dậy`;
         }
 
         html += `
