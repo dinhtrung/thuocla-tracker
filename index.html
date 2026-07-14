@@ -591,6 +591,7 @@
             <div class="timer-label">Từ điếu cuối</div>
             <div class="timer-value good" id="timerDisplay">--:--</div>
             <div class="timer-target" id="timerTarget"></div>
+            <div class="timer-estimate" id="timerEstimate" style="font-size:11px;color:var(--text-dim);margin-top:1px;display:none;"></div>
           </div>
         </div>
         <div class="timer-ring good" id="timerRing">--</div>
@@ -922,6 +923,7 @@
       const el = document.getElementById('timerDisplay');
       const ring = document.getElementById('timerRing');
       const target = document.getElementById('timerTarget');
+      const estimate = document.getElementById('timerEstimate');
 
       if (records.length === 0) {
         el.textContent = '--:--';
@@ -929,6 +931,7 @@
         ring.textContent = '--';
         ring.className = 'timer-ring';
         target.textContent = intervalGoal > 0 ? `Mục tiêu: ≥${intervalGoal}ph` : '';
+        estimate.style.display = 'none';
         return;
       }
 
@@ -951,26 +954,37 @@
 
       el.textContent = display;
 
-      // Color coding based on interval goal
+      // Color coding and estimate based on interval goal
       if (intervalGoal > 0) {
         const pct = Math.min(100, (diffMin / intervalGoal) * 100);
-        target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${pct >= 100 ? '✅ Đạt' : Math.round(pct) + '%'}`;
 
         if (diffMin >= intervalGoal) {
           el.className = 'timer-value good';
           ring.className = 'timer-ring good';
           ring.textContent = '✅';
-        } else if (diffMin >= intervalGoal * 0.7) {
-          el.className = 'timer-value warn';
-          ring.className = 'timer-ring warn';
-          ring.textContent = diffMin + "'";
+          target.textContent = `Mục tiêu: ≥${intervalGoal}ph ✅ Đạt`;
+          estimate.style.display = 'none';
         } else {
-          el.className = 'timer-value bad';
-          ring.className = 'timer-ring bad';
-          ring.textContent = diffMin + "'";
+          const remaining = intervalGoal - diffMin;
+          const nextTime = new Date(last.getTime() + intervalGoal * 60000);
+          const estStr = `${String(nextTime.getHours()).padStart(2,'0')}:${String(nextTime.getMinutes()).padStart(2,'0')}`;
+          target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${Math.round(pct)}%`;
+          estimate.style.display = 'block';
+          estimate.textContent = `🔜 Dự kiến: ${estStr} (còn ${remaining}ph)`;
+
+          if (diffMin >= intervalGoal * 0.7) {
+            el.className = 'timer-value warn';
+            ring.className = 'timer-ring warn';
+            ring.textContent = diffMin + "'";
+          } else {
+            el.className = 'timer-value bad';
+            ring.className = 'timer-ring bad';
+            ring.textContent = diffMin + "'";
+          }
         }
       } else {
         target.textContent = '';
+        estimate.style.display = 'none';
         el.className = 'timer-value';
         ring.className = 'timer-ring';
         ring.textContent = diffMin + "'";
@@ -1064,7 +1078,8 @@
             gapStr = `${diffMin}ph sau`;
             if (intervalGoal > 0 && diffMin < intervalGoal) {
               gapBad = true;
-              gapStr += ` ⚠️ <${intervalGoal}ph`;
+              const earlyBy = intervalGoal - diffMin;
+              gapStr += ` ⚠️ ${earlyBy}ph sớm`;
             }
           }
         }
@@ -1188,7 +1203,8 @@
               gapStr = `${diffMin}ph sau`;
               if (intervalGoal > 0 && diffMin < intervalGoal) {
                 gapBad = true;
-                gapStr += ` ⚠️ <${intervalGoal}ph`;
+                const earlyBy = intervalGoal - diffMin;
+                gapStr += ` ⚠️ ${earlyBy}ph sớm`;
               }
             }
           }
