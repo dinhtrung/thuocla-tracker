@@ -545,6 +545,79 @@
       color: var(--accent);
     }
 
+    /* Comparison table (side-by-side) */
+    .comparison-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 8px 10px;
+      margin-bottom: 16px;
+    }
+    .comparison-header {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 2px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 11px;
+    }
+    .comparison-header .hdr-today { color: var(--accent); font-weight: 600; }
+    .comparison-header .hdr-lowest { color: var(--green); font-weight: 600; }
+    .comparison-row {
+      display: flex;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      gap: 0;
+    }
+    .comparison-row:last-child { border-bottom: none; }
+    .comparison-row.clickable:active { background: rgba(255,255,255,0.03); border-radius: 8px; margin: 0 -6px; padding: 7px 6px; }
+    .comp-today {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+    .comp-lowest {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+    .comp-divider {
+      width: 2px;
+      height: 26px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 1px;
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
+    .comp-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      width: 24px;
+      text-align: center;
+    }
+    .comp-time {
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .comp-time.today { color: var(--text); }
+    .comp-time.lowest { color: var(--green); }
+    .comp-gap {
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .comp-gap.bad { color: var(--accent); }
+    .comp-gap.good { color: var(--green); }
+
     /* Animations */
     @keyframes pop {
       0% { transform: scale(1); }
@@ -639,19 +712,16 @@
         </div>
       </div>
 
-      <!-- Today timeline -->
-      <div class="section-title">📋 Hôm nay <span id="timelineCount">(0 điếu)</span> <span style="font-size:11px;color:var(--text-dim);font-weight:400;">— chạm để sửa giờ</span></div>
-      <div class="timeline" id="timeline">
-        <div class="empty-state">Chưa hút điếu nào. Cố gắng lên! 💪</div>
-      </div>
-
-      <!-- Lowest day timeline (parallel) -->
-      <div class="section-title" id="lowestDaySectionTitle" style="display:none;">
-        <span>📋 Ngày ít nhất</span>
-        <span id="lowestDayTimelineCount" style="font-size:12px;color:var(--text-dim);font-weight:400;"></span>
-      </div>
-      <div class="timeline" id="lowestDayTimeline">
-        <div class="empty-state">Chưa có dữ liệu</div>
+      <!-- Comparison: Today vs Lowest day -->
+      <div class="section-title">📋 So sánh — chạm giờ hôm nay để sửa</div>
+      <div class="comparison-card" id="comparisonCard">
+        <div class="comparison-header" id="comparisonHeader">
+          <span class="hdr-today">🔴 Hôm nay <span id="comparisonTodayCount">(0)</span></span>
+          <span class="hdr-lowest">🟢 Ngày ít nhất <span id="comparisonLowestCount">(-)</span></span>
+        </div>
+        <div id="comparisonRows">
+          <div class="empty-state">Chưa có dữ liệu</div>
+        </div>
       </div>
     </div>
 
@@ -1074,10 +1144,7 @@
       document.getElementById('thisMonth').textContent = getMonthCount();
 
       // Timeline
-      renderTimeline();
-
-      // Lowest day timeline
-      renderLowestDayTimeline();
+      renderComparisonTimeline();
 
       // Date
       const now = new Date();
@@ -1095,138 +1162,121 @@
       updateTimer();
     }
 
-    function renderTimeline() {
-      const records = getTodayData();
-      const count = records.length;
-      const timeline = document.getElementById('timeline');
-      const timelineCount = document.getElementById('timelineCount');
+    function renderComparisonTimeline() {
+      const todayRecords = getTodayData();
+      const todayCount = todayRecords.length;
       const cfg = loadConfig();
       const intervalGoal = cfg.intervalGoal || 0;
+      const rows = document.getElementById('comparisonRows');
+      const todayCountEl = document.getElementById('comparisonTodayCount');
+      const lowestCountEl = document.getElementById('comparisonLowestCount');
 
-      if (count === 0) {
-        timeline.innerHTML = '<div class="empty-state">Chưa hút điếu nào. Cố gắng lên! 💪</div>';
-        timelineCount.textContent = '(0 điếu)';
-        return;
-      }
-
-      timelineCount.textContent = `(${count} điếu)`;
-      let html = '';
-      // Show chronological order (oldest first)
-      for (let i = 0; i < records.length; i++) {
-        const r = records[i];
-        const isHalf = r.note === '½';
-        let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
-
-        // Gap since previous
-        let gapStr = '';
-        let gapBad = false;
-        let gapGood = false;
-        if (i > 0) {
-          const prev = new Date(records[i-1].time);
-          const curr = new Date(r.time);
-          const diffMin = Math.round((curr - prev) / 60000);
-          if (diffMin > 0) {
-            gapStr = `${diffMin}ph sau`;
-            if (intervalGoal > 0) {
-              if (diffMin < intervalGoal) {
-                gapBad = true;
-                const earlyBy = intervalGoal - diffMin;
-                gapStr += ` ⚠️ ${earlyBy}ph sớm`;
-              } else {
-                gapGood = true;
-                const extra = diffMin - intervalGoal;
-                gapStr += ` ✅ +${extra}ph`;
-              }
-            }
-          }
-        }
-
-        html += `
-          <div class="timeline-item fade-in" onclick="openTimeEditor(${i})">
-            <div class="timeline-time">${formatTime(r.time)}</div>
-            <div class="timeline-dot"></div>
-            <div class="timeline-label">
-              ${label}
-              ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
-            </div>
-            <div class="edit-hint show">✏️</div>
-          </div>
-        `;
-      }
-      timeline.innerHTML = html;
-    }
-
-    function renderLowestDayTimeline() {
+      // Get lowest day
       const lowest = getLowestDay();
-      const section = document.getElementById('lowestDaySectionTitle');
-      const timeline = document.getElementById('lowestDayTimeline');
+      let lowestRecords = [];
+      let lowestCount = 0;
+      let lowestLabel = '';
+      if (lowest && lowest.count > 0) {
+        const data = loadData();
+        lowestRecords = (data[lowest.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        lowestCount = lowestRecords.length;
+        const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const lowDate = new Date(lowest.key + 'T00:00:00');
+        lowestLabel = `${dayNamesShort[lowDate.getDay()]} ${lowest.key.slice(5)}`;
+      }
 
-      if (!lowest || lowest.count === 0) {
-        section.style.display = 'none';
+      todayCountEl.textContent = `(${todayCount})`;
+      lowestCountEl.textContent = lowestLabel ? `(${lowestCount} • ${lowestLabel})` : '(-)';
+
+      const maxRows = Math.max(todayCount, lowestCount, 1);
+
+      if (maxRows === 0 || todayCount === 0) {
+        rows.innerHTML = '<div class="empty-state">Chưa hút điếu nào hôm nay</div>';
         return;
       }
 
-      section.style.display = 'flex';
-
-      const data = loadData();
-      const records = (data[lowest.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
-      const count = records.length;
-
-      const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-      const lowDate = new Date(lowest.key + 'T00:00:00');
-      const dayLabel = `${dayNamesShort[lowDate.getDay()]} ${lowest.key.slice(5)}`;
-
-      document.getElementById('lowestDayTimelineCount').textContent = `${dayLabel} • ${count} điếu`;
-
-      if (count === 0) {
-        timeline.innerHTML = '<div class="empty-state">Không có dữ liệu</div>';
+      if (!lowest || lowestCount === 0) {
+        rows.innerHTML = '<div class=\"empty-state\">Chưa có ngày tham chiếu</div>';
         return;
       }
 
-      const cfg = loadConfig();
-      const intervalGoal = cfg.intervalGoal || 0;
       let html = '';
 
-      for (let i = 0; i < records.length; i++) {
-        const r = records[i];
-        const isHalf = r.note === '½';
-        let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
-
+      function gapInfo(records, i, intervalGoal) {
         let gapStr = '';
         let gapBad = false;
         let gapGood = false;
         if (i > 0) {
           const prev = new Date(records[i-1].time);
-          const curr = new Date(r.time);
+          const curr = new Date(records[i].time);
           const diffMin = Math.round((curr - prev) / 60000);
           if (diffMin > 0) {
-            gapStr = `${diffMin}ph sau`;
+            gapStr = `${diffMin}ph`;
             if (intervalGoal > 0) {
               if (diffMin < intervalGoal) {
                 gapBad = true;
                 const earlyBy = intervalGoal - diffMin;
-                gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+                gapStr += ` ⚠️ -${earlyBy}`;
               } else {
                 gapGood = true;
                 const extra = diffMin - intervalGoal;
-                gapStr += ` ✅ +${extra}ph`;
+                gapStr += ` ✅ +${extra}`;
               }
             }
           }
         }
+        return { str: gapStr, bad: gapBad, good: gapGood };
+      }
+
+      for (let i = 0; i < maxRows; i++) {
+        const todayR = todayRecords[i];
+        const lowestR = lowestRecords[i];
+
+        // Today side
+        let todayHtml = '';
+        if (todayR) {
+          const isHalf = todayR.note === '½';
+          const num = isHalf ? '½' : `#${i + 1}`;
+          const tgap = gapInfo(todayRecords, i, intervalGoal);
+          const gapClass = tgap.bad ? 'bad' : tgap.good ? 'good' : '';
+          todayHtml = `
+            <div class="comp-num">${num}</div>
+            <div class="comp-time today">${formatTime(todayR.time)}</div>
+            ${tgap.str ? `<div class="comp-gap ${gapClass}">${tgap.str}</div>` : ''}
+          `;
+        } else {
+          todayHtml = '<div class="comp-num" style="color:transparent;">-</div>';
+        }
+
+        // Lowest side
+        let lowestHtml = '';
+        if (lowestR) {
+          const isHalf = lowestR.note === '½';
+          const num = isHalf ? '½' : `#${i + 1}`;
+          const lgap = gapInfo(lowestRecords, i, intervalGoal);
+          const gapClass = lgap.bad ? 'bad' : lgap.good ? 'good' : '';
+          lowestHtml = `
+            ${lgap.str ? `<div class="comp-gap ${gapClass}">${lgap.str}</div>` : ''}
+            <div class="comp-time lowest">${formatTime(lowestR.time)}</div>
+            <div class="comp-num">${num}</div>
+          `;
+        } else {
+          lowestHtml = '<div class="comp-num" style="color:transparent;">-</div>';
+        }
+
+        const clickable = todayR ? 'clickable' : '';
+        const onclick = todayR ? `onclick="openTimeEditor(${i})"` : '';
 
         html += `
-          <div class="timeline-item" style="cursor:default;">
-            <div class="timeline-time">${formatTime(r.time)}</div>
-            <div class="timeline-dot"></div>
-            <div class="timeline-label">
-              ${label}
-              ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
-            </div>
+          <div class="comparison-row ${clickable}" ${onclick}>
+            <div class="comp-today">${todayHtml}</div>
+            <div class="comp-divider"></div>
+            <div class="comp-lowest">${lowestHtml}</div>
           </div>
         `;
       }
-      timeline.innerHTML = html;
+
+      rows.innerHTML = html;
     }
 
     function renderChart() {
