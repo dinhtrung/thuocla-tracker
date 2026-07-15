@@ -561,6 +561,12 @@
     }
     .comparison-header .hdr-today { color: var(--accent); font-weight: 600; }
     .comparison-header .hdr-lowest { color: var(--green); font-weight: 600; }
+    .hdr-avg {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 400;
+      margin-top: 1px;
+    }
     .comparison-row {
       display: flex;
       align-items: center;
@@ -716,8 +722,14 @@
       <div class="section-title">📋 So sánh — chạm giờ hôm nay để sửa</div>
       <div class="comparison-card" id="comparisonCard">
         <div class="comparison-header" id="comparisonHeader">
-          <span class="hdr-today">🔴 Hôm nay <span id="comparisonTodayCount">(0)</span></span>
-          <span class="hdr-lowest">🟢 Ngày ít nhất <span id="comparisonLowestCount">(-)</span></span>
+          <div>
+            <span class="hdr-today">🔴 Hôm nay <span id="comparisonTodayCount">(0)</span></span>
+            <div class="hdr-avg" id="comparisonTodayAvg">—</div>
+          </div>
+          <div style="text-align:right;">
+            <span class="hdr-lowest">🟢 Ngày ít nhất <span id="comparisonLowestCount">(-)</span></span>
+            <div class="hdr-avg" id="comparisonLowestAvg">—</div>
+          </div>
         </div>
         <div id="comparisonRows">
           <div class="empty-state">Chưa có dữ liệu</div>
@@ -1185,8 +1197,25 @@
         lowestLabel = `${dayNamesShort[lowDate.getDay()]} ${lowest.key.slice(5)}`;
       }
 
+      // Average gap helper
+      function calcAvgGap(records) {
+        if (records.length < 2) return null;
+        let total = 0;
+        for (let i = 1; i < records.length; i++) {
+          const prev = new Date(records[i-1].time);
+          const curr = new Date(records[i].time);
+          total += Math.round((curr - prev) / 60000);
+        }
+        return Math.round(total / (records.length - 1));
+      }
+
+      const todayAvg = calcAvgGap(todayRecords);
+      const lowestAvg = calcAvgGap(lowestRecords);
+
       todayCountEl.textContent = `(${todayCount})`;
       lowestCountEl.textContent = lowestLabel ? `(${lowestCount} • ${lowestLabel})` : '(-)';
+      document.getElementById('comparisonTodayAvg').textContent = todayAvg !== null ? `TB ${todayAvg}ph` : '—';
+      document.getElementById('comparisonLowestAvg').textContent = lowestAvg !== null ? `TB ${lowestAvg}ph` : '—';
 
       const maxRows = Math.max(todayCount, lowestCount, 1);
 
