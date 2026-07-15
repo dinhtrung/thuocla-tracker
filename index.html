@@ -1332,13 +1332,15 @@
 
     function renderChart() {
       const last7 = getLast7Days();
-      const maxCount = Math.max(1, ...last7.map(d => d.count));
+      const cfg = loadConfig();
+      // Scale bars relative to max(count, goal) so the goal line stays at a meaningful position
+      const rawMax = Math.max(...last7.map(d => d.count), 0);
+      const scaleMax = Math.max(rawMax, cfg.goal, 1);
       const chart = document.getElementById('chartBars');
       const today = getToday();
-      const cfg = loadConfig();
       let html = '';
       last7.forEach(d => {
-        const height = (d.count / maxCount) * 100;
+        const height = (d.count / scaleMax) * 100;
         const isToday = d.key === today;
         const isSel = d.key === selectedDate;
         html += `
@@ -1356,11 +1358,10 @@
       let goalLine = document.getElementById('chartGoalLine');
       if (goalLine) goalLine.remove();
 
-      if (cfg.goal > 0 && maxCount > 0) {
-        const goalPct = Math.min(100, (cfg.goal / maxCount) * 100);
-        // Position relative to .chart-bars height (100px) + padding-top (8px) + chart-container padding (16px)
-        // bottom offset = padding(16) + (100 - goalPct)% of 100px
-        const bottomPx = 16 + (100 - goalPct) / 100 * 100;
+      if (cfg.goal > 0 && scaleMax > 0) {
+        const goalPct = Math.min(100, (cfg.goal / scaleMax) * 100);
+        // Goal line positioned from bottom: 16px (container padding) + goalPct% of 100px (bars height)
+        const bottomPx = 16 + goalPct;
         goalLine = document.createElement('div');
         goalLine.id = 'chartGoalLine';
         goalLine.className = 'chart-goal-line';
