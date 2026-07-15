@@ -250,6 +250,29 @@
       border-radius: 14px;
       padding: 16px;
       margin-bottom: 16px;
+      position: relative;
+    }
+    .chart-bars { position: relative; }
+    .chart-goal-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 0;
+      pointer-events: none;
+      z-index: 1;
+      border-top: 2px dashed var(--yellow);
+    }
+    .chart-goal-label {
+      position: absolute;
+      right: 0;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: var(--yellow);
+      font-weight: 700;
+      background: var(--surface);
+      padding: 1px 5px;
+      border-radius: 4px;
+      line-height: 1.4;
     }
     .chart-bars {
       display: flex;
@@ -270,7 +293,6 @@
       width: 100%;
       max-width: 36px;
       border-radius: 6px 6px 2px 2px;
-      min-height: 4px;
       transition: height 0.3s;
       background: linear-gradient(180deg, var(--accent), var(--accent-light));
     }
@@ -1313,6 +1335,7 @@
       const maxCount = Math.max(1, ...last7.map(d => d.count));
       const chart = document.getElementById('chartBars');
       const today = getToday();
+      const cfg = loadConfig();
       let html = '';
       last7.forEach(d => {
         const height = (d.count / maxCount) * 100;
@@ -1321,12 +1344,33 @@
         html += `
           <div class="chart-bar-wrap ${isSel ? 'selected' : ''}" onclick="selectDay('${d.key}')">
             <div class="bar-value">${d.count}</div>
-            <div class="chart-bar ${isToday ? 'today' : ''}" style="height:${height}%"></div>
+            <div class="chart-bar ${isToday ? 'today' : ''}" style="height:${Math.max(0, height)}%"></div>
             <div class="bar-label">${d.dayName}</div>
           </div>
         `;
       });
       chart.innerHTML = html;
+
+      // Goal reference line
+      const container = document.querySelector('.chart-container');
+      let goalLine = document.getElementById('chartGoalLine');
+      if (goalLine) goalLine.remove();
+
+      if (cfg.goal > 0 && maxCount > 0) {
+        const goalPct = Math.min(100, (cfg.goal / maxCount) * 100);
+        // Position relative to .chart-bars height (100px) + padding-top (8px) + chart-container padding (16px)
+        // bottom offset = padding(16) + (100 - goalPct)% of 100px
+        const bottomPx = 16 + (100 - goalPct) / 100 * 100;
+        goalLine = document.createElement('div');
+        goalLine.id = 'chartGoalLine';
+        goalLine.className = 'chart-goal-line';
+        goalLine.style.bottom = bottomPx + 'px';
+        const label = document.createElement('span');
+        label.className = 'chart-goal-label';
+        label.textContent = `🎯 ${cfg.goal}`;
+        goalLine.appendChild(label);
+        container.appendChild(goalLine);
+      }
     }
 
     function renderHistoryTimeline() {
