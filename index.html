@@ -644,6 +644,15 @@
       <div class="timeline" id="timeline">
         <div class="empty-state">Chưa hút điếu nào. Cố gắng lên! 💪</div>
       </div>
+
+      <!-- Lowest day timeline (parallel) -->
+      <div class="section-title" id="lowestDaySectionTitle" style="display:none;">
+        <span>📋 Ngày ít nhất</span>
+        <span id="lowestDayTimelineCount" style="font-size:12px;color:var(--text-dim);font-weight:400;"></span>
+      </div>
+      <div class="timeline" id="lowestDayTimeline">
+        <div class="empty-state">Chưa có dữ liệu</div>
+      </div>
     </div>
 
     <!-- ========== STATS TAB ========== -->
@@ -1067,6 +1076,9 @@
       // Timeline
       renderTimeline();
 
+      // Lowest day timeline
+      renderLowestDayTimeline();
+
       // Date
       const now = new Date();
       const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
@@ -1138,6 +1150,79 @@
               ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
             </div>
             <div class="edit-hint show">✏️</div>
+          </div>
+        `;
+      }
+      timeline.innerHTML = html;
+    }
+
+    function renderLowestDayTimeline() {
+      const lowest = getLowestDay();
+      const section = document.getElementById('lowestDaySectionTitle');
+      const timeline = document.getElementById('lowestDayTimeline');
+
+      if (!lowest || lowest.count === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'flex';
+
+      const data = loadData();
+      const records = (data[lowest.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+      const count = records.length;
+
+      const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      const lowDate = new Date(lowest.key + 'T00:00:00');
+      const dayLabel = `${dayNamesShort[lowDate.getDay()]} ${lowest.key.slice(5)}`;
+
+      document.getElementById('lowestDayTimelineCount').textContent = `${dayLabel} • ${count} điếu`;
+
+      if (count === 0) {
+        timeline.innerHTML = '<div class="empty-state">Không có dữ liệu</div>';
+        return;
+      }
+
+      const cfg = loadConfig();
+      const intervalGoal = cfg.intervalGoal || 0;
+      let html = '';
+
+      for (let i = 0; i < records.length; i++) {
+        const r = records[i];
+        const isHalf = r.note === '½';
+        let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
+
+        let gapStr = '';
+        let gapBad = false;
+        let gapGood = false;
+        if (i > 0) {
+          const prev = new Date(records[i-1].time);
+          const curr = new Date(r.time);
+          const diffMin = Math.round((curr - prev) / 60000);
+          if (diffMin > 0) {
+            gapStr = `${diffMin}ph sau`;
+            if (intervalGoal > 0) {
+              if (diffMin < intervalGoal) {
+                gapBad = true;
+                const earlyBy = intervalGoal - diffMin;
+                gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+              } else {
+                gapGood = true;
+                const extra = diffMin - intervalGoal;
+                gapStr += ` ✅ +${extra}ph`;
+              }
+            }
+          }
+        }
+
+        html += `
+          <div class="timeline-item" style="cursor:default;">
+            <div class="timeline-time">${formatTime(r.time)}</div>
+            <div class="timeline-dot"></div>
+            <div class="timeline-label">
+              ${label}
+              ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
+            </div>
           </div>
         `;
       }
