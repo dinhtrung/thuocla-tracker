@@ -17,6 +17,7 @@ PWA đếm số điếu thuốc đã hút trong ngày — nhẹ, nhanh, không c
 - 🎯 **Mục tiêu ngày** — thanh progress báo % hoàn thành
 - ⏱️ **Timer từ điếu cuối** — real-time, biết đã được bao lâu
 - ⏱️ **Mục tiêu khoảng cách** — cảnh báo nếu hút gần nhau quá
+- 📋 **So sánh song song** — giờ hút hôm nay vs ngày ít nhất, căn giờ cho đẹp
 - 💰 **Tính tiền tự động** — nhập giá bao, tính hôm nay/tuần/tháng
 - 📊 **Biểu đồ 7 ngày** + timeline chi tiết
 - 📋 **Xem chi tiết ngày** — bấm vào cột biểu đồ hoặc dòng ngày, hiện từng điếu
