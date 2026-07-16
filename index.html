@@ -608,7 +608,7 @@
     <!-- Header -->
     <header>
       <div>
-        <h1>🚬 Thuốc Lá</h1>
+        <h1>🚬 Hành Trình Cai Thuốc Lá <span style="font-size:11px;color:var(--text-dim);font-weight:400;">v1.0</span></h1>
         <div class="header-date" id="dateDisplay"></div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -721,6 +721,16 @@
           <button class="day-detail-close" onclick="closeDayDetail()">✕</button>
         </div>
         <div id="dayDetailContent"></div>
+        <div id="dayDetailActions" style="display:none;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-add" id="dayDetailAddBtn" style="flex:2;padding:12px;font-size:18px;">+1 🚬</button>
+            <button class="btn btn-sub" id="dayDetailHalfBtn" style="flex:1;padding:12px;font-size:18px;">½</button>
+            <button class="btn btn-reset" id="dayDetailUndoBtn" style="flex:0.8;padding:12px;font-size:18px;">⟲</button>
+          </div>
+          <div style="text-align:center;margin-top:6px;">
+            <button class="btn-add-back" id="dayDetailTimeBtn" style="display:inline-block;width:auto;padding:8px 16px;font-size:13px;">⏪ Chọn giờ thêm</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1374,6 +1384,7 @@
     function closeDayDetail() {
       selectedDate = '';
       document.getElementById('dayDetail').classList.remove('active');
+      document.getElementById('dayDetailActions').style.display = 'none';
       renderChart();
     }
 
@@ -1384,6 +1395,7 @@
       const el = document.getElementById('dayDetail');
       const title = document.getElementById('dayDetailTitle');
       const content = document.getElementById('dayDetailContent');
+      const actions = document.getElementById('dayDetailActions');
 
       const now = new Date();
       const today = getToday();
@@ -1441,6 +1453,22 @@
         }
         content.innerHTML = html;
       }
+
+      // Wire action buttons
+      const addBtn = document.getElementById('dayDetailAddBtn');
+      const halfBtn = document.getElementById('dayDetailHalfBtn');
+      const undoBtn = document.getElementById('dayDetailUndoBtn');
+      const timeBtn = document.getElementById('dayDetailTimeBtn');
+
+      addBtn.onclick = () => { addToDay(selectedDate); };
+      halfBtn.onclick = () => { addHalfToDay(selectedDate); };
+      undoBtn.onclick = () => { undoFromDay(selectedDate); };
+      undoBtn.style.display = records.length > 0 ? '' : 'none';
+      timeBtn.onclick = () => openPastTimePicker(selectedDate, records);
+
+      actions.style.display = 'flex';
+      actions.style.flexDirection = 'column';
+
       el.classList.add('active');
     }
 
@@ -1482,6 +1510,68 @@
       const records = removeLastRecord();
       updateDisplay();
       if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    // ========== PAST DAY ACTIONS (STATS TAB) ==========
+    function getDayData(dateStr) {
+      const data = loadData();
+      return (data[dateStr] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+    }
+
+    function setDayData(dateStr, records) {
+      const data = loadData();
+      data[dateStr] = records;
+      saveData(data);
+    }
+
+    function addToDay(dateStr) {
+      const records = getDayData(dateStr);
+      const time = records.length > 0
+        ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
+        : new Date(dateStr + 'T12:00:00');
+      records.push({ time: time.toISOString() });
+      setDayData(dateStr, records);
+      afterDayEdit();
+    }
+
+    function addHalfToDay(dateStr) {
+      const records = getDayData(dateStr);
+      const time = records.length > 0
+        ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
+        : new Date(dateStr + 'T12:00:00');
+      records.push({ time: time.toISOString(), note: '½' });
+      setDayData(dateStr, records);
+      afterDayEdit();
+    }
+
+    function undoFromDay(dateStr) {
+      const records = getDayData(dateStr);
+      if (records.length === 0) return;
+      records.pop();
+      setDayData(dateStr, records);
+      afterDayEdit();
+    }
+
+    function afterDayEdit() {
+      renderDayDetail();
+      renderChart();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function openPastTimePicker(dateStr, records) {
+      modalMode = 'past-add';
+      window._pastDate = dateStr;
+      document.getElementById('modalTitle').textContent = '⏪ Thêm cho ' + dateStr.slice(5);
+      document.getElementById('modalDesc').textContent = 'Chọn giờ đã hút nhưng chưa note';
+      document.getElementById('modalDeleteRow').style.display = 'none';
+      document.getElementById('modalConfirmBtn').textContent = '➕ Thêm';
+
+      const defaultTime = records.length > 0
+        ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
+        : new Date(dateStr + 'T12:00:00');
+      setModalTime(defaultTime);
+      document.getElementById('timePickerModal').classList.add('active');
     }
 
     // ========== TIME PICKER MODAL ==========
@@ -1531,24 +1621,31 @@
     function confirmModal() {
       const h = parseInt(document.getElementById('modalHour').value);
       const m = parseInt(document.getElementById('modalMinute').value);
-      const records = getTodayData();
-      const today = getToday();
 
-      // Build ISO time for today
+      // Build ISO time
       const d = new Date();
       d.setHours(h, m, 0, 0);
       const iso = d.toISOString();
 
-      if (modalMode === 'add') {
+      if (modalMode === 'past-add') {
+        const dateStr = window._pastDate;
+        const records = getDayData(dateStr);
         records.push({ time: iso });
-      } else if (modalMode === 'edit' && editingIndex >= 0) {
-        records[editingIndex].time = iso;
+        setDayData(dateStr, records);
+        closeModal();
+        afterDayEdit();
+      } else {
+        const records = getTodayData();
+        if (modalMode === 'add') {
+          records.push({ time: iso });
+        } else if (modalMode === 'edit' && editingIndex >= 0) {
+          records[editingIndex].time = iso;
+        }
+        setTodayData(records);
+        closeModal();
+        updateDisplay();
+        if (navigator.vibrate) navigator.vibrate(10);
       }
-
-      setTodayData(records);
-      closeModal();
-      updateDisplay();
-      if (navigator.vibrate) navigator.vibrate(10);
     }
 
     function deleteModalItem() {

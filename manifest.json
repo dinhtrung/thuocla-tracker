@@ -1,6 +1,6 @@
 {
-  "name": "Thuốc Lá Tracker",
-  "short_name": "Thuốc Lá",
+  "name": "Hành Trình Cai Thuốc Lá",
+  "short_name": "Cai Thuốc Lá",
   "description": "Đếm số điếu thuốc đã hút trong ngày",
   "start_url": ".",
   "display": "standalone",
