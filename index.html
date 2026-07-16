@@ -1530,6 +1530,7 @@
         ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
         : new Date(dateStr + 'T12:00:00');
       records.push({ time: time.toISOString() });
+      records.sort((a, b) => new Date(a.time) - new Date(b.time));
       setDayData(dateStr, records);
       afterDayEdit();
     }
@@ -1540,6 +1541,7 @@
         ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
         : new Date(dateStr + 'T12:00:00');
       records.push({ time: time.toISOString(), note: '½' });
+      records.sort((a, b) => new Date(a.time) - new Date(b.time));
       setDayData(dateStr, records);
       afterDayEdit();
     }
@@ -1631,6 +1633,7 @@
         const dateStr = window._pastDate;
         const records = getDayData(dateStr);
         records.push({ time: iso });
+        records.sort((a, b) => new Date(a.time) - new Date(b.time));
         setDayData(dateStr, records);
         closeModal();
         afterDayEdit();
@@ -1641,6 +1644,7 @@
         } else if (modalMode === 'edit' && editingIndex >= 0) {
           records[editingIndex].time = iso;
         }
+        records.sort((a, b) => new Date(a.time) - new Date(b.time));
         setTodayData(records);
         closeModal();
         updateDisplay();
