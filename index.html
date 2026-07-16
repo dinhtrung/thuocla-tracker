@@ -352,8 +352,21 @@
     .day-detail .timeline-item {
       padding: 8px 4px;
       cursor: default;
+      position: relative;
+      user-select: none;
+      -webkit-user-select: none;
     }
     .day-detail .timeline-item:active { background: transparent; }
+    .day-detail .timeline-item.long-pressing {
+      background: rgba(233,69,96,0.12);
+      border-radius: 8px;
+    }
+    .day-detail .timeline-item .delete-hint {
+      font-size: 10px;
+      color: var(--accent);
+      margin-left: auto;
+      opacity: 0.4;
+    }
     .day-detail-empty {
       text-align: center;
       padding: 20px;
@@ -723,12 +736,8 @@
         <div id="dayDetailContent"></div>
         <div id="dayDetailActions" style="display:none;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
           <div style="display:flex;gap:10px;">
-            <button class="btn btn-add" id="dayDetailAddBtn" style="flex:2;padding:12px;font-size:18px;">+1 🚬</button>
-            <button class="btn btn-sub" id="dayDetailHalfBtn" style="flex:1;padding:12px;font-size:18px;">½</button>
-            <button class="btn btn-reset" id="dayDetailUndoBtn" style="flex:0.8;padding:12px;font-size:18px;">⟲</button>
-          </div>
-          <div style="text-align:center;margin-top:6px;">
-            <button class="btn-add-back" id="dayDetailTimeBtn" style="display:inline-block;width:auto;padding:8px 16px;font-size:13px;">⏪ Chọn giờ thêm</button>
+            <button class="btn btn-add" id="dayDetailAddBtn" style="flex:1;padding:12px;font-size:18px;">+1 🚬</button>
+            <button class="btn-add-back" id="dayDetailTimeBtn" style="flex:1;padding:12px;font-size:14px;border:1px dashed rgba(255,255,255,0.15);background:transparent;color:var(--text-dim);border-radius:16px;cursor:pointer;">⏪ Chọn giờ</button>
           </div>
         </div>
       </div>
@@ -1441,13 +1450,18 @@
           }
 
           html += `
-            <div class="timeline-item">
+            <div class="timeline-item" data-index="${i}"
+                 ontouchstart="longPressStart(event, '${selectedDate}', ${i})"
+                 ontouchend="longPressEnd(event)"
+                 ontouchmove="longPressEnd(event)"
+                 oncontextmenu="event.preventDefault();confirmDelete('${selectedDate}', ${i})">
               <div class="timeline-time">${formatTime(r.time)}</div>
               <div class="timeline-dot"></div>
               <div class="timeline-label">
                 ${label}
                 ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
               </div>
+              <div class="delete-hint">✕</div>
             </div>
           `;
         }
@@ -1456,20 +1470,45 @@
 
       // Wire action buttons
       const addBtn = document.getElementById('dayDetailAddBtn');
-      const halfBtn = document.getElementById('dayDetailHalfBtn');
-      const undoBtn = document.getElementById('dayDetailUndoBtn');
       const timeBtn = document.getElementById('dayDetailTimeBtn');
 
       addBtn.onclick = () => { addToDay(selectedDate); };
-      halfBtn.onclick = () => { addHalfToDay(selectedDate); };
-      undoBtn.onclick = () => { undoFromDay(selectedDate); };
-      undoBtn.style.display = records.length > 0 ? '' : 'none';
       timeBtn.onclick = () => openPastTimePicker(selectedDate, records);
 
       actions.style.display = 'flex';
       actions.style.flexDirection = 'column';
 
       el.classList.add('active');
+    }
+
+    // Long-press to delete cigarette
+    let longPressTimer = null;
+
+    function longPressStart(e, dateStr, index) {
+      longPressTimer = setTimeout(() => {
+        const el = e.currentTarget;
+        el.classList.add('long-pressing');
+        navigator.vibrate?.(20);
+        if (confirm('Xoá điếu này?')) {
+          deleteCigaretteFromDay(dateStr, index);
+        }
+        el.classList.remove('long-pressing');
+        longPressTimer = null;
+      }, 500);
+    }
+
+    function longPressEnd(e) {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      e.currentTarget?.classList.remove('long-pressing');
+    }
+
+    function confirmDelete(dateStr, index) {
+      if (confirm('Xoá điếu này?')) {
+        deleteCigaretteFromDay(dateStr, index);
+      }
     }
 
     function updateMoneyStats() {
@@ -1559,6 +1598,14 @@
       renderChart();
       updateDisplay();
       if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function deleteCigaretteFromDay(dateStr, index) {
+      const records = getDayData(dateStr);
+      if (index < 0 || index >= records.length) return;
+      records.splice(index, 1);
+      setDayData(dateStr, records);
+      afterDayEdit();
     }
 
     function openPastTimePicker(dateStr, records) {
