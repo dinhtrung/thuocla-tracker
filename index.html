@@ -1332,15 +1332,16 @@
       const chart = document.getElementById('chartBars');
       const today = getToday();
       const cfg = loadConfig();
+      const barAreaHeight = 100; // .chart-bars height
       let html = '';
       last7.forEach(d => {
-        const height = (d.count / maxCount) * 100;
+        const barHeight = (d.count / maxCount) * barAreaHeight;
         const isToday = d.key === today;
         const isSel = d.key === selectedDate;
         html += `
           <div class="chart-bar-wrap ${isSel ? 'selected' : ''}" onclick="selectDay('${d.key}')">
             <div class="bar-value">${d.count}</div>
-            <div class="chart-bar ${isToday ? 'today' : ''}" style="height:${Math.max(0, height)}%"></div>
+            <div class="chart-bar ${isToday ? 'today' : ''}" style="height:${Math.max(0, barHeight)}px"></div>
             <div class="bar-label">${d.dayName}</div>
           </div>
         `;
@@ -1353,9 +1354,9 @@
       if (goalLine) goalLine.remove();
 
       if (cfg.goal > 0 && maxCount > 0) {
-        const goalPct = Math.min(100, (cfg.goal / maxCount) * 100);
-        // bottom = container-padding(16) + goalPct% of bars-height(100)
-        const bottomPx = 16 + goalPct;
+        const goalPx = (cfg.goal / maxCount) * barAreaHeight;
+        // bottom = container-padding(16) + goalPx
+        const bottomPx = 16 + goalPx;
         goalLine = document.createElement('div');
         goalLine.id = 'chartGoalLine';
         goalLine.className = 'chart-goal-line';
