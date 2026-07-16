@@ -1624,13 +1624,11 @@
       const h = parseInt(document.getElementById('modalHour').value);
       const m = parseInt(document.getElementById('modalMinute').value);
 
-      // Build ISO time
-      const d = new Date();
-      d.setHours(h, m, 0, 0);
-      const iso = d.toISOString();
-
       if (modalMode === 'past-add') {
         const dateStr = window._pastDate;
+        const parts = dateStr.split('-');
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), h, m, 0);
+        const iso = d.toISOString();
         const records = getDayData(dateStr);
         records.push({ time: iso });
         records.sort((a, b) => new Date(a.time) - new Date(b.time));
@@ -1638,6 +1636,9 @@
         closeModal();
         afterDayEdit();
       } else {
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        const iso = d.toISOString();
         const records = getTodayData();
         if (modalMode === 'add') {
           records.push({ time: iso });
