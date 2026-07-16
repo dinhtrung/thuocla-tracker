@@ -734,11 +734,8 @@
           <button class="day-detail-close" onclick="closeDayDetail()">✕</button>
         </div>
         <div id="dayDetailContent"></div>
-        <div id="dayDetailActions" style="display:none;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
-          <div style="display:flex;gap:10px;">
-            <button class="btn btn-add" id="dayDetailAddBtn" style="flex:1;padding:12px;font-size:18px;">+1 🚬</button>
-            <button class="btn-add-back" id="dayDetailTimeBtn" style="flex:1;padding:12px;font-size:14px;border:1px dashed rgba(255,255,255,0.15);background:transparent;color:var(--text-dim);border-radius:16px;cursor:pointer;">⏪ Chọn giờ</button>
-          </div>
+        <div id="dayDetailActions" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+          <button class="btn-add-back" id="dayDetailTimeBtn" style="width:100%;padding:12px;font-size:14px;">⏪ Thêm điếu quên note (chọn giờ)</button>
         </div>
       </div>
     </div>
@@ -1469,10 +1466,8 @@
       }
 
       // Wire action buttons
-      const addBtn = document.getElementById('dayDetailAddBtn');
       const timeBtn = document.getElementById('dayDetailTimeBtn');
 
-      addBtn.onclick = () => { addToDay(selectedDate); };
       timeBtn.onclick = () => openPastTimePicker(selectedDate, records);
 
       actions.style.display = 'flex';
