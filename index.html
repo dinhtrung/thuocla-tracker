@@ -253,7 +253,7 @@
     }
     .chart-svg {
       width: 100%;
-      height: 230px;
+      height: 260px;
       display: block;
     }
     .chart-svg-bar { transition: opacity 0.15s; }
@@ -724,7 +724,19 @@
         <button class="preset-btn" onclick="shiftChart(-1)" style="padding:4px 10px;font-size:16px;">›</button>
       </div>
       <div class="chart-container">
-        <svg id="chartSvg" class="chart-svg" viewBox="0 0 640 230" preserveAspectRatio="xMidYMid meet"></svg>
+        <svg id="chartSvg" class="chart-svg" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+
+      <!-- Chart summary stats -->
+      <div class="stats-grid" style="margin-top:-8px;">
+        <div class="stat-card green">
+          <div class="stat-number" id="chartTodayGap" style="font-size:20px;">—</div>
+          <div class="stat-label">TB hôm nay</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-number" id="chartWeekGap" style="font-size:20px;">—</div>
+          <div class="stat-label">TB 7 ngày qua</div>
+        </div>
       </div>
 
       <!-- Day detail panel -->
@@ -1322,8 +1334,8 @@
       const today = getToday();
       const cfg = loadConfig();
 
-      const W = 640, H = 230;
-      const MT = 22, MB = 55, ML = 2, MR = 44;
+      const W = 640, H = 260;
+      const MT = 22, MB = 70, ML = 2, MR = 44;
       const chartX = ML;
       const chartY = MT;
       const chartW = W - ML - MR;
@@ -1353,13 +1365,13 @@
           els += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="3" ry="3" fill="${color}" class="chart-svg-bar${isSel ? ' selected' : ''}" data-key="${d.key}" onclick="selectDay('${d.key}')" style="cursor:pointer"/>`;
         }
 
-        // Count label — bigger
+        // Count label — larger
         if (d.count > 0) {
-          els += `<text x="${x + barW/2}" y="${y - 8}" text-anchor="middle" fill="#eee" font-size="15" font-weight="800">${d.count}</text>`;
+          els += `<text x="${x + barW/2}" y="${y - 10}" text-anchor="middle" fill="#fff" font-size="20" font-weight="800">${d.count}</text>`;
         }
 
         // Day name label below
-        els += `<text x="${x + barW/2}" y="${chartY + chartH + 18}" text-anchor="middle" fill="#667788" font-size="11">${d.count > 0 ? d.dayName : d.key.slice(5)}</text>`;
+        els += `<text x="${x + barW/2}" y="${chartY + chartH + 20}" text-anchor="middle" fill="#ccc" font-size="13" font-weight="600">${d.count > 0 ? d.dayName : d.key.slice(5)}</text>`;
 
         // Average gap label (only if >= 2 cigarettes)
         if (d.count >= 2) {
@@ -1370,7 +1382,7 @@
             totalGap += Math.round((new Date(records[gi].time) - new Date(records[gi-1].time)) / 60000);
           }
           const avgGap = Math.round(totalGap / (records.length - 1));
-          els += `<text x="${x + barW/2}" y="${chartY + chartH + 32}" text-anchor="middle" fill="#8899aa" font-size="8" font-weight="500">≃${avgGap}ph</text>`;
+          els += `<text x="${x + barW/2}" y="${chartY + chartH + 38}" text-anchor="middle" fill="#aaa" font-size="10" font-weight="600">≃${avgGap}ph</text>`;
         }
       });
 
@@ -1383,6 +1395,45 @@
       }
 
       svg.innerHTML = els;
+
+      // Update summary stats below chart
+      updateChartGapStats(days);
+    }
+
+    function updateChartGapStats(days) {
+      const data = loadData();
+      const cfg = loadConfig();
+      const today = getToday();
+
+      // Today's average gap
+      const todayRecords = (data[today] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+      let todayGap = null;
+      if (todayRecords.length >= 2) {
+        let total = 0;
+        for (let i = 1; i < todayRecords.length; i++) {
+          total += Math.round((new Date(todayRecords[i].time) - new Date(todayRecords[i-1].time)) / 60000);
+        }
+        todayGap = Math.round(total / (todayRecords.length - 1));
+      }
+      document.getElementById('chartTodayGap').textContent = todayGap !== null ? `≃${todayGap}ph` : '—';
+      document.getElementById('chartTodayGap').parentElement.className = 'stat-card ' + (todayGap !== null ? (todayGap >= cfg.intervalGoal ? 'green' : 'accent') : '');
+
+      // Week average gap (across all days with ≥2 cigs in the visible range)
+      let totalGapAll = 0;
+      let countDays = 0;
+      for (const d of days) {
+        if (d.count >= 2) {
+          const records = (data[d.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+          let total = 0;
+          for (let i = 1; i < records.length; i++) {
+            total += Math.round((new Date(records[i].time) - new Date(records[i-1].time)) / 60000);
+          }
+          totalGapAll += Math.round(total / (records.length - 1));
+          countDays++;
+        }
+      }
+      const weekAvg = countDays > 0 ? Math.round(totalGapAll / countDays) : null;
+      document.getElementById('chartWeekGap').textContent = weekAvg !== null ? `≃${weekAvg}ph` : '—';
     }
 
 
