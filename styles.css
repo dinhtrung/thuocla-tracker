@@ -509,6 +509,48 @@
       color: var(--accent);
     }
 
+    /* Modal trigger selector */
+    .modal-trigger-row {
+      margin-bottom: 20px;
+    }
+    .modal-trigger-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: 10px;
+      min-height: 16px;
+    }
+    .modal-trigger-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .trigger-chip {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .trigger-chip:active { transform: scale(0.92); }
+    .trigger-chip.selected {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(233,69,96,0.3);
+    }
+    .cig-trigger {
+      font-size: 12px;
+      margin-left: 3px;
+      flex-shrink: 0;
+    }
+
     /* Comparison table (side-by-side) */
     .comparison-card {
       background: var(--surface);

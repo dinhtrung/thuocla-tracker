@@ -1,6 +1,7 @@
     // ========== DATA LAYER ==========
     const DB_KEY = 'smoking_data';
     const CFG_KEY = 'smoking_config';
+    const TRIGGERS = ['🍜 Sau ăn','☕ Cà phê','😤 Stress','🍻 Nhậu','😞 Buồn','🌀 Thói quen','🚬 Thèm','🤷 Khác'];
 
     function getToday() {
       const d = new Date();
@@ -396,9 +397,10 @@
           const num = isHalf ? '½' : `#${i + 1}`;
           const tgap = gapInfo(todayRecords, i, intervalGoal);
           const gapClass = tgap.bad ? 'bad' : tgap.good ? 'good' : '';
+          const tIcon = triggerIcon(todayR.trigger);
           todayHtml = `
             <div class="comp-num">${num}</div>
-            <div class="comp-time today">${formatTime(todayR.time)}</div>
+            <div class="comp-time today">${formatTime(todayR.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
             ${tgap.str ? `<div class="comp-gap ${gapClass}">${tgap.str}</div>` : ''}
           `;
         } else {
@@ -412,9 +414,10 @@
           const num = isHalf ? '½' : `#${i + 1}`;
           const lgap = gapInfo(lowestRecords, i, intervalGoal);
           const gapClass = lgap.bad ? 'bad' : lgap.good ? 'good' : '';
+          const lIcon = triggerIcon(lowestR.trigger);
           lowestHtml = `
             ${lgap.str ? `<div class="comp-gap ${gapClass}">${lgap.str}</div>` : ''}
-            <div class="comp-time lowest">${formatTime(lowestR.time)}</div>
+            <div class="comp-time lowest">${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}${formatTime(lowestR.time)}</div>
             <div class="comp-num">${num}</div>
           `;
         } else {
@@ -618,6 +621,7 @@
           const r = records[i];
           const isHalf = r.note === '½';
           let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
+          const tIcon = triggerIcon(r.trigger);
 
           // Gap since previous
           let gapStr = '';
@@ -649,7 +653,7 @@
                  ontouchend="longPressEnd(event)"
                  ontouchmove="longPressEnd(event)"
                  oncontextmenu="event.preventDefault();confirmDelete('${selectedDate}', ${i})">
-              <div class="timeline-time">${formatTime(r.time)}</div>
+              <div class="timeline-time">${formatTime(r.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
               <div class="timeline-dot"></div>
               <div class="timeline-label">
                 ${label}
@@ -803,6 +807,7 @@
     function openPastTimePicker(dateStr, records) {
       modalMode = 'past-add';
       window._pastDate = dateStr;
+      modalTrigger = -1;
       document.getElementById('modalTitle').textContent = '⏪ Thêm cho ' + dateStr.slice(5);
       document.getElementById('modalDesc').textContent = 'Chọn giờ đã hút nhưng chưa note';
       document.getElementById('modalDeleteRow').style.display = 'none';
@@ -812,6 +817,8 @@
         ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
         : new Date(dateStr + 'T12:00:00');
       setModalTime(defaultTime);
+      document.getElementById('modalTriggerName').textContent = '';
+      renderModalTriggers();
       document.getElementById('timePickerModal').classList.add('active');
     }
 
@@ -822,11 +829,14 @@
     function openTimePicker() {
       modalMode = 'add';
       editingIndex = -1;
+      modalTrigger = -1;
       document.getElementById('modalTitle').textContent = '⏪ Thêm điếu quên note';
       document.getElementById('modalDesc').textContent = 'Chọn giờ đã hút nhưng chưa note';
       document.getElementById('modalDeleteRow').style.display = 'none';
       document.getElementById('modalConfirmBtn').textContent = '➕ Thêm';
       setModalTime(new Date());
+      document.getElementById('modalTriggerName').textContent = '';
+      renderModalTriggers();
       document.getElementById('timePickerModal').classList.add('active');
     }
 
@@ -835,11 +845,14 @@
       if (!records[index]) return;
       modalMode = 'edit';
       editingIndex = index;
+      modalTrigger = records[index].trigger !== undefined ? records[index].trigger : -1;
       document.getElementById('modalTitle').textContent = '✏️ Sửa giờ điếu thuốc';
       document.getElementById('modalDesc').textContent = `Điếu #${index + 1}`;
       document.getElementById('modalDeleteRow').style.display = 'block';
       document.getElementById('modalConfirmBtn').textContent = '💾 Lưu';
       setModalTime(new Date(records[index].time));
+      document.getElementById('modalTriggerName').textContent = modalTrigger >= 0 ? TRIGGERS[modalTrigger] : '';
+      renderModalTriggers();
       document.getElementById('timePickerModal').classList.add('active');
     }
 
@@ -869,7 +882,9 @@
         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), h, m, 0);
         const iso = d.toISOString();
         const records = getDayData(dateStr);
-        records.push({ time: iso });
+        const rec = { time: iso };
+        if (modalTrigger >= 0) rec.trigger = modalTrigger;
+        records.push(rec);
         records.sort((a, b) => new Date(a.time) - new Date(b.time));
         setDayData(dateStr, records);
         closeModal();
@@ -880,9 +895,13 @@
         const iso = d.toISOString();
         const records = getTodayData();
         if (modalMode === 'add') {
-          records.push({ time: iso });
+          const rec = { time: iso };
+          if (modalTrigger >= 0) rec.trigger = modalTrigger;
+          records.push(rec);
         } else if (modalMode === 'edit' && editingIndex >= 0) {
           records[editingIndex].time = iso;
+          if (modalTrigger >= 0) records[editingIndex].trigger = modalTrigger;
+          else delete records[editingIndex].trigger;
         }
         records.sort((a, b) => new Date(a.time) - new Date(b.time));
         setTodayData(records);
@@ -1111,7 +1130,33 @@
     }
 
     // ========== FEATURES: Trigger Notes ==========
-    const TRIGGERS = ['🍜 Sau ăn','☕ Cà phê','😤 Stress','🍻 Nhậu','😞 Buồn','🌀 Thói quen','🚬 Thèm','🤷 Khác'];
+
+    // Trigger icon helpers (used by timeline + modal)
+    let modalTrigger = -1; // -1 = not set
+
+    function triggerIcon(idx) {
+      if (idx === undefined || idx === null || idx < 0 || idx >= TRIGGERS.length) return '';
+      return TRIGGERS[idx].split(' ')[0];
+    }
+
+    function renderModalTriggers() {
+      const grid = document.getElementById('modalTriggerGrid');
+      if (!grid) return;
+      let h = '';
+      TRIGGERS.forEach((t, i) => {
+        const emoji = t.split(' ')[0];
+        const sel = modalTrigger === i ? ' selected' : '';
+        h += `<button type="button" class="trigger-chip${sel}" data-idx="${i}" onclick="selectModalTrigger(${i})" title="${t}">${emoji}</button>`;
+      });
+      grid.innerHTML = h;
+    }
+
+    function selectModalTrigger(idx) {
+      modalTrigger = (modalTrigger === idx) ? -1 : idx; // tap again to unset
+      renderModalTriggers();
+      const nameEl = document.getElementById('modalTriggerName');
+      if (nameEl) nameEl.textContent = modalTrigger >= 0 ? TRIGGERS[modalTrigger] : '';
+    }
 
     function showTriggerPicker() {
       const c = document.createElement('div'); c.id='triggerPicker';
