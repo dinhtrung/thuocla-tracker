@@ -18,7 +18,7 @@
     <!-- Header -->
     <header>
       <div>
-        <h1>🚬 Hành Trình Cai Thuốc Lá <span style="font-size:11px;color:var(--text-dim);font-weight:400;">v1.2.0</span></h1>
+        <h1>🚬 Hành Trình Cai Thuốc Lá <span style="font-size:11px;color:var(--text-dim);font-weight:400;">v1.3.0</span></h1>
         <div class="header-date" id="dateDisplay"></div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -167,6 +167,17 @@
         <div class="stat-card yellow"><div class="stat-number" id="chainWeek">0</div><div class="stat-label">Chain tuần này</div></div>
         <div class="stat-card orange"><div class="stat-number" id="chainBest">-</div><div class="stat-label">Chuỗi ngày không chain</div></div>
         <div class="stat-card green"><div class="stat-number" id="chainStreak">0</div><div class="stat-label">Ngày liên tiếp tốt 🔥</div></div>
+      </div>
+
+      <div class="section-title">✂️ Cửa sổ cắt <span>điếu hút theo ≤40ph, 30 ngày qua</span></div>
+      <div class="chart-container" style="padding:8px 4px;">
+        <svg id="cutWindowSvg" class="chart-svg" viewBox="0 0 640 200" preserveAspectRatio="xMidYMid meet" style="height:200px;"></svg>
+      </div>
+      <div class="stats-grid" style="margin-top:-8px;">
+        <div class="stat-card accent"><div class="stat-number" id="cutAvgDay">-</div><div class="stat-label">Cắt được TB/ngày</div></div>
+        <div class="stat-card orange"><div class="stat-number" id="cutDouble">-</div><div class="stat-label">Điếu kép ≤20ph</div></div>
+        <div class="stat-card yellow"><div class="stat-number" id="cutHotHour">-</div><div class="stat-label">Vùng nóng</div></div>
+        <div class="stat-card green"><div class="stat-number" id="cutMoney">-</div><div class="stat-label">Tiết kiệm nếu cắt /tháng</div></div>
       </div>
 
       <div class="section-title">⏱ So sánh tuần <span id="weekCompareLabel"></span></div>

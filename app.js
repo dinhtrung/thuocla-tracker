@@ -1161,8 +1161,83 @@
     }
 
     // ========== FEATURES: Insights Rendering ==========
+    function renderCutWindows() {
+      const data = loadData(), cfg = loadConfig();
+      const MAX_GAP = 40, MAX_KEP = 20;
+      const today = getToday();
+      // Last 30 days window
+      const from = new Date(); from.setDate(from.getDate() - 29);
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+
+      const hourCnt = new Array(24).fill(0);   // cuttable cigs (gap<=40) by hour
+      const hourKep = new Array(24).fill(0);   // double cigs (gap<=20) by hour
+      let totalCut = 0, totalKep = 0, dayCount = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds > today || !recs.length) continue;
+        dayCount++;
+        const s = recs.slice().sort((a,b) => new Date(a.time) - new Date(b.time));
+        for (let i = 1; i < s.length; i++) {
+          const g = Math.round((new Date(s[i].time) - new Date(s[i-1].time)) / 60000);
+          if (g > 0 && g <= MAX_GAP) {
+            const h = new Date(s[i].time).getHours();
+            hourCnt[h]++; totalCut++;
+            if (g <= MAX_KEP) { hourKep[h]++; totalKep++; }
+          }
+        }
+      }
+
+      // ---- SVG bar chart (24 hours) ----
+      const svg = document.getElementById('cutWindowSvg');
+      if (!svg) return;
+      const W = 640, H = 200;
+      const MT = 20, MB = 30, ML = 2, MR = 2;
+      const chartY = MT, chartH = H - MT - MB;
+      const slotW = (W - ML - MR) / 24;
+      const barW = Math.max(8, slotW - 4);
+      const maxV = Math.max(1, ...hourCnt);
+      // top 3 hours (>=1) to highlight
+      const top3 = hourCnt.map((c,i)=>({c,i})).sort((a,b)=>b.c-a.c).slice(0,3).filter(x=>x.c>0);
+      const hot = new Set(top3.map(x=>x.i));
+
+      let els = '';
+      for (let g = 0; g <= 4; g++) {
+        const gy = chartY + (g/4) * chartH;
+        els += `<line x1="${ML}" y1="${gy}" x2="${W-MR}" y2="${gy}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+      }
+      for (let h = 0; h < 24; h++) {
+        const c = hourCnt[h];
+        const x = ML + h * slotW;
+        if (c > 0) {
+          const barH = (c / maxV) * chartH;
+          const y = chartY + chartH - barH;
+          const color = hot.has(h) ? '#ff6b81' : '#e94560';
+          const op = hot.has(h) ? 1 : 0.45;
+          els += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(1,barH)}" rx="2" ry="2" fill="${color}" opacity="${op}" class="chart-svg-bar"><title>${h}h: ${c} điếu hút theo${hourKep[h]?` (${hourKep[h]} kép ≤20ph)`:''}</title></rect>`;
+          els += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" fill="${hot.has(h) ? '#ff6b81' : '#8899aa'}" font-size="10" font-weight="700">${c}</text>`;
+        }
+        // hour label every 3h
+        if (h % 3 === 0) {
+          els += `<text x="${x + barW/2}" y="${chartY + chartH + 16}" text-anchor="middle" fill="#8899aa" font-size="10">${h}h</text>`;
+        }
+      }
+      svg.innerHTML = els;
+
+      // ---- Stat cards ----
+      const avgDay = dayCount > 0 ? (totalCut / dayCount) : 0;
+      gid('cutAvgDay').textContent = dayCount > 0 ? `${avgDay.toFixed(1)} đ` : '—';
+      gid('cutDouble').textContent = totalKep > 0 ? `${totalKep} đ` : '0';
+      const hotHour = top3.length ? top3[0].i : -1;
+      gid('cutHotHour').textContent = hotHour >= 0 ? `${hotHour}h` : '—';
+      // money saved if cutting all cuttable (price per cig)
+      const ppc = cfg.pricePerPack && cfg.cigsPerPack ? cfg.pricePerPack / cfg.cigsPerPack : 0;
+      const perMonth = avgDay * 30 * ppc;
+      gid('cutMoney').textContent = perMonth > 0 ? `${Math.round(perMonth/1000)}k` : '—';
+    }
+
     function renderInsights() {
       const data = loadData(), cfg = loadConfig(), today = getToday();
+      renderCutWindows();
       const MAX_CHAIN = 30;
       let chainToday = 0, chainWeek = 0;
       const sortedDays = Object.keys(data).sort();
