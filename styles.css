@@ -156,15 +156,15 @@
       flex: 0.6;
     }
     .btn-add-back {
-      width: 100%;
-      padding: 12px;
+      flex: 1.2;
+      padding: 12px 6px;
       border: 1px dashed rgba(255,255,255,0.15);
       border-radius: 12px;
       background: transparent;
       color: var(--text-dim);
-      font-size: 14px;
+      font-size: 13px;
+      white-space: nowrap;
       cursor: pointer;
-      margin-bottom: 12px;
       transition: all 0.2s;
     }
     .btn-add-back:active {
