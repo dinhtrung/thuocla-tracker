@@ -740,14 +740,6 @@
       if (navigator.vibrate) navigator.vibrate(15);
     }
 
-    function addHalf() {
-      const records = getTodayData();
-      records.push({ time: new Date().toISOString(), note: '½' });
-      setTodayData(records);
-      updateDisplay();
-      if (navigator.vibrate) navigator.vibrate(10);
-    }
-
     function undoLast() {
       const records = removeLastRecord();
       updateDisplay();
@@ -772,17 +764,6 @@
         ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
         : new Date(dateStr + 'T12:00:00');
       records.push({ time: time.toISOString() });
-      records.sort((a, b) => new Date(a.time) - new Date(b.time));
-      setDayData(dateStr, records);
-      afterDayEdit();
-    }
-
-    function addHalfToDay(dateStr) {
-      const records = getDayData(dateStr);
-      const time = records.length > 0
-        ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
-        : new Date(dateStr + 'T12:00:00');
-      records.push({ time: time.toISOString(), note: '½' });
       records.sort((a, b) => new Date(a.time) - new Date(b.time));
       setDayData(dateStr, records);
       afterDayEdit();

@@ -149,11 +149,6 @@
       box-shadow: 0 4px 20px rgba(233,69,96,0.4);
       font-size: 22px;
     }
-    .btn-sub {
-      background: rgba(255,255,255,0.08);
-      color: var(--text-dim);
-      font-size: 22px;
-    }
     .btn-reset {
       background: rgba(255,255,255,0.05);
       color: var(--text-dim);
