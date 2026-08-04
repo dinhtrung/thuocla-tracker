@@ -67,7 +67,13 @@
       <div class="btn-row">
         <button class="btn btn-reset" onclick="undoLast()" title="Xoá điếu cuối">⟲</button>
         <button class="btn btn-add" onclick="addCig()">+1 🚬</button>
-        <button class="btn-add-back" onclick="openTimePicker()" title="Thêm điếu quên note">⏪ Quên note</button>
+        <button class="btn-add-back" onclick="openTimePicker()" title="Thêm điếu quên note">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9.5"/>
+            <path d="M12 7v5l3.2 2"/>
+            <path d="M18.5 3.5v5M16 6h5"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Quick stats -->
@@ -142,7 +148,13 @@
         </div>
         <div id="dayDetailContent"></div>
         <div id="dayDetailActions" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
-          <button class="btn btn-add" id="dayDetailTimeBtn" style="flex:none;width:100%;">+1 🚬</button>
+          <button class="btn btn-add" id="dayDetailTimeBtn" style="flex:none;width:100%;" title="Thêm điếu với giờ cụ thể">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5"/>
+              <path d="M12 7v5l3.2 2"/>
+              <path d="M18.5 3.5v5M16 6h5"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>

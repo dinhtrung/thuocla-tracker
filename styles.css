@@ -156,21 +156,24 @@
       flex: 0.6;
     }
     .btn-add-back {
-      flex: 1.2;
-      padding: 16px 4px;
+      flex: 0.6;
+      padding: 18px;
       border: none;
       border-radius: 16px;
       background: rgba(255,255,255,0.05);
       color: var(--text-dim);
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: transform 0.1s, box-shadow 0.2s;
     }
     .btn-add-back:active {
       transform: scale(0.95);
       background: rgba(255,255,255,0.09);
+    }
+    .btn-add-back svg, #dayDetailTimeBtn svg {
+      display: block;
     }
 
     /* Quick presets */
