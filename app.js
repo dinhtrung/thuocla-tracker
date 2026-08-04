@@ -64,7 +64,14 @@
 
     function addRecord(isoTime) {
       const records = getTodayData();
-      records.push({ time: isoTime || new Date().toISOString() });
+      if (isoTime) {
+        records.push({ time: isoTime });
+      } else {
+        // Round to nearest 5 min (0,5,10...) to match the time picker
+        const now = new Date();
+        now.setMinutes(Math.round(now.getMinutes() / 5) * 5, 0, 0);
+        records.push({ time: now.toISOString() });
+      }
       setTodayData(records);
       return records;
     }
