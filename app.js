@@ -1155,6 +1155,7 @@
       const r = getTodayData();
       if (r.length > 0) { r[r.length-1].trigger = idx; setTodayData(r); }
       dismissTriggerPicker();
+      updateDisplay(); // re-render so the trigger icon appears immediately (bugfix: was stale until refresh)
     }
 
     // ========== FEATURES: Insights Rendering ==========
