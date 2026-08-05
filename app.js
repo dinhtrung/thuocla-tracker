@@ -400,8 +400,7 @@
         // Today side
         let todayHtml = '';
         if (todayR) {
-          const isHalf = todayR.note === '½';
-          const num = isHalf ? '½' : `#${i + 1}`;
+          const num = `#${i + 1}`;
           const tgap = gapInfo(todayRecords, i, intervalGoal);
           const gapClass = tgap.bad ? 'bad' : tgap.good ? 'good' : '';
           const tIcon = triggerIcon(todayR.trigger);
@@ -417,8 +416,7 @@
         // Lowest side
         let lowestHtml = '';
         if (lowestR) {
-          const isHalf = lowestR.note === '½';
-          const num = isHalf ? '½' : `#${i + 1}`;
+          const num = `#${i + 1}`;
           const lgap = gapInfo(lowestRecords, i, intervalGoal);
           const gapClass = lgap.bad ? 'bad' : lgap.good ? 'good' : '';
           const lIcon = triggerIcon(lowestR.trigger);
@@ -626,8 +624,7 @@
         let html = '';
         for (let i = 0; i < records.length; i++) {
           const r = records[i];
-          const isHalf = r.note === '½';
-          let label = isHalf ? '½ điếu' : `Điếu #${i + 1}`;
+          let label = `Điếu #${i + 1}`;
           const tIcon = triggerIcon(r.trigger);
 
           // Gap since previous
