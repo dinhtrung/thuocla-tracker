@@ -10,7 +10,7 @@ PWA đếm số điếu thuốc đã hút trong ngày — nhẹ, nhanh, miễn p
 
 ## ✨ Tính năng
 
-- **➕ Đếm +1 🚬** và **½** — bấm nhanh, haptic feedback
+- **➕ Đếm +1 🚬** — bấm nhanh, haptic feedback
 - **↩️ Undo** — xoá điếu vừa bấm nhầm
 - **⏪ Thêm điếu quên note** — quên hồi sáng? chọn giờ cũ + thêm
 - **✏️ Sửa / xoá từng điếu** — chạm vào dòng so sánh
