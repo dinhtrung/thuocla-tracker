@@ -1350,3 +1350,18 @@
       if(name==='settings') loadSettingsUI();
       if(name==='insights') renderInsights();
     };
+
+    // ========== SERVICE WORKER (v1.3.1): register + auto-reload on update ==========
+    // Previously the SW was never registered, so cache bumps never reached the phone.
+    if ('serviceWorker' in navigator) {
+      let swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // New SW took control (skipWaiting + clients.claim) → reload once to serve new assets
+        if (swReloaded) return;
+        swReloaded = true;
+        window.location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      });
+    }
