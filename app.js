@@ -179,13 +179,16 @@
       const target = document.getElementById('timerTarget');
       const estimate = document.getElementById('timerEstimate');
 
+      function showRing() { ring.style.display = ''; estimate.style.display = 'none'; }
+      function showEstimate(html) { ring.style.display = 'none'; estimate.innerHTML = html; estimate.style.display = 'block'; }
+
       if (records.length === 0) {
         el.textContent = '--:--';
         el.className = 'timer-value';
         ring.textContent = '--';
         ring.className = 'timer-ring';
         target.textContent = intervalGoal > 0 ? `Mục tiêu: ≥${intervalGoal}ph` : '';
-        estimate.style.display = 'none';
+        showRing();
         return;
       }
 
@@ -217,31 +220,26 @@
           ring.className = 'timer-ring good';
           ring.textContent = '✅';
           target.textContent = `Mục tiêu: ≥${intervalGoal}ph ✅ Đạt`;
-          estimate.style.display = 'none';
+          showRing();
         } else {
           const remaining = intervalGoal - diffMin;
           const nextTime = new Date(last.getTime() + intervalGoal * 60000);
           const estStr = `${String(nextTime.getHours()).padStart(2,'0')}:${String(nextTime.getMinutes()).padStart(2,'0')}`;
           target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${Math.round(pct)}%`;
-          estimate.style.display = 'block';
-          estimate.textContent = `🔜 Dự kiến: ${estStr} (còn ${remaining}ph)`;
+          showEstimate(`🔜 Dự kiến: ${estStr}<br>(còn ${remaining}ph)`);
 
           if (diffMin >= intervalGoal * 0.7) {
             el.className = 'timer-value warn';
-            ring.className = 'timer-ring warn';
-            ring.textContent = diffMin + "'";
           } else {
             el.className = 'timer-value bad';
-            ring.className = 'timer-ring bad';
-            ring.textContent = diffMin + "'";
           }
         }
       } else {
         target.textContent = '';
-        estimate.style.display = 'none';
         el.className = 'timer-value';
         ring.className = 'timer-ring';
         ring.textContent = diffMin + "'";
+        showRing();
       }
     }
 

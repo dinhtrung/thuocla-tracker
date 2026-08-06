@@ -74,6 +74,20 @@
     .timer-ring.good { border-color: var(--green); color: var(--green); }
     .timer-ring.warn { border-color: var(--yellow); color: var(--yellow); }
     .timer-ring.bad { border-color: var(--accent); color: var(--accent); }
+    .timer-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .timer-estimate {
+      font-size: 11px;
+      line-height: 1.35;
+      text-align: right;
+      color: var(--text-dim);
+      font-weight: 600;
+      display: none;
+    }
 
     /* Main counter */
     .counter-card {
