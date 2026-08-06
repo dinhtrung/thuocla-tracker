@@ -175,20 +175,29 @@
       const cfg = loadConfig();
       const intervalGoal = cfg.intervalGoal || 0;
       const el = document.getElementById('timerDisplay');
-      const ring = document.getElementById('timerRing');
       const target = document.getElementById('timerTarget');
-      const estimate = document.getElementById('timerEstimate');
+      const rightEl = document.getElementById('timerRight');
+      const rightIcon = document.getElementById('timerRightIcon');
+      const estLabel = document.getElementById('estimateLabel');
+      const estTime = document.getElementById('estimateTime');
+      const estRemain = document.getElementById('estimateRemain');
 
-      function showRing() { ring.style.display = ''; estimate.style.display = 'none'; }
-      function showEstimate(html) { ring.style.display = 'none'; estimate.innerHTML = html; estimate.style.display = 'block'; }
+      // Right side mirrors left layout: icon + label + big value + sub-line
+      function showRight(icon, label, timeText, remainText) {
+        rightEl.style.display = '';
+        rightIcon.textContent = icon;
+        estLabel.textContent = label;
+        estTime.textContent = timeText;
+        estRemain.textContent = remainText || '';
+        estRemain.style.display = remainText ? '' : 'none';
+      }
+      function hideRight() { rightEl.style.display = 'none'; }
 
       if (records.length === 0) {
         el.textContent = '--:--';
         el.className = 'timer-value';
-        ring.textContent = '--';
-        ring.className = 'timer-ring';
         target.textContent = intervalGoal > 0 ? `Mục tiêu: ≥${intervalGoal}ph` : '';
-        showRing();
+        hideRight();
         return;
       }
 
@@ -217,16 +226,14 @@
 
         if (diffMin >= intervalGoal) {
           el.className = 'timer-value good';
-          ring.className = 'timer-ring good';
-          ring.textContent = '✅';
           target.textContent = `Mục tiêu: ≥${intervalGoal}ph ✅ Đạt`;
-          showRing();
+          showRight('✅', 'Đạt mục tiêu', `+${diffMin - intervalGoal} phút`, '');
         } else {
           const remaining = intervalGoal - diffMin;
           const nextTime = new Date(last.getTime() + intervalGoal * 60000);
           const estStr = `${String(nextTime.getHours()).padStart(2,'0')}:${String(nextTime.getMinutes()).padStart(2,'0')}`;
           target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${Math.round(pct)}%`;
-          showEstimate(`🔜 Dự kiến: ${estStr}<br>(còn ${remaining}ph)`);
+          showRight('🔜', 'Dự kiến', estStr, `còn ${remaining} phút`);
 
           if (diffMin >= intervalGoal * 0.7) {
             el.className = 'timer-value warn';
@@ -237,9 +244,7 @@
       } else {
         target.textContent = '';
         el.className = 'timer-value';
-        ring.className = 'timer-ring';
-        ring.textContent = diffMin + "'";
-        showRing();
+        hideRight();
       }
     }
 

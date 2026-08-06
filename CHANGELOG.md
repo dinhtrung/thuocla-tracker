@@ -5,7 +5,7 @@ Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ đượ
 ## v1.3.2 — 2026-08-05
 
 ### 🎨 UI
-- **Đồng hồ bấm giờ**: chuyển phần "🔜 Dự kiến: hh:mm (còn xx phút)" sang bên phải, thay cho số phút tròn (khi có mục tiêu khoảng cách và chưa đạt). Khi đạt mục tiêu vẫn hiện ✅, không đặt mục tiêu thì giữ số phút như cũ.
+- **Đồng hồ bấm giờ**: bên phải mirror layout bên trái — icon to hơn (28px) + label "Dự kiến" trên, giờ:phút màu xanh to (24px) giữa, "còn xx phút" dưới (bỏ ngoặc). Bỏ vòng tròn số phút. Khi đạt mục tiêu: ✅ "Đạt mục tiêu" + "+X phút" vượt mục tiêu. Không đặt mục tiêu thì ẩn bên phải.
 
 ## v1.3.1 — 2026-08-05
 
