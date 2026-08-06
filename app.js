@@ -233,7 +233,7 @@
           const nextTime = new Date(last.getTime() + intervalGoal * 60000);
           const estStr = `${String(nextTime.getHours()).padStart(2,'0')}:${String(nextTime.getMinutes()).padStart(2,'0')}`;
           target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${Math.round(pct)}%`;
-          showRight('🔜', 'Dự kiến', estStr, `còn ${remaining} phút`);
+          showRight('🎯', 'Dự kiến', estStr, `còn ${remaining} phút`);
 
           if (diffMin >= intervalGoal * 0.7) {
             el.className = 'timer-value warn';
