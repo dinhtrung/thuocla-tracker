@@ -2,6 +2,11 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.3.3 — 2026-08-06
+
+### 🎨 UI
+- **Nút "Thêm điếu với giờ cụ thể" (trang Thống kê → chi tiết ngày)**: sửa format cho khớp nút "Thêm điếu quên note" trên trang chủ — bỏ nền gradient, dùng style secondary (nền mờ, chữ nhạt), icon đồng hồ 20×20.
+
 ## v1.3.2 — 2026-08-05
 
 ### 🎨 UI
