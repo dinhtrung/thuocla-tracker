@@ -1031,6 +1031,8 @@
       document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('active');
       if (name === 'main' || name === 'stats' || name === 'settings') updateDisplay();
       if (name === 'settings') loadSettingsUI();
+      if (name === 'insights') renderInsights();
+      if (name === 'weekend') renderWeekend();
     }
 
     // Close modal on overlay click
@@ -1057,7 +1059,7 @@
     // ========== INIT ==========
     // Check URL hash for tab
     const hash = window.location.hash.slice(1);
-    if (['stats', 'settings'].includes(hash)) switchTab(hash);
+    if (['stats', 'settings', 'insights', 'weekend'].includes(hash)) switchTab(hash);
     cleanupOldData();
     updateDisplay();
     loadSettingsUI();
@@ -1324,6 +1326,122 @@
     }
     function gid(id){return document.getElementById(id);}
 
+    // ========== WEEKEND TAB ==========
+    // Thuật toán: tách ngày cuối tuần (T7, CN) vs ngày thường (T2-T6) trong 30 ngày qua,
+    // tính TB điếu, gap, chuỗi hút theo; tìm giờ nóng cuối tuần; đề xuất lịch riêng.
+    function renderWeekend() {
+      const data = loadData(), cfg = loadConfig();
+      const days = Object.keys(data).filter(k => (data[k]||[]).length > 0).sort();
+      const last30 = days.slice(-30);
+      const isWeekend = (ds) => { const d = new Date(ds); const dow = d.getDay(); return dow === 0 || dow === 6; }; // CN=0, T7=6
+      let weN=0, weTot=0, wdN=0, wdTot=0, weGapSum=0, weGapCnt=0, weChain=0, wdChain=0;
+      const weHours = new Array(24).fill(0); // giờ nóng cuối tuần
+      let weFirst=[], weLast=[];
+      for (const ds of last30) {
+        const recs = (data[ds]||[]).slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+        if (!recs.length) continue;
+        const w = isWeekend(ds);
+        if (w) { weN++; weTot += recs.length; } else { wdN++; wdTot += recs.length; }
+        for (let i=0;i<recs.length;i++) {
+          const t = new Date(recs[i].time);
+          if (w) weHours[t.getHours()]++;
+          if (i>0) {
+            const g = Math.round((t - new Date(recs[i-1].time))/60000);
+            if (g>0) { if (w) { weGapSum+=g; weGapCnt++; } if (g<=40) { if(w) weChain++; else wdChain++; } }
+          }
+        }
+        if (w) { weFirst.push(new Date(recs[0].time).getHours()*60+new Date(recs[0].time).getMinutes()); weLast.push(new Date(recs[recs.length-1].time).getHours()*60+new Date(recs[recs.length-1].time).getMinutes()); }
+      }
+      const weAvg = weN ? Math.round(weTot/weN) : 0;
+      const wdAvg = wdN ? Math.round(wdTot/wdN) : 0;
+      const weGap = weGapCnt ? Math.round(weGapSum/weGapCnt) : 0;
+      const weChainPerDay = weN ? (weChain/weN).toFixed(1) : '—';
+      gid('weWeekendAvg').textContent = weAvg ? weAvg+' đ' : '—';
+      gid('weWeekdayAvg').textContent = wdAvg ? wdAvg+' đ' : '—';
+      gid('weGap').textContent = weGap ? weGap+'ph' : '—';
+      gid('weChain').textContent = weChainPerDay;
+
+      // Chart giờ nóng cuối tuần (24h)
+      const W=640,H=200,MT=18,MB=26,ML=6,MR=40;
+      const cw=W-ML-MR, ch=H-MT-MB;
+      const maxH=Math.max(1,...weHours);
+      const slot=cw/24;
+      let els='';
+      for(let g=0;g<=4;g++){const gy=MT+g/4*ch;els+=`<line x1="${ML}" y1="${gy}" x2="${ML+cw}" y2="${gy}" stroke="rgba(255,255,255,.05)"/>`;}
+      // top 3 giờ nóng
+      const ranked=[...weHours.keys()].sort((a,b)=>weHours[b]-weHours[a]).slice(0,3);
+      for(let h=0;h<24;h++){
+        const n=weHours[h]; if(!n) continue;
+        const bh=Math.max(2,n/maxH*ch);
+        const x=ML+h*slot+2, w=slot-4, y=MT+ch-bh;
+        const hot=ranked.includes(h);
+        els+=`<rect x="${x}" y="${y}" width="${w}" height="${bh}" rx="3" fill="${hot?'#ff6b81':'#e94560'}" opacity="${hot?1:0.45}"><title>${h}h: ${n} điếu cuối tuần</title></rect>`;
+        if(h%3===0) els+=`<text x="${x+w/2}" y="${MT+ch+16}" text-anchor="middle" fill="#8899aa" font-size="11">${h}h</text>`;
+      }
+      gid('weekendHotSvg').innerHTML=els;
+
+      // Thuật toán đề xuất lịch cuối tuần
+      const plan=[];
+      if (weN>=2 && weAvg>0) {
+        const firstMin = weFirst.length ? Math.round(weFirst.reduce((a,b)=>a+b,0)/weFirst.length) : 7*60;
+        const lastMin = weLast.length ? Math.round(weLast.reduce((a,b)=>a+b,0)/weLast.length) : 22*60;
+        const targetGap = Math.max(90, (weGap||60)+20); // kéo gap cuối tuần lên ≥90ph
+        const targetCount = Math.max(cfg.goal||13, Math.round(weAvg*0.85)); // mục tiêu cuối tuần: 85% TB hiện tại
+        const delayFirst = Math.min(firstMin + 60, 10*60); // trì hoãn điếu đầu +1h (tối đa 10h)
+        const hh = m => `${String(Math.floor(m/60)).padStart(2,'0')}h${String(m%60).padStart(2,'0')}`;
+        const hotLabel = ranked.filter(h=>weHours[h]>0).map(h=>`${h}h`).join(', ');
+        plan.push(
+          `<div class="stats-grid" style="margin-bottom:10px;">
+            <div class="stat-card green"><div class="stat-number">${targetCount} đ</div><div class="stat-label">Mục tiêu cuối tuần</div></div>
+            <div class="stat-card accent"><div class="stat-number">≥${targetGap}ph</div><div class="stat-label">Gap mục tiêu</div></div>
+            <div class="stat-card yellow"><div class="stat-number">${hh(delayFirst)}</div><div class="stat-label">Điếu đầu đề xuất</div></div>
+            <div class="stat-card orange"><div class="stat-number">${hh(lastMin)}</div><div class="stat-label">Điếu cuối đề xuất</div></div>
+          </div>`
+        );
+        plan.push(`<div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:6px;">🧠 Thuật toán (từ ${weN} ngày cuối tuần của bạn)</div>
+          <div style="font-size:12.5px;color:var(--text-dim);line-height:1.6;">
+            • Cuối tuần bạn hút TB <b style="color:var(--accent)">${weAvg} đ/ngày</b> (ngày thường ${wdAvg} đ) — gap chỉ ${weGap}ph, hút theo ≤40ph: ${weChainPerDay} lần/ngày<br>
+            • Giờ nóng: <b style="color:#ff6b81">${hotLabel}</b> — tránh rảnh tay ở các khung này<br>
+            • Đề xuất: trì hoãn điếu đầu đến <b>${hh(delayFirst)}</b>, giãn gap ≥${targetGap}ph, dừng sau <b>${hh(lastMin)}</b><br>
+            • Mục tiêu: <b style="color:var(--green)">${targetCount} đ/ngày cuối tuần</b> (giảm ${Math.max(0,weAvg-targetCount)} đ so với hiện tại)
+          </div>
+        </div>`);
+        // Lịch khung giờ
+        const blocks = [
+          ['Trước '+hh(delayFirst), 'Chưa hút — ăn sáng, cà phê, vận động nhẹ', '🌅'],
+          [hh(delayFirst)+' → 12h', 'Giữ gap ≥'+targetGap+'ph · làm việc nhà / ra ngoài', '🏠'],
+          ['12h → 14h', 'Cơm trưa + nghỉ — tránh khung 13h nóng', '🍚'],
+          ['14h → 17h', 'Đạp xe / đi bộ / gập bụng (lấp giờ nóng)', '🚴'],
+          ['17h → 20h', 'Tối: giới hạn 1 điếu/90ph, không hút theo', '🌆'],
+          ['Sau '+hh(lastMin), 'Ngừng hút — chuẩn bị ngủ', '🌙'],
+        ];
+        plan.push(`<div style="background:var(--surface);border-radius:12px;padding:12px 14px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:6px;">🗓 Lịch cuối tuần đề xuất</div>
+          ${blocks.map(b=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12.5px;"><span style="font-size:16px;flex-shrink:0;">${b[2]}</span><div><div style="font-weight:700;">${b[0]}</div><div style="color:var(--text-dim);">${b[1]}</div></div></div>`).join('')}
+        </div>`);
+      } else {
+        plan.push('<div class="empty-state">Cần ít nhất 2 ngày cuối tuần dữ liệu để chạy thuật toán. Ghi chép đều nhé!</div>');
+      }
+      gid('weekendPlan').innerHTML = plan.join('');
+
+      // Trạng thái hôm nay
+      const now=new Date(), todayIsWeekend=isWeekend(getToday());
+      const tc=(data[getToday()]||[]).length;
+      const todayEl=gid('weekendToday');
+      if (todayIsWeekend) {
+        const goal=Math.max(cfg.goal||13, Math.round(weAvg*0.85)||13);
+        const left=Math.max(0,goal-tc);
+        const emoji=tc<=goal?'✅':'⚠️';
+        todayEl.innerHTML=`<div style="font-size:14px;font-weight:700;">${emoji} Hôm nay là CUỐI TUẦN</div>
+          <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Đã hút <b style="color:var(--accent)">${tc} đ</b> / mục tiêu cuối tuần <b style="color:var(--green)">${goal} đ</b>${left>0?` — còn được ${left} đ`:', đạt rồi, cố giữ!'}</div>
+          <div style="height:6px;background:rgba(255,255,255,.08);border-radius:3px;margin-top:8px;"><div style="height:100%;width:${Math.min(100,Math.round(tc/goal*100))}%;background:${tc<=goal?'var(--green)':'var(--accent)'};border-radius:3px;"></div></div>`;
+      } else {
+        todayEl.innerHTML=`<div style="font-size:14px;font-weight:700;">💼 Hôm nay là ngày thường</div>
+          <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Đã hút <b style="color:var(--accent)">${tc} đ</b> — giữ nhịp như thường lệ nhé!</div>`;
+      }
+    }
+
     // ========== FEATURES: After-Add Hooks ==========
     function afterAddCig() {
       const cg=checkChainSmoke(); if(cg) setTimeout(()=>showChainAlert(cg),600);
@@ -1352,6 +1470,7 @@
       if(name==='main'||name==='stats'||name==='settings') updateDisplay();
       if(name==='settings') loadSettingsUI();
       if(name==='insights') renderInsights();
+      if(name==='weekend') renderWeekend();
     };
 
     // ========== SERVICE WORKER (v1.3.1): register + auto-reload on update ==========

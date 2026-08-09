@@ -2,6 +2,13 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.3.4 — 2026-08-09
+### ✨ Mới
+- Tab 🌆 Cuối tuần: so sánh TB điếu cuối tuần vs ngày thường, gap, chuỗi hút theo (30 ngày qua)
+- Biểu đồ giờ nóng cuối tuần (top 3 giờ tô đỏ)
+- Thuật toán tự đề xuất lịch cuối tuần: mục tiêu điếu, gap mục tiêu, giờ điếu đầu/cuối, khung giờ lấp bằng hoạt động
+- Trạng thái hôm nay: nhận biết cuối tuần và hiện mục tiêu riêng
+
 ## v1.3.3 — 2026-08-06
 
 ### 🎨 UI
