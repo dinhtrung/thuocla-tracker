@@ -2,6 +2,11 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.3.5 — 2026-08-09
+### 🎨 UI
+- Ghép nội dung 🌆 Cuối tuần vào cuối tab Thống kê (bỏ tab riêng — 5 tab bị tràn màn hình)
+- Tab Cuối tuần render khi mở Thống kê
+
 ## v1.3.4 — 2026-08-09
 ### ✨ Mới
 - Tab 🌆 Cuối tuần: so sánh TB điếu cuối tuần vs ngày thường, gap, chuỗi hút theo (30 ngày qua)

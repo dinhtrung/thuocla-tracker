@@ -1032,7 +1032,7 @@
       if (name === 'main' || name === 'stats' || name === 'settings') updateDisplay();
       if (name === 'settings') loadSettingsUI();
       if (name === 'insights') renderInsights();
-      if (name === 'weekend') renderWeekend();
+      if (name === 'stats') renderWeekend();
     }
 
     // Close modal on overlay click
@@ -1059,7 +1059,7 @@
     // ========== INIT ==========
     // Check URL hash for tab
     const hash = window.location.hash.slice(1);
-    if (['stats', 'settings', 'insights', 'weekend'].includes(hash)) switchTab(hash);
+    if (['stats', 'settings', 'insights'].includes(hash)) switchTab(hash);
     cleanupOldData();
     updateDisplay();
     loadSettingsUI();
@@ -1470,7 +1470,7 @@
       if(name==='main'||name==='stats'||name==='settings') updateDisplay();
       if(name==='settings') loadSettingsUI();
       if(name==='insights') renderInsights();
-      if(name==='weekend') renderWeekend();
+      if(name==='stats') renderWeekend();
     };
 
     // ========== SERVICE WORKER (v1.3.1): register + auto-reload on update ==========
