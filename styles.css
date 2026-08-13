@@ -10,6 +10,21 @@
       --green: #2ecc71;
       --yellow: #f1c40f;
       --orange: #e67e22;
+      /* Theme roles (semantic, overridden by [data-theme="light"]) */
+      --soft: rgba(255,255,255,0.05);
+      --soft-2: rgba(255,255,255,0.06);
+      --soft-3: rgba(255,255,255,0.08);
+      --soft-4: rgba(255,255,255,0.12);
+      --line: rgba(255,255,255,0.06);
+      --line-soft: rgba(255,255,255,0.04);
+      --line-strong: rgba(255,255,255,0.1);
+      --track: rgba(255,255,255,0.1);
+      --faint: rgba(255,255,255,0.15);
+      --faint-2: rgba(255,255,255,0.2);
+      --input-bg: rgba(255,255,255,0.06);
+      --input-color: #fff;
+      --counter-top: #fff;
+      --overlay: rgba(0,0,0,0.6);
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -92,7 +107,7 @@
       font-weight: 800;
       line-height: 1;
       margin: 6px 0;
-      background: linear-gradient(180deg, #fff, #e94560);
+      background: linear-gradient(180deg, var(--counter-top), #e94560);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -102,7 +117,7 @@
     /* Goal progress bar */
     .progress-bar {
       height: 6px;
-      background: rgba(255,255,255,0.1);
+      background: var(--track);
       border-radius: 3px;
       margin: 14px 0 6px;
       overflow: hidden;
@@ -141,7 +156,7 @@
       font-size: 22px;
     }
     .btn-reset {
-      background: rgba(255,255,255,0.05);
+      background: var(--soft);
       color: var(--text-dim);
       font-size: 18px;
       flex: 0.6;
@@ -151,7 +166,7 @@
       padding: 18px;
       border: none;
       border-radius: 16px;
-      background: rgba(255,255,255,0.05);
+      background: var(--soft);
       color: var(--text-dim);
       cursor: pointer;
       display: flex;
@@ -161,7 +176,7 @@
     }
     .btn-add-back:active {
       transform: scale(0.95);
-      background: rgba(255,255,255,0.09);
+      background: var(--soft-3);
     }
     .btn-add-back svg, #dayDetailTimeBtn svg {
       display: block;
@@ -180,15 +195,15 @@
     .preset-btn {
       flex-shrink: 0;
       padding: 8px 16px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--soft-2);
+      border: 1px solid var(--line-strong);
       border-radius: 20px;
       color: var(--text-dim);
       font-size: 13px;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .preset-btn:active { background: rgba(255,255,255,0.12); }
+    .preset-btn:active { background: var(--soft-4); }
 
     /* Stats grid */
     .section-title {
@@ -247,19 +262,19 @@
       align-items: center;
       gap: 12px;
       padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--line-soft);
       cursor: pointer;
       transition: background 0.15s;
       border-radius: 8px;
       margin: 0 -8px;
       padding: 10px 8px;
     }
-    .timeline-item:active { background: rgba(255,255,255,0.05); }
+    .timeline-item:active { background: var(--soft); }
     .timeline-item:last-child { border-bottom: none; }
     .timeline-item .edit-hint {
       margin-left: auto;
       font-size: 11px;
-      color: rgba(255,255,255,0.15);
+      color: var(--faint);
       opacity: 0;
       transition: opacity 0.2s;
     }
@@ -285,7 +300,7 @@
     }
     .timeline-gap {
       font-size: 11px;
-      color: rgba(255,255,255,0.2);
+      color: var(--faint-2);
     }
     .timeline-gap.bad { color: var(--accent); }
     .timeline-gap.good { color: var(--green); }
@@ -324,7 +339,7 @@
       padding: 4px 8px;
       border-radius: 8px;
     }
-    .day-detail-close:active { background: rgba(255,255,255,0.05); }
+    .day-detail-close:active { background: var(--soft); }
     .day-detail .timeline-item {
       padding: 8px 4px;
       cursor: default;
@@ -363,7 +378,7 @@
       align-items: center;
       padding: 10px 0;
     }
-    .setting-row + .setting-row { border-top: 1px solid rgba(255,255,255,0.04); }
+    .setting-row + .setting-row { border-top: 1px solid var(--line-soft); }
     .setting-row label { font-size: 14px; }
     .setting-row .setting-desc {
       font-size: 11px;
@@ -373,9 +388,9 @@
       width: 80px;
       padding: 8px 12px;
       border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.06);
-      color: white;
+      border: 1px solid var(--line-strong);
+      background: var(--input-bg);
+      color: var(--input-color);
       font-size: 14px;
       text-align: center;
     }
@@ -417,7 +432,7 @@
     }
     .tab.active {
       background: var(--card);
-      color: white;
+      color: var(--text);
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -427,7 +442,7 @@
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.6);
+      background: var(--overlay);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -461,9 +476,9 @@
     .time-input-row select {
       padding: 10px 14px;
       border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.06);
-      color: white;
+      border: 1px solid var(--line-strong);
+      background: var(--soft-2);
+      color: var(--input-color);
       font-size: 18px;
       text-align: center;
       -webkit-appearance: none;
@@ -486,7 +501,7 @@
     }
     .modal-btn:active { opacity: 0.8; }
     .modal-btn-cancel {
-      background: rgba(255,255,255,0.08);
+      background: var(--soft-3);
       color: var(--text-dim);
     }
     .modal-btn-confirm {
@@ -519,8 +534,8 @@
       width: 42px;
       height: 42px;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--line-strong);
+      background: var(--soft-2);
       font-size: 20px;
       cursor: pointer;
       transition: all 0.15s;
@@ -551,7 +566,7 @@
       display: flex;
       justify-content: space-between;
       padding: 4px 2px 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid var(--line);
       font-size: 11px;
     }
     .comparison-header .hdr-today { color: var(--accent); font-weight: 600; }
@@ -566,11 +581,11 @@
       display: flex;
       align-items: center;
       padding: 7px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--line-soft);
       gap: 0;
     }
     .comparison-row:last-child { border-bottom: none; }
-    .comparison-row.clickable:active { background: rgba(255,255,255,0.03); border-radius: 8px; margin: 0 -6px; padding: 7px 6px; }
+    .comparison-row.clickable:active { background: var(--line-soft); border-radius: 8px; margin: 0 -6px; padding: 7px 6px; }
     .comp-today {
       flex: 1;
       display: flex;
@@ -589,7 +604,7 @@
     .comp-divider {
       width: 2px;
       height: 26px;
-      background: rgba(255,255,255,0.06);
+      background: var(--line);
       border-radius: 1px;
       flex-shrink: 0;
       margin: 0 4px;
@@ -629,4 +644,32 @@
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ========== LIGHT THEME ========== */
+    [data-theme="light"] {
+      --bg: #f2f4fa;
+      --surface: #ffffff;
+      --card: #e6eaf3;
+      --accent: #e94560;
+      --accent-light: #e8455f;
+      --text: #1c2333;
+      --text-dim: #5a6b7d;
+      --green: #1e9e5a;
+      --yellow: #c9960c;
+      --orange: #d35400;
+      --soft: rgba(0,0,0,0.04);
+      --soft-2: rgba(0,0,0,0.06);
+      --soft-3: rgba(0,0,0,0.08);
+      --soft-4: rgba(0,0,0,0.1);
+      --line: rgba(0,0,0,0.1);
+      --line-soft: rgba(0,0,0,0.06);
+      --line-strong: rgba(0,0,0,0.15);
+      --track: rgba(0,0,0,0.08);
+      --faint: rgba(0,0,0,0.25);
+      --faint-2: rgba(0,0,0,0.3);
+      --input-bg: rgba(0,0,0,0.04);
+      --input-color: #1c2333;
+      --counter-top: #b3122e;
+      --overlay: rgba(0,0,0,0.4);
     }

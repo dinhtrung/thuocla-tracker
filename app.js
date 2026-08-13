@@ -494,7 +494,7 @@
       // Grid lines
       for (let g = 0; g <= 4; g++) {
         const gy = chartY + (g / 4) * chartH;
-        els += `<line x1="${chartX}" y1="${gy}" x2="${chartX + chartW}" y2="${gy}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+        els += `<line x1="${chartX}" y1="${gy}" x2="${chartX + chartW}" y2="${gy}" stroke="var(--line-soft)" stroke-width="1"/>`;
       }
 
       // Bars
@@ -512,11 +512,11 @@
 
         // Count label — larger
         if (d.count > 0) {
-          els += `<text x="${x + barW/2}" y="${y - 10}" text-anchor="middle" fill="#fff" font-size="20" font-weight="800">${d.count}</text>`;
+          els += `<text x="${x + barW/2}" y="${y - 10}" text-anchor="middle" fill="var(--text)" font-size="20" font-weight="800">${d.count}</text>`;
         }
 
         // Day name label below
-        els += `<text x="${x + barW/2}" y="${chartY + chartH + 20}" text-anchor="middle" fill="#ccc" font-size="13" font-weight="600">${d.count > 0 ? d.dayName : d.key.slice(5)}</text>`;
+        els += `<text x="${x + barW/2}" y="${chartY + chartH + 20}" text-anchor="middle" fill="var(--text-dim)" font-size="13" font-weight="600">${d.count > 0 ? d.dayName : d.key.slice(5)}</text>`;
 
         // Average gap label (only if >= 2 cigarettes)
         if (d.count >= 2) {
@@ -527,7 +527,7 @@
             totalGap += Math.round((new Date(records[gi].time) - new Date(records[gi-1].time)) / 60000);
           }
           const avgGap = Math.round(totalGap / (records.length - 1));
-          els += `<text x="${x + barW/2}" y="${chartY + chartH + 38}" text-anchor="middle" fill="#aaa" font-size="10" font-weight="600">≃${avgGap}ph</text>`;
+          els += `<text x="${x + barW/2}" y="${chartY + chartH + 38}" text-anchor="middle" fill="var(--text-dim)" font-size="10" font-weight="600">≃${avgGap}ph</text>`;
         }
       });
 
@@ -916,7 +916,34 @@
       document.getElementById('intervalGoalInput').value = cfg.intervalGoal || 0;
       document.getElementById('pricePerPack').value = cfg.pricePerPack || 25000;
       document.getElementById('cigsPerPack').value = cfg.cigsPerPack || 20;
+      updateThemeToggleUI();
     }
+
+    // ========== THEME (light/dark) ==========
+    const THEME_SUN = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>';
+    const THEME_MOON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+    function getTheme() {
+      try { return localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch (e) { return 'dark'; }
+    }
+    function setTheme(theme) {
+      const t = theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('theme', t); } catch (e) {}
+      const m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', t === 'light' ? '#f2f4fa' : '#1a1a2e');
+      updateThemeToggleUI();
+    }
+    function updateThemeToggleUI() {
+      const btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      const light = getTheme() === 'light';
+      btn.innerHTML = light ? THEME_MOON : THEME_SUN;
+      btn.title = light ? 'Chuyển sang theme tối' : 'Chuyển sang theme sáng';
+      const desc = document.getElementById('themeDesc');
+      if (desc) desc.textContent = light ? 'Đang dùng theme sáng' : 'Đang dùng theme tối';
+    }
+    window.getTheme = getTheme;
+    window.setTheme = setTheme;
 
     function saveSettings() {
       const goal = parseInt(document.getElementById('dailyGoalInput').value) || 10;
@@ -928,7 +955,7 @@
       const btn = document.querySelector('.btn-save');
       const orig = btn.textContent;
       btn.textContent = '✅ Đã lưu!';
-      btn.style.background = '#2ecc71';
+      btn.style.background = 'var(--green)';
       setTimeout(() => {
         btn.textContent = orig;
         btn.style.background = '';
@@ -993,7 +1020,7 @@
       if (btn) {
         const orig = btn.textContent;
         btn.textContent = '✅ Đã xuất!';
-        btn.style.background = '#2ecc71';
+        btn.style.background = 'var(--green)';
         setTimeout(() => {
           btn.textContent = orig;
           btn.style.background = '';
@@ -1206,7 +1233,7 @@
       let els = '';
       for (let g = 0; g <= 4; g++) {
         const gy = chartY + (g/4) * chartH;
-        els += `<line x1="${ML}" y1="${gy}" x2="${W-MR}" y2="${gy}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+        els += `<line x1="${ML}" y1="${gy}" x2="${W-MR}" y2="${gy}" stroke="var(--line-soft)" stroke-width="1"/>`;
       }
       for (let h = 0; h < 24; h++) {
         const c = hourCnt[h];
@@ -1217,11 +1244,11 @@
           const color = hot.has(h) ? '#ff6b81' : '#e94560';
           const op = hot.has(h) ? 1 : 0.45;
           els += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(1,barH)}" rx="2" ry="2" fill="${color}" opacity="${op}" class="chart-svg-bar"><title>${h}h: ${c} điếu hút theo${hourKep[h]?` (${hourKep[h]} kép ≤20ph)`:''}</title></rect>`;
-          els += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" fill="${hot.has(h) ? '#ff6b81' : '#8899aa'}" font-size="10" font-weight="700">${c}</text>`;
+          els += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" fill="${hot.has(h) ? 'var(--accent-light)' : 'var(--text-dim)'}" font-size="10" font-weight="700">${c}</text>`;
         }
         // hour label every 3h
         if (h % 3 === 0) {
-          els += `<text x="${x + barW/2}" y="${chartY + chartH + 16}" text-anchor="middle" fill="#8899aa" font-size="10">${h}h</text>`;
+          els += `<text x="${x + barW/2}" y="${chartY + chartH + 16}" text-anchor="middle" fill="var(--text-dim)" font-size="10">${h}h</text>`;
         }
       }
       svg.innerHTML = els;
@@ -1367,7 +1394,7 @@
       const maxH=Math.max(1,...weHours);
       const slot=cw/24;
       let els='';
-      for(let g=0;g<=4;g++){const gy=MT+g/4*ch;els+=`<line x1="${ML}" y1="${gy}" x2="${ML+cw}" y2="${gy}" stroke="rgba(255,255,255,.05)"/>`;}
+      for(let g=0;g<=4;g++){const gy=MT+g/4*ch;els+=`<line x1="${ML}" y1="${gy}" x2="${ML+cw}" y2="${gy}" stroke="var(--soft)"/>`;}
       // top 3 giờ nóng
       const ranked=[...weHours.keys()].sort((a,b)=>weHours[b]-weHours[a]).slice(0,3);
       for(let h=0;h<24;h++){
@@ -1376,7 +1403,7 @@
         const x=ML+h*slot+2, w=slot-4, y=MT+ch-bh;
         const hot=ranked.includes(h);
         els+=`<rect x="${x}" y="${y}" width="${w}" height="${bh}" rx="3" fill="${hot?'#ff6b81':'#e94560'}" opacity="${hot?1:0.45}"><title>${h}h: ${n} điếu cuối tuần</title></rect>`;
-        if(h%3===0) els+=`<text x="${x+w/2}" y="${MT+ch+16}" text-anchor="middle" fill="#8899aa" font-size="11">${h}h</text>`;
+        if(h%3===0) els+=`<text x="${x+w/2}" y="${MT+ch+16}" text-anchor="middle" fill="var(--text-dim)" font-size="11">${h}h</text>`;
       }
       gid('weekendHotSvg').innerHTML=els;
 
@@ -1435,7 +1462,7 @@
         const emoji=tc<=goal?'✅':'⚠️';
         todayEl.innerHTML=`<div style="font-size:14px;font-weight:700;">${emoji} Hôm nay là CUỐI TUẦN</div>
           <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Đã hút <b style="color:var(--accent)">${tc} đ</b> / mục tiêu cuối tuần <b style="color:var(--green)">${goal} đ</b>${left>0?` — còn được ${left} đ`:', đạt rồi, cố giữ!'}</div>
-          <div style="height:6px;background:rgba(255,255,255,.08);border-radius:3px;margin-top:8px;"><div style="height:100%;width:${Math.min(100,Math.round(tc/goal*100))}%;background:${tc<=goal?'var(--green)':'var(--accent)'};border-radius:3px;"></div></div>`;
+          <div style="height:6px;background:var(--track);border-radius:3px;margin-top:8px;"><div style="height:100%;width:${Math.min(100,Math.round(tc/goal*100))}%;background:${tc<=goal?'var(--green)':'var(--accent)'};border-radius:3px;"></div></div>`;
       } else {
         todayEl.innerHTML=`<div style="font-size:14px;font-weight:700;">💼 Hôm nay là ngày thường</div>
           <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Đã hút <b style="color:var(--accent)">${tc} đ</b> — giữ nhịp như thường lệ nhé!</div>`;

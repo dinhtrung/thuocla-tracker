@@ -2,6 +2,14 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.3.6 — 2026-08-13
+### ✨ Mới
+- **Light mode** — nút 🌓 trong Cài đặt chuyển đổi giữa theme sáng/tối (icon mặt trời/trăng, lưu lựa chọn, mặc định vẫn là theme tối)
+- Thanh trạng thái điện thoại (theme-color) đổi theo theme đang dùng
+
+### 🎨 UI
+- Màu chữ trong biểu đồ (Thống kê, Cửa sổ cắt, Cuối tuần) chuyển sang biến theme — đọc được trên cả 2 nền
+
 ## v1.3.5 — 2026-08-09
 ### 🎨 UI
 - Ghép nội dung 🌆 Cuối tuần vào cuối tab Thống kê (bỏ tab riêng — 5 tab bị tràn màn hình)

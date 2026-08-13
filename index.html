@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#1a1a2e">
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch (e) {}
+      document.documentElement.dataset.theme = t;
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', t === 'light' ? '#f2f4fa' : '#1a1a2e');
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Thuốc Lá Tracker</title>
@@ -153,7 +162,7 @@
           <button class="day-detail-close" onclick="closeDayDetail()">✕</button>
         </div>
         <div id="dayDetailContent"></div>
-        <div id="dayDetailActions" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+        <div id="dayDetailActions" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
           <button class="btn-add-back" id="dayDetailTimeBtn" style="flex:none;width:100%;" title="Thêm điếu với giờ cụ thể">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="9.5"/>
@@ -233,6 +242,15 @@
     <!-- ========== SETTINGS TAB ========== -->
     <div id="tab-settings" class="tab-content">
       <div class="settings-card">
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>🌓 Giao diện</label>
+            <span class="setting-desc" id="themeDesc">Đang dùng theme tối</span>
+          </div>
+          <button class="btn-add-back" id="themeToggle" onclick="setTheme(getTheme()==='light'?'dark':'light')" style="flex:0 0 46px;height:46px;padding:0;border-radius:14px;" title="Chuyển sang theme sáng">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          </button>
+        </div>
         <div class="setting-row">
           <div class="setting-left">
             <label>🎯 Mục tiêu mỗi ngày</label>
