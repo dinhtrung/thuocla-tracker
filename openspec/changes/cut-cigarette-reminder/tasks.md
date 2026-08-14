@@ -16,4 +16,4 @@
 - [x] 3.1 Seed dữ liệu test (synthetic 30 ngày gồm weekend/weekday, chuỗi gap ≤40/≤20 quanh giờ nhất định) → verify bằng browser: 3 trạng thái hiển thị đúng text/class/icon, fallback khi < 7 ngày, layout không tràn container 328px, không đè timer card
 - [x] 3.2 Bump `CACHE` version trong `service-worker.js` (bắt buộc — cache-first)
 - [x] 3.3 Cập nhật CHANGELOG.md (mục `✨ Mới`) + `git add` targeted (chỉ index.html, app.js, styles.css, service-worker.js, CHANGELOG.md — tránh `.serena/`) + commit + push
-- [ ] 3.4 Verify live: `curl -s https://thuocla-tracker.vercel.app/app.js | grep` code mới + xác nhận `CACHE` mới được serve
+- [x] 3.4 Verify live: `curl -s https://thuocla-tracker.vercel.app/app.js | grep` code mới + xác nhận `CACHE` mới được serve
