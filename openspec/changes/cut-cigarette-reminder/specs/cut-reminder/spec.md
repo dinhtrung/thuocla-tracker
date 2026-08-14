@@ -63,6 +63,17 @@ App SHALL hiển thị khen thưởng ngay khi số điếu hôm nay đạt đú
 - **WHEN** mục tiêu ngày là 10 và điếu "hút theo" phổ biến nhất nằm ở STT 17 (xuất hiện ít ngày)
 - **THEN** app không đề xuất cắt điếu #17 mà chỉ chọn mục tiêu trong phạm vi STT 1..10
 
+### Requirement: Persistent note visibility
+Khi đã đủ dữ liệu (≥ 7 ngày trong cửa sổ 30 ngày), note "Điếu nên cắt" SHALL luôn hiển thị trên tab Hôm nay — không được biến mất. Khi người dùng đang dưới mục tiêu ngày và không có điếu nào đáng cắt sắp tới, note SHALL hiển thị trạng thái động viên nhắc còn bao nhiêu điếu trong hạn mức.
+
+#### Scenario: Encourages when below goal with nothing cuttable
+- **WHEN** số điếu hôm nay nhỏ hơn mục tiêu (ví dụ 9/10) và mọi STT trong hạn mức đã qua giờ dự kiến
+- **THEN** note vẫn hiển thị, dạng "Còn X điếu trong hạn mức Y hôm nay — giữ nhịp nhé!"
+
+#### Scenario: Never hides with sufficient data
+- **WHEN** app đã có từ 7 ngày dữ liệu trong 30 ngày qua
+- **THEN** note không bao giờ ở trạng thái ẩn hoàn toàn trên tab Hôm nay
+
 ### Requirement: Live update cadence
 App SHALL tính lại và cập nhật note ngay sau mỗi thao tác thêm hoặc xoá điếu, và định kỳ mỗi phút khi không có thao tác.
 

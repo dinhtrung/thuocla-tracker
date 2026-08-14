@@ -1,4 +1,4 @@
-const CACHE = 'smoking-tracker-v21';
+const CACHE = 'smoking-tracker-v22';
 const ASSETS = ['index.html', 'styles.css', 'app.js', 'manifest.json'];
 
 self.addEventListener('install', (e) => {

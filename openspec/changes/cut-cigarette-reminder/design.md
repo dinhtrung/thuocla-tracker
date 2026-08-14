@@ -51,9 +51,13 @@ else:
             → KHEN      "✅ Đã qua HH:MM chưa hút điếu #N — cắt thành công!"
         elif target:
             → MỤC TIÊU "Hôm nay cắt điếu #N ≈ HH:MM" (chain: kèm tần suất; tail: "điếu cuối trong hạn mức")
-        else: ẩn note
+        else:
+            → ĐỘNG VIÊN  goal > 0: 🎯 "Còn X điếu trong hạn mức Y hôm nay — giữ nhịp nhé!"
+                         goal = 0: 💪 "Không có điếu nào đáng cắt — khoảng cách hút đang ổn!"
 ```
 `slack = max(30, stdevTime)`. Trạng thái GOAL có độ ưu tiên cao nhất — đạt/vượt mục tiêu ngày là thông điệp quan trọng hơn mọi đề xuất cắt. Lý do sửa: bản đầu không goal-aware → lúc 21:31 đã đủ 10/10 mục tiêu mà note vẫn đề xuất "cắt điếu #17 ≈ 22:16" (STT chỉ xuất hiện 4/30 ngày) — giả định người dùng hút tới 17 điếu, vô nghĩa với người đang cai; đồng thời không có khen thưởng khi đạt mục tiêu.
+
+**Sửa tiếp (v1.4.2)**: nhánh `else` từng ẩn note (`display:none`) khi không còn điếu đáng cắt — đúng lúc người dùng hút ÍT hơn kế hoạch (9/10 lúc 22:30) panel biến mất. → Panel không bao giờ ẩn khi đủ dữ liệu; thay bằng trạng thái động viên nhắc hạn mức còn lại. Ngoài ra `goal` được chuẩn hoá bằng `parseInt` (config có thể lưu chuỗi "10" → `10 === "10"` sai → nhầm "Vượt mục tiêu" khi đạt đúng goal).
 
 ### D2b: Target chốt 1 lần/ngày (cache theo ngày)
 `getDailyTarget()` chọn target khi render đầu tiên trong ngày và cache (`cutDailyTarget = {date, stt, avgTime, stdevTime, chain, kep, present, reason}`); reset khi đổi ngày. Khi điếu mục tiêu đã bị hút (`todayCount ≥ stt`) → clear cache + chọn lại target kế tiếp (`stt > todayCount`). Nhờ đó PRAISE đánh giá đúng "điếu mục tiêu đã qua giờ mà chưa hút" bất kể app được mở lúc nào trong ngày.

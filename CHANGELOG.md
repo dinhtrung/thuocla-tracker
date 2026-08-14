@@ -2,6 +2,11 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.2 — 2026-08-14
+### 🐛 Fixes
+- **Note "Điếu nên cắt" không biến mất nữa** — trước đây khi hút dưới mục tiêu (ví dụ 9/10) và muộn giờ, panel ẩn hẳn. Giờ luôn hiển thị trạng thái động viên: "Còn X điếu trong hạn mức Y hôm nay — giữ nhịp nhé!"
+- Chuẩn hoá mục tiêu ngày (parseInt) — tránh nhầm "Vượt mục tiêu" khi đạt đúng mục tiêu nếu config lưu dạng chuỗi
+
 ## v1.4.1 — 2026-08-14
 ### 🐛 Fixes
 - **Note "Điếu nên cắt" giờ goal-aware** — trước đây note chỉ đúng khi hút nhiều hơn kế hoạch:

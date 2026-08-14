@@ -373,7 +373,7 @@
       const arr = stats[dayType] || [];
       const todayCount = getTodayData().length;
       const cfg = loadConfig();
-      const goal = cfg.goal || 0;
+      const goal = parseInt(cfg.goal, 10) || 0;
 
       // GOAL state (top priority): reward at exactly goal, stop-warning when over
       if (goal > 0 && todayCount >= goal) {
@@ -437,7 +437,24 @@
         return;
       }
 
-      el.style.display = 'none';
+      // Fallback: below goal with nothing cuttable upcoming — panel never disappears,
+      // encourage instead of hiding (user-corrected 2026-08-14: panel vanished at 9/10 @ 22:30)
+      if (goal > 0) {
+        const remain = goal - todayCount;
+        el.style.display = '';
+        el.className = 'cut-note target';
+        gid('cutNoteIcon').textContent = '🎯';
+        gid('cutNoteText').textContent = `Còn ${remain} điếu trong hạn mức ${goal} hôm nay — giữ nhịp nhé!`;
+        gid('cutNoteSub').textContent = remain === 1
+          ? 'Điếu cuối — bỏ nó để về dưới mục tiêu!'
+          : 'Không có điếu nào đáng cắt lúc này — đừng hút theo!';
+      } else {
+        el.style.display = '';
+        el.className = 'cut-note neutral';
+        gid('cutNoteIcon').textContent = '💪';
+        gid('cutNoteText').textContent = 'Hôm nay không có điếu nào đáng cắt — khoảng cách hút đang ổn!';
+        gid('cutNoteSub').textContent = 'Giữ nhịp này nhé!';
+      }
     }
 
     // ========== UI ==========
