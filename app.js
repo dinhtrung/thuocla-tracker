@@ -168,6 +168,7 @@
       if (timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(updateTimer, 1000);
       updateTimer();
+      if (!cutReminderInterval) cutReminderInterval = setInterval(renderCutReminder, 60000);
     }
 
     function updateTimer() {
@@ -248,6 +249,155 @@
       }
     }
 
+    // ========== CUT REMINDER ==========
+    const CUT_LOOKBACK = 30, CUT_MAX_GAP = 40, CUT_MAX_KEP = 20;
+    const CUT_CHAIN_THRESHOLD = 0.25, CUT_KEP_THRESHOLD = 0.15;
+    const CUT_MIN_DAYS = 7, CUT_STT_CAP = 20;
+    let cutReminderInterval = null;
+
+    function fmtHM(min) {
+      const total = Math.round(min);
+      return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    // Per-STT stats over last 30 days, split weekday/weekend (rule gap>0, same as renderCutWindows)
+    function computeSttStats() {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      const raw = { weekday: [], weekend: [] };
+      let dayCount = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds > today || !recs.length) continue;
+        dayCount++;
+        const d = new Date(ds + 'T00:00:00');
+        const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        const s = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        for (let i = 0; i < s.length && i < CUT_STT_CAP; i++) {
+          const st = raw[dayType][i] || (raw[dayType][i] = { present: 0, tSum: 0, t2Sum: 0, chain: 0, kep: 0 });
+          st.present++;
+          const t = new Date(s[i].time);
+          const min = t.getHours() * 60 + t.getMinutes();
+          st.tSum += min; st.t2Sum += min * min;
+          if (i > 0) {
+            const g = Math.round((new Date(s[i].time) - new Date(s[i-1].time)) / 60000);
+            if (g > 0 && g <= CUT_MAX_GAP) {
+              st.chain++;
+              if (g <= CUT_MAX_KEP) st.kep++;
+            }
+          }
+        }
+      }
+      const result = { weekday: [], weekend: [], dayCount };
+      for (const dt of ['weekday', 'weekend']) {
+        const arr = raw[dt];
+        for (let i = 0; i < arr.length; i++) {
+          const st = arr[i];
+          const mean = st.tSum / st.present;
+          const variance = Math.max(0, st.t2Sum / st.present - mean * mean);
+          result[dt].push({
+            stt: i + 1,
+            present: st.present,
+            avgTime: mean,
+            stdevTime: Math.sqrt(variance),
+            chainFreq: st.chain / st.present,
+            kepFreq: st.kep / st.present,
+            chain: st.chain,
+            kep: st.kep
+          });
+        }
+      }
+      return result;
+    }
+
+    // Daily cut target: chain/kep-heavy STT still ahead; exclude rigid anchors; tail-of-day fallback
+    function selectDailyTarget(stats, dayType) {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const arr = stats[dayType] || [];
+      if (!arr.length) return null;
+      const presentDays = stats.dayCount || 1;
+      const candidates = arr.filter(st => {
+        if (st.chainFreq < CUT_CHAIN_THRESHOLD && st.kepFreq < CUT_KEP_THRESHOLD) return false;
+        const presence = st.present / presentDays;
+        const anchor = presence >= 0.6 && st.stdevTime <= 45 && st.chainFreq < 0.2;
+        return !anchor;
+      });
+      if (!candidates.length) {
+        // Tail-of-day fallback: latest STT with presence is naturally optional
+        const tail = arr.filter(st => st.present > 0);
+        return tail.length ? tail[tail.length - 1] : null;
+      }
+      const future = candidates.filter(st => st.avgTime > nowMin - 15);
+      const pool = future.length ? future : candidates;
+      pool.sort((a, b) => a.avgTime - b.avgTime);
+      return pool[0];
+    }
+
+    // 3-state note: WARN (next cig is a chain follower) > PRAISE (target passed unsmoked) > TARGET
+    function renderCutReminder() {
+      const el = gid('cutNote');
+      if (!el) return;
+      const stats = computeSttStats();
+
+      // Insufficient data fallback
+      if (stats.dayCount < CUT_MIN_DAYS) {
+        el.style.display = '';
+        el.className = 'cut-note neutral';
+        gid('cutNoteIcon').textContent = '📊';
+        gid('cutNoteText').textContent = 'Cần thêm dữ liệu để tính điếu nên cắt';
+        gid('cutNoteSub').textContent = `Còn ${CUT_MIN_DAYS - stats.dayCount} ngày nữa (tối thiểu ${CUT_MIN_DAYS} ngày trong 30 ngày qua)`;
+        return;
+      }
+
+      const d = new Date();
+      const nowMin = d.getHours() * 60 + d.getMinutes();
+      const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+      const arr = stats[dayType] || [];
+      const todayCount = getTodayData().length;
+      const nextStt = todayCount + 1;
+      const st = arr[nextStt - 1];
+      const slack = st ? Math.max(30, st.stdevTime) : 30;
+
+      // WARN: next cigarette is a "hút theo" (gap<=40) with freq >= 25% and time not yet passed
+      if (st && st.chainFreq >= CUT_CHAIN_THRESHOLD && nowMin < st.avgTime + slack) {
+        el.style.display = '';
+        el.className = 'cut-note warn';
+        gid('cutNoteIcon').textContent = '⚠️';
+        gid('cutNoteText').textContent = `Điếu #${nextStt} ≈ ${fmtHM(st.avgTime)} — đây là điếu hút theo, thử cắt!`;
+        gid('cutNoteSub').textContent = `${st.chain}/${st.present} ngày là "điếu theo" (gap ≤40ph) trong 30 ngày qua`;
+        return;
+      }
+
+      // PRAISE: daily target's predicted time passed without smoking it
+      const target = selectDailyTarget(stats, dayType);
+      if (target && nowMin > target.avgTime + Math.max(30, target.stdevTime) && todayCount < target.stt) {
+        el.style.display = '';
+        el.className = 'cut-note praise';
+        gid('cutNoteIcon').textContent = '✅';
+        gid('cutNoteText').textContent = `Đã qua ${fmtHM(target.avgTime)} mà chưa hút điếu #${target.stt} — cắt thành công!`;
+        gid('cutNoteSub').textContent = 'Giữ đà nhé!';
+        return;
+      }
+
+      // TARGET: default state
+      if (target) {
+        el.style.display = '';
+        el.className = 'cut-note target';
+        gid('cutNoteIcon').textContent = '🎯';
+        const freqLabel = target.kepFreq >= CUT_KEP_THRESHOLD
+          ? `kép ${target.kep}/${target.present} ngày`
+          : `hút theo ${target.chain}/${target.present} ngày`;
+        gid('cutNoteText').textContent = `Hôm nay cắt điếu #${target.stt} ≈ ${fmtHM(target.avgTime)}`;
+        gid('cutNoteSub').textContent = `${freqLabel} trong 30 ngày qua — thử bỏ nó nhé!`;
+        return;
+      }
+
+      el.style.display = 'none';
+    }
+
     // ========== UI ==========
     function formatTime(isoStr) {
       const d = new Date(isoStr);
@@ -311,6 +461,9 @@
 
       // Timer
       updateTimer();
+
+      // Cut reminder
+      renderCutReminder();
     }
 
     function renderComparisonTimeline() {

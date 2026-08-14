@@ -81,6 +81,29 @@
       flex-shrink: 0;
     }
 
+    /* Cut reminder note */
+    .cut-note {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 16px;
+      margin: 4px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .cut-note-icon { font-size: 24px; flex-shrink: 0; }
+    .cut-note-body { min-width: 0; }
+    .cut-note-text { font-size: 14px; font-weight: 700; line-height: 1.4; }
+    .cut-note-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+    .cut-note.warn { border-color: rgba(233,69,96,0.45); }
+    .cut-note.warn .cut-note-text { color: var(--accent-light); }
+    .cut-note.praise { border-color: rgba(46,204,113,0.45); }
+    .cut-note.praise .cut-note-text { color: var(--green); }
+    .cut-note.target { border-color: rgba(241,196,15,0.4); }
+    .cut-note.target .cut-note-text { color: var(--yellow); }
+    .cut-note.neutral .cut-note-text { color: var(--text-dim); font-weight: 600; }
+
     /* Main counter */
     .counter-card {
       background: linear-gradient(135deg, var(--surface), var(--card));

@@ -2,6 +2,14 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.0 — 2026-08-14
+### ✨ Mới
+- **Note "Điếu nên cắt" trên trang chủ** — tự tính từ 30 ngày gần nhất (tách riêng cuối tuần/ngày thường) và nhắc nhở theo 3 trạng thái:
+  - 🎯 **Mục tiêu sáng**: "Hôm nay cắt điếu #N ≈ HH:MM" (ưu tiên điếu hay hút theo/kép, né điếu neo cứng)
+  - ⚠️ **Cảnh báo trước giờ dự đoán**: điếu kế tiếp là "điếu hút theo" (gap ≤ 40ph) → nhắc thử cắt
+  - ✅ **Khen khi cắt thành công**: qua giờ dự đoán chưa hút → động viên giữ đà
+- Note cập nhật live sau mỗi thao tác +1 / xoá điếu và mỗi phút; ẩn nếu chưa đủ 7 ngày dữ liệu
+
 ## v1.3.6 — 2026-08-13
 ### ✨ Mới
 - **Light mode** — nút 🌓 trong Cài đặt chuyển đổi giữa theme sáng/tối (icon mặt trời/trăng, lưu lựa chọn, mặc định vẫn là theme tối)
