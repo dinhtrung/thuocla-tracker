@@ -35,21 +35,28 @@ Mục tiêu sáng = STT có `chainFreq ≥ 0.25` (hoặc `kepFreq ≥ 0.15`), gi
 
 Lý do: luật này phản ánh trực tiếp insight đã verify — cắt điếu "hút theo" (autopilot), né neo cứng. So với phương án đếm theo giờ (như renderCutWindows): per-STT cho biết *điếu thứ mấy* chứ không chỉ *giờ nào*, khớp yêu cầu "điếu nên cắt".
 
-### D2: State machine 3 trạng thái, cảnh báo ưu tiên
+### D2: State machine 4 trạng thái, goal-aware (sửa theo phản hồi 2026-08-14)
 ```
-STT kế tiếp = todayCount + 1
-s = stats(STT kế tiếp, loại ngày hôm nay)
-
-if s.chainFreq ≥ 0.25 và now < s.avgTime + slack:
-    → CẢNH BÁO  "Điếu #N ≈ HH:MM — hút theo, thử cắt!"
-else if mục tiêu sáng đã qua (now > targetTime + slack) và todayCount < targetN:
-    → KHEN      "✅ Đã qua HH:MM chưa hút điếu #N — cắt thành công!"
+goal = cfg.goal (>0)
+if goal > 0 && todayCount >= goal:
+    → KHEN/CHẶN GOAL  todayCount == goal: 🎉 "Đạt mục tiêu X điếu — thắng hôm nay rồi!"
+                       todayCount  > goal: ⚠️ "Vượt mục tiêu X điếu (đang N) — dừng lại!"
 else:
-    → MỤC TIÊU "Hôm nay cắt điếu #N ≈ HH:MM — hút theo X/30 ngày"
+    STT kế tiếp = todayCount + 1  (≤ goal, tự giới hạn)
+    if s.chainFreq ≥ 0.25 và now < s.avgTime + slack:
+        → CẢNH BÁO  "Điếu #N ≈ HH:MM — hút theo, thử cắt!"
+    else:
+        target = getDailyTarget(...)  (cache 1 lần/ngày)
+        if target && now > target.avgTime + slack && todayCount < target.stt:
+            → KHEN      "✅ Đã qua HH:MM chưa hút điếu #N — cắt thành công!"
+        elif target:
+            → MỤC TIÊU "Hôm nay cắt điếu #N ≈ HH:MM" (chain: kèm tần suất; tail: "điếu cuối trong hạn mức")
+        else: ẩn note
 ```
-`slack = max(30, stdevTime)` — chống dương tính giả khi stdev lớn; dùng 30 phút tối thiểu cho UX nhắc sớm. Trạng thái KHEN dùng mục tiêu sáng (đã chọn lúc đầu ngày) để tránh "tự khen" khi STT kế tiếp chỉ tình cờ bị bỏ lỡ.
+`slack = max(30, stdevTime)`. Trạng thái GOAL có độ ưu tiên cao nhất — đạt/vượt mục tiêu ngày là thông điệp quan trọng hơn mọi đề xuất cắt. Lý do sửa: bản đầu không goal-aware → lúc 21:31 đã đủ 10/10 mục tiêu mà note vẫn đề xuất "cắt điếu #17 ≈ 22:16" (STT chỉ xuất hiện 4/30 ngày) — giả định người dùng hút tới 17 điếu, vô nghĩa với người đang cai; đồng thời không có khen thưởng khi đạt mục tiêu.
 
-So với phương án chỉ có 1 mục tiêu cố định cả ngày (không live): state machine bắt được đúng khoảnh khắc quyết định hút. So với phương án reactive thuần (chỉ báo sau khi hút theo): nhắc trước mang giá trị phòng ngừa.
+### D2b: Target chốt 1 lần/ngày (cache theo ngày)
+`getDailyTarget()` chọn target khi render đầu tiên trong ngày và cache (`cutDailyTarget = {date, stt, avgTime, stdevTime, chain, kep, present, reason}`); reset khi đổi ngày. Khi điếu mục tiêu đã bị hút (`todayCount ≥ stt`) → clear cache + chọn lại target kế tiếp (`stt > todayCount`). Nhờ đó PRAISE đánh giá đúng "điếu mục tiêu đã qua giờ mà chưa hút" bất kể app được mở lúc nào trong ngày.
 
 ### D3: Vị trí + style note card
 HTML: block mới sau `.btn-row`, trước `.stats-grid` trong `#tab-main` — đúng nơi mắt người dùng rơi ngay sau thao tác hút. Style: class riêng `.cut-note` nhưng nhất quán hệ thống card hiện tại (bg rgba(255,255,255,0.05), radius 16px, border `var(--line)`, padding 12-14px, text 13-14px); icon theo trạng thái: 🎯 (mục tiêu), ⏳/⚠️ (cảnh báo), ✅ (khen). Không tạo nút bấm trong note (tránh bloat, đúng Non-Goals).

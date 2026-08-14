@@ -2,6 +2,14 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.1 — 2026-08-14
+### 🐛 Fixes
+- **Note "Điếu nên cắt" giờ goal-aware** — trước đây note chỉ đúng khi hút nhiều hơn kế hoạch:
+  - 🎉 Khen thưởng ngay khi đạt đúng mục tiêu ngày: "Đạt mục tiêu X điếu — thắng hôm nay rồi!"
+  - ⚠️ Cảnh báo khi vượt mục tiêu: "Vượt mục tiêu X điếu (đang N) — dừng lại!"
+  - Mục tiêu cắt bị giới hạn trong hạn mức ngày (không còn đề xuất "cắt điếu #17" khi mục tiêu 10)
+  - Điếu mục tiêu chốt 1 lần/ngày và tự chuyển sang điếu kế tiếp khi đã hút; loại STT xuất hiện quá ít (1-off)
+
 ## v1.4.0 — 2026-08-14
 ### ✨ Mới
 - **Note "Điếu nên cắt" trên trang chủ** — tự tính từ 30 ngày gần nhất (tách riêng cuối tuần/ngày thường) và nhắc nhở theo 3 trạng thái:

@@ -48,6 +48,21 @@ App SHALL chuyển note sang trạng thái khen ngợi khi giờ dự kiến c�
 - **WHEN** người dùng hút thêm điếu (số điếu hôm nay tăng)
 - **THEN** note tính toán lại và hiển thị trạng thái phù hợp với STT kế tiếp mới
 
+### Requirement: Goal-aware reward and warning
+App SHALL hiển thị khen thưởng ngay khi số điếu hôm nay đạt đúng mục tiêu ngày, và cảnh báo khi vượt mục tiêu. Mọi mục tiêu cắt SHALL được giới hạn trong hạn mức mục tiêu ngày (không đề xuất cắt điếu có STT lớn hơn goal).
+
+#### Scenario: Praises when daily goal is reached
+- **WHEN** số điếu hôm nay đạt đúng mục tiêu ngày (ví dụ 10/10)
+- **THEN** note hiển thị trạng thái khen thưởng "Đạt mục tiêu X điếu" thay vì bất kỳ mục tiêu cắt nào
+
+#### Scenario: Warns when goal is exceeded
+- **WHEN** số điếu hôm nay vượt mục tiêu ngày (ví dụ 12/10)
+- **THEN** note hiển thị cảnh báo vượt mục tiêu, không hiển thị mục tiêu cắt điếu
+
+#### Scenario: Cut target never exceeds the daily goal
+- **WHEN** mục tiêu ngày là 10 và điếu "hút theo" phổ biến nhất nằm ở STT 17 (xuất hiện ít ngày)
+- **THEN** app không đề xuất cắt điếu #17 mà chỉ chọn mục tiêu trong phạm vi STT 1..10
+
 ### Requirement: Live update cadence
 App SHALL tính lại và cập nhật note ngay sau mỗi thao tác thêm hoặc xoá điếu, và định kỳ mỗi phút khi không có thao tác.
 

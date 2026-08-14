@@ -252,8 +252,9 @@
     // ========== CUT REMINDER ==========
     const CUT_LOOKBACK = 30, CUT_MAX_GAP = 40, CUT_MAX_KEP = 20;
     const CUT_CHAIN_THRESHOLD = 0.25, CUT_KEP_THRESHOLD = 0.15;
-    const CUT_MIN_DAYS = 7, CUT_STT_CAP = 20;
+    const CUT_MIN_DAYS = 7, CUT_STT_CAP = 20, CUT_MIN_PRESENCE = 0.3;
     let cutReminderInterval = null;
+    let cutDailyTarget = null;
 
     function fmtHM(min) {
       const total = Math.round(min);
@@ -312,31 +313,45 @@
       return result;
     }
 
-    // Daily cut target: chain/kep-heavy STT still ahead; exclude rigid anchors; tail-of-day fallback
-    function selectDailyTarget(stats, dayType) {
+    // Daily cut target: chain/kep-heavy STT within the daily goal, cached once per day;
+    // rolls to the next candidate when the current one gets smoked; tail-of-day fallback
+    function getDailyTarget(stats, dayType, goal, todayCount) {
+      const today = getToday();
+      if (cutDailyTarget && cutDailyTarget.date === today) {
+        if (todayCount < cutDailyTarget.stt) return cutDailyTarget; // still not smoked — keep it
+        cutDailyTarget = null;                                      // smoked — roll to the next
+      }
       const now = new Date();
       const nowMin = now.getHours() * 60 + now.getMinutes();
-      const arr = stats[dayType] || [];
+      let arr = stats[dayType] || [];
+      if (goal > 0) arr = arr.filter(st => st.stt <= goal);          // never target beyond the goal
       if (!arr.length) return null;
       const presentDays = stats.dayCount || 1;
       const candidates = arr.filter(st => {
+        if (st.stt <= todayCount) return false;                      // never target an already-smoked cig
         if (st.chainFreq < CUT_CHAIN_THRESHOLD && st.kepFreq < CUT_KEP_THRESHOLD) return false;
         const presence = st.present / presentDays;
+        if (presence < CUT_MIN_PRESENCE) return false;               // stable pattern only (no 1-off STTs)
         const anchor = presence >= 0.6 && st.stdevTime <= 45 && st.chainFreq < 0.2;
         return !anchor;
       });
-      if (!candidates.length) {
-        // Tail-of-day fallback: latest STT with presence is naturally optional
-        const tail = arr.filter(st => st.present > 0);
-        return tail.length ? tail[tail.length - 1] : null;
-      }
-      const future = candidates.filter(st => st.avgTime > nowMin - 15);
-      const pool = future.length ? future : candidates;
+      const upcoming = candidates.filter(st => st.avgTime > nowMin - 15);
+      const pool = upcoming.length ? upcoming : candidates;
       pool.sort((a, b) => a.avgTime - b.avgTime);
-      return pool[0];
+      if (pool.length) {
+        cutDailyTarget = Object.assign({ date: today, reason: 'chain' }, pool[0]);
+        return cutDailyTarget;
+      }
+      // Tail-of-day fallback: latest upcoming cigarette within the goal limit
+      const tail = arr.filter(st => st.present > 0 && st.stt > todayCount && st.avgTime > nowMin - 15);
+      if (tail.length) {
+        cutDailyTarget = Object.assign({ date: today, reason: 'tail' }, tail[tail.length - 1]);
+        return cutDailyTarget;
+      }
+      return null;
     }
 
-    // 3-state note: WARN (next cig is a chain follower) > PRAISE (target passed unsmoked) > TARGET
+    // 4-state note: GOAL (reached/exceeded) > WARN (next chain cig) > PRAISE (target passed) > TARGET
     function renderCutReminder() {
       const el = gid('cutNote');
       if (!el) return;
@@ -357,6 +372,26 @@
       const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
       const arr = stats[dayType] || [];
       const todayCount = getTodayData().length;
+      const cfg = loadConfig();
+      const goal = cfg.goal || 0;
+
+      // GOAL state (top priority): reward at exactly goal, stop-warning when over
+      if (goal > 0 && todayCount >= goal) {
+        el.style.display = '';
+        if (todayCount === goal) {
+          el.className = 'cut-note praise';
+          gid('cutNoteIcon').textContent = '🎉';
+          gid('cutNoteText').textContent = `Đạt mục tiêu ${goal} điếu — thắng hôm nay rồi!`;
+          gid('cutNoteSub').textContent = 'Đừng hút thêm nữa nhé, giữ đà!';
+        } else {
+          el.className = 'cut-note warn';
+          gid('cutNoteIcon').textContent = '⚠️';
+          gid('cutNoteText').textContent = `Vượt mục tiêu ${goal} điếu (đang ${todayCount}) — dừng lại!`;
+          gid('cutNoteSub').textContent = `+${todayCount - goal} điếu ngoài kế hoạch hôm nay`;
+        }
+        return;
+      }
+
       const nextStt = todayCount + 1;
       const st = arr[nextStt - 1];
       const slack = st ? Math.max(30, st.stdevTime) : 30;
@@ -371,8 +406,9 @@
         return;
       }
 
+      const target = getDailyTarget(stats, dayType, goal, todayCount);
+
       // PRAISE: daily target's predicted time passed without smoking it
-      const target = selectDailyTarget(stats, dayType);
       if (target && nowMin > target.avgTime + Math.max(30, target.stdevTime) && todayCount < target.stt) {
         el.style.display = '';
         el.className = 'cut-note praise';
@@ -387,11 +423,17 @@
         el.style.display = '';
         el.className = 'cut-note target';
         gid('cutNoteIcon').textContent = '🎯';
-        const freqLabel = target.kepFreq >= CUT_KEP_THRESHOLD
-          ? `kép ${target.kep}/${target.present} ngày`
-          : `hút theo ${target.chain}/${target.present} ngày`;
         gid('cutNoteText').textContent = `Hôm nay cắt điếu #${target.stt} ≈ ${fmtHM(target.avgTime)}`;
-        gid('cutNoteSub').textContent = `${freqLabel} trong 30 ngày qua — thử bỏ nó nhé!`;
+        if (target.reason === 'tail') {
+          gid('cutNoteSub').textContent = goal > 0
+            ? `Điếu cuối trong hạn mức ${goal} — bỏ nó để về ${target.stt - 1} điếu!`
+            : 'Điếu cuối ngày — bỏ nó để về sớm hơn!';
+        } else {
+          const freqLabel = target.kepFreq >= CUT_KEP_THRESHOLD
+            ? `kép ${target.kep}/${target.present} ngày`
+            : `hút theo ${target.chain}/${target.present} ngày`;
+          gid('cutNoteSub').textContent = `${freqLabel} trong 30 ngày qua — thử bỏ nó nhé!`;
+        }
         return;
       }
 

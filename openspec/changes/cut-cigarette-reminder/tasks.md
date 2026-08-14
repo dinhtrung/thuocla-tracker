@@ -17,3 +17,11 @@
 - [x] 3.2 Bump `CACHE` version trong `service-worker.js` (bắt buộc — cache-first)
 - [x] 3.3 Cập nhật CHANGELOG.md (mục `✨ Mới`) + `git add` targeted (chỉ index.html, app.js, styles.css, service-worker.js, CHANGELOG.md — tránh `.serena/`) + commit + push
 - [x] 3.4 Verify live: `curl -s https://thuocla-tracker.vercel.app/app.js | grep` code mới + xác nhận `CACHE` mới được serve
+
+## 4. Goal-aware fix (phản hồi user 2026-08-14: "thuật toán chỉ đúng nếu hút nhiều hơn kế hoạch")
+
+- [x] 4.1 Thêm GOAL state (ưu tiên cao nhất): `todayCount == goal` → 🎉 khen "Đạt mục tiêu X điếu"; `todayCount > goal` → ⚠️ cảnh báo vượt mục tiêu
+- [x] 4.2 Giới hạn mục tiêu cắt trong hạn mức: `getDailyTarget()` filter `stt <= goal`; thêm `CUT_MIN_PRESENCE=0.3` loại STT 1-off; tail fallback chỉ chọn điếu chưa tới giờ
+- [x] 4.3 Cache target 1 lần/ngày (`cutDailyTarget`), tự roll sang điếu kế tiếp khi target đã bị hút
+- [x] 4.4 Cập nhật spec (Goal-aware reward requirement) + design (D2/D2b) + CHANGELOG v1.4.1 + SW v21
+- [x] 4.5 Verify 18 assertions: goal-reached/exceeded/tail mới + regression warn/target/praise/neutral/live/layout (puppeteer) → deploy + curl live
