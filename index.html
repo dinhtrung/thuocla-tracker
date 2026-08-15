@@ -212,6 +212,14 @@
         <div class="stat-card green"><div class="stat-number" id="chainStreak">0</div><div class="stat-label">Ngày liên tiếp tốt 🔥</div></div>
       </div>
 
+      <div class="section-title">🧮 2 chuẩn khen/cảnh báo <span>debug note chính</span></div>
+      <div style="background:var(--surface);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.8;color:var(--text-dim);">
+        <div>① Chuẩn thói quen (30 ngày, hôm qua về trước): giờ này TB <b id="dbgHabitCount" style="color:var(--green)">-</b> điếu</div>
+        <div>② Nhịp mục tiêu (biên độ ÷ goal): tới giờ này nên ≤ <b id="dbgTargetCount" style="color:var(--accent)">-</b> điếu · giãn <b id="dbgMinsPerCig">-</b> ph/điếu</div>
+        <div>Điếu đầu TB <b id="dbgFirst">-</b> · điếu cuối TB <b id="dbgLast">-</b> · biên độ <b id="dbgSpan">-</b></div>
+        <div>Hôm nay: <b id="dbgToday" style="color:var(--text)">-</b>/<b id="dbgGoal">-</b> điếu → <b id="dbgVerdict">-</b></div>
+      </div>
+
       <div class="section-title">✂️ Cửa sổ cắt <span>điếu hút theo ≤40ph, 30 ngày qua</span></div>
       <div class="chart-container" style="padding:8px 4px;">
         <svg id="cutWindowSvg" class="chart-svg" viewBox="0 0 640 200" preserveAspectRatio="xMidYMid meet" style="height:200px;"></svg>

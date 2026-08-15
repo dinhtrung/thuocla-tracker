@@ -2,6 +2,10 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.6 — 2026-08-15
+### ✨ Mới
+- **Tab Insights: section debug "2 chuẩn khen/cảnh báo"** — hiển thị số liệu đang dùng cho note chính: chuẩn thói quen (TB điếu giờ này, 30 ngày), chuẩn nhịp mục tiêu (giới hạn điếu giờ này + số phút cần giãn/điếu), điếu đầu/cuối TB, biên độ, và verdict hiện tại (khen / hết hạn mức sớm / trên cả 2 chuẩn…) — để kiểm tra thuật toán dễ dàng
+
 ## v1.4.5 — 2026-08-15
 ### 🐛 Fixes
 - **Không còn khen "thắng hôm nay" khi hút hết quota lúc chiều/tối sớm** — trước đây 17:40 đã 12/12 vẫn hiện 🎉 "Đạt mục tiêu — thắng hôm nay rồi!" dù còn cả buổi tối phía trước. Giờ: đạt đủ goal TRƯỚC giờ điếu cuối thường lệ (TB 30 ngày − 30ph) → ⚠️ "Hết hạn mức X điếu rồi — tối nay đừng hút nữa!"; chỉ 🎉 khen khi đã qua mốc đó (ngày gần kết thúc)

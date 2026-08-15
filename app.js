@@ -1566,9 +1566,51 @@
       gid('cutMoney').textContent = perMonth > 0 ? `${Math.round(perMonth/1000)}k` : '—';
     }
 
+    // Debug: hiển thị 2 chuẩn (thói quen 30 ngày + nhịp mục tiêu) đang dùng cho note chính,
+    // cùng số liệu trung gian — khớp logic renderCutReminder (user request 2026-08-15).
+    function renderDualBenchmark() {
+      const el = gid('dbgHabitCount');
+      if (!el) return;
+      const stats = computeSttStats();
+      const d = new Date();
+      const nowMin = d.getHours() * 60 + d.getMinutes();
+      const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+      const arr = stats[dayType] || [];
+      const todayCount = getTodayData().length;
+      const cfg = loadConfig();
+      const goal = parseInt(cfg.goal, 10) || 0;
+      const firstAvg = arr.length ? arr[0].avgTime : 0;
+      const avgCount = getAvgCountByNow(nowMin, dayType);
+      const lastAvg = getAvgLastCigTime(dayType);
+      const span = (lastAvg > 0 && firstAvg > 0) ? lastAvg - firstAvg : 0;
+      const minsPerCig = goal > 0 && span > 0 ? span / goal : 0;
+      const targetCount = (minsPerCig > 0 && nowMin > firstAvg)
+        ? Math.min(goal, Math.ceil((nowMin - firstAvg) / minsPerCig))
+        : 0;
+      const belowTarget = targetCount === 0 || todayCount <= targetCount;
+      let verdict = '—';
+      if (stats.dayCount < CUT_MIN_DAYS) verdict = '📊 Cần thêm dữ liệu';
+      else if (goal > 0 && todayCount >= goal) verdict = todayCount === goal
+        ? (nowMin >= (lastAvg > 0 ? lastAvg - 30 : 22 * 60) ? '🎉 Đạt mục tiêu (hết ngày)' : '⚠️ Hết hạn mức sớm')
+        : '⚠️ Vượt mục tiêu';
+      else if (belowTarget && todayCount < avgCount && nowMin >= firstAvg) verdict = '✅ Dưới cả 2 chuẩn → khen';
+      else if (targetCount > 0 && todayCount > avgCount && todayCount > targetCount) verdict = '⚠️ Trên cả 2 chuẩn → giãn ra';
+      else verdict = '⚖️ Giữa 2 chuẩn → note cắt';
+      gid('dbgHabitCount').textContent = avgCount ? avgCount.toFixed(1) : '0';
+      gid('dbgTargetCount').textContent = targetCount || '0';
+      gid('dbgMinsPerCig').textContent = minsPerCig ? Math.round(minsPerCig) + 'ph' : '—';
+      gid('dbgFirst').textContent = firstAvg ? fmtHM(firstAvg) : '—';
+      gid('dbgLast').textContent = lastAvg ? fmtHM(lastAvg) : '—';
+      gid('dbgSpan').textContent = span ? fmtHM(span) : '—';
+      gid('dbgToday').textContent = todayCount;
+      gid('dbgGoal').textContent = goal;
+      gid('dbgVerdict').textContent = verdict;
+    }
+
     function renderInsights() {
       const data = loadData(), cfg = loadConfig(), today = getToday();
       renderCutWindows();
+      renderDualBenchmark();
       const MAX_CHAIN = 30;
       let chainToday = 0, chainWeek = 0;
       const sortedDays = Object.keys(data).sort();
