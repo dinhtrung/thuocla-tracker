@@ -38,3 +38,9 @@
 - [x] 6.2 Fix bug presence: `present / typeCount[dayType]` (8 ngày cuối tuần / 8) thay vì `/ dayCount` (8/29) — candidate cuối tuần từng bị loại nhầm → target nhảy sai (#6 thay vì #3)
 - [x] 6.3 getDailyTarget chỉ nhận candidate chưa qua giờ (bỏ pool passed) — không hiện "cắt điếu đã qua giờ"
 - [x] 6.4 Verify: user case 4/4 (08:00 WARN #3 → 09:00 KHEN → 07:00 target #3 → 08:40 hết khen stale) + regression 13/13 → deploy SW v23 + curl live
+
+## 7. Ideal = TB hôm qua về trước (chỉ đạo user 2026-08-15: "Sao lại +1 làm gì?")
+
+- [x] 7.1 Bỏ +1: `getAvgCountByNow()` — TB số điếu hút tới giờ này, cửa sổ 30 ngày, LOẠI hôm nay (ds >= today skip), tách weekend/weekday; idealStt = ceil(TB)
+- [x] 7.2 Khen ưu tiên TRƯỚC WARN (user: 08:00 mới 2/12 → phải khen, không đe "cắt #3") — thứ tự GOAL > PRAISE > WARN > TARGET > fallback
+- [x] 7.3 Verify bằng DỮ LIỆU THẬT (CSV 07-15→08-15, goal 12): 6/6 — 07:00(1) khen, 08:00(2) khen TB~2.4, 08:55/09:00(3) khen, 10:00(3) khen "ít hơn 2", 08:40(4 >TB 3.3) → WARN #5; regression 13/13 → deploy SW v24 + curl live
