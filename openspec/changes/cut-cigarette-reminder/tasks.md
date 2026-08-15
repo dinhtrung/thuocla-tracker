@@ -31,3 +31,10 @@
 - [x] 5.1 Probe tái hiện data thật (không chuỗi, 10 điếu/ngày, goal 10-12): xác nhận case `9/10 @ 22:30 → display:none` (panel ẩn đúng lúc hút ít hơn kế hoạch)
 - [x] 5.2 Thay nhánh ẩn bằng trạng thái động viên: "Còn X điếu trong hạn mức Y hôm nay — giữ nhịp nhé!" (goal>0) / 💪 không đáng cắt (goal=0); chuẩn hoá `goal = parseInt(cfg.goal,10)||0`
 - [x] 5.3 Verify 18 assertions (live-update expectation đổi thành "fallback shown") + probe 4/4 hiển thị → deploy SW v22 + curl live
+
+## 6. Behind-pace praise (chỉ đạo user 2026-08-15: "so sánh STT điếu hiện tại với trường hợp lý tưởng, nhỏ hơn thì khen")
+
+- [x] 6.1 Thay cơ chế khen cũ (target qua giờ) bằng `getExpectedStt()`: đếm STT presence ≥30% (theo đúng loại ngày) đã qua `avgTime+slack`; `todayCount < expected` → ✅ "Hút ít hơn nhịp thường ngày X điếu — giỏi lắm!"
+- [x] 6.2 Fix bug presence: `present / typeCount[dayType]` (8 ngày cuối tuần / 8) thay vì `/ dayCount` (8/29) — candidate cuối tuần từng bị loại nhầm → target nhảy sai (#6 thay vì #3)
+- [x] 6.3 getDailyTarget chỉ nhận candidate chưa qua giờ (bỏ pool passed) — không hiện "cắt điếu đã qua giờ"
+- [x] 6.4 Verify: user case 4/4 (08:00 WARN #3 → 09:00 KHEN → 07:00 target #3 → 08:40 hết khen stale) + regression 13/13 → deploy SW v23 + curl live
