@@ -43,7 +43,7 @@ if goal > 0 && todayCount >= goal:
                        todayCount  > goal: ⚠️ "Vượt mục tiêu X điếu (đang N) — dừng lại!"
 else:
     STT kế tiếp = todayCount + 1  (≤ goal, tự giới hạn)
-    expectedStt = số STT có presence ≥ 30% (theo loại ngày) đã qua giờ dự kiến + slack
+    expectedStt = ceil(TB số điếu đã hút tới giờ này theo dữ liệu hôm qua về trước, theo loại ngày)
     if todayCount < expectedStt:
         → KHEN      ✅ "Hút ít hơn nhịp thường ngày {expected-todayCount} điếu — giỏi lắm!"
     elif s.chainFreq ≥ 0.25 và now < s.avgTime + slack:

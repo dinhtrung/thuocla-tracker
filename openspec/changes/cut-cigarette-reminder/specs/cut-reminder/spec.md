@@ -38,19 +38,23 @@ App SHALL hiển thị cảnh báo khi điếu kế tiếp người dùng sắp 
 - **THEN** note không hiện cảnh báo, giữ nguyên trạng thái mục tiêu (nếu có)
 
 ### Requirement: Behind-pace praise
-App SHALL so sánh số thứ tự (STT) của điếu hiện tại với "trường hợp lý tưởng" — số điếu mà một ngày bình thường đáng lẽ đã hút tới thời điểm hiện tại (theo lịch sử 30 ngày, tách cuối tuần/ngày thường). Khi số điếu hôm nay nhỏ hơn vị trí lý tưởng, note SHALL hiển thị trạng thái khen ngợi.
+App SHALL so sánh số thứ tự (STT) của điếu hiện tại với STT của "trường hợp lý tưởng" — ideal là **trung bình số điếu đã hút tới thời điểm hiện tại, tính từ dữ liệu hôm qua về trước (không gồm hôm nay)**, trong cửa sổ 30 ngày, tách riêng cuối tuần/ngày thường; STT của ideal là trung bình làm tròn lên (ceil). Khi số điếu hôm nay nhỏ hơn STT của ideal, note SHALL hiển thị trạng thái khen ngợi và khen có độ ưu tiên cao hơn cảnh báo cắt điếu.
 
-#### Scenario: Praises when smoking fewer than usual pace
-- **WHEN** lúc 09:00 thường đã hút tới điếu #3 mà hôm nay mới hút 2 điếu (đã cắt điếu #3)
-- **THEN** note hiển thị khen ngợi dạng "Hút ít hơn nhịp thường ngày X điếu — giỏi lắm!"
+#### Scenario: Praises when smoking fewer than the average pace
+- **WHEN** lúc 08:00 trung bình các ngày trước đã hút ~2.4 điếu (STT ideal = 3) mà hôm nay mới hút 2 điếu
+- **THEN** note hiển thị khen ngợi dạng "Hút ít hơn nhịp thường ngày 1 điếu — giỏi lắm!" và KHÔNG hiển thị cảnh báo cắt điếu #3
 
-#### Scenario: No praise when on or ahead of usual pace
-- **WHEN** số điếu hôm nay bằng hoặc lớn hơn vị trí STT lý tưởng theo nhịp thường ngày
-- **THEN** note không hiển thị trạng thái khen, chuyển sang cảnh báo/mục tiêu cắt tương ứng
+#### Scenario: Praise wins over warning
+- **WHEN** hôm nay hút ít hơn STT ideal nhưng điếu kế tiếp là "điếu hút theo"
+- **THEN** note hiển thị khen ngợi (không hiển thị cảnh báo)
 
-#### Scenario: Ideal position uses day-type history
-- **WHEN** hôm nay là cuối tuần
-- **THEN** vị trí lý tưởng tính từ thống kê riêng của các ngày cuối tuần (không trộn với ngày thường)
+#### Scenario: No praise when at or above average pace
+- **WHEN** số điếu hôm nay bằng hoặc lớn hơn STT của ideal (ví dụ 4 điếu lúc 08:40 trong khi trung bình ~3.3)
+- **THEN** note không khen; hiển thị cảnh báo/mục tiêu cắt tương ứng
+
+#### Scenario: Ideal excludes today's records
+- **WHEN** tính trung bình lý tưởng
+- **THEN** dữ liệu hôm nay không được tính vào trung bình (chỉ hôm qua về trước)
 
 ### Requirement: Goal-aware reward and warning
 App SHALL hiển thị khen thưởng ngay khi số điếu hôm nay đạt đúng mục tiêu ngày, và cảnh báo khi vượt mục tiêu. Mọi mục tiêu cắt SHALL được giới hạn trong hạn mức mục tiêu ngày (không đề xuất cắt điếu có STT lớn hơn goal).

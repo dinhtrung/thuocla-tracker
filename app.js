@@ -352,15 +352,30 @@
       return null;
     }
 
-    // Expected STT by now ("trường hợp lý tưởng"): number of cigarettes a normal
-    // day would have reached by this time, per history (day-type split, presence floor)
-    function getExpectedStt(stats, dayType, nowMin) {
-      const arr = stats[dayType] || [];
-      const typeDays = stats.typeCount[dayType] || 1;
-      return arr.reduce((n, st) => n + (
-        st.present / typeDays >= CUT_MIN_PRESENCE &&
-        st.avgTime + Math.max(30, st.stdevTime) <= nowMin ? 1 : 0
-      ), 0);
+    // Ideal ("trường hợp lý tưởng"): trung bình số điếu đã hút tới giờ này theo dữ liệu
+    // TỪ HÔM QUA VỀ TRƯỚC (loại hôm nay khỏi trung bình), tách cuối tuần/ngày thường.
+    // user directive 2026-08-15: "Ideal thì là trung bình từ dữ liệu từ hôm qua về trước.
+    // Khen thì so với số thứ tự của ideal" — KHÔNG +1.
+    function getAvgCountByNow(nowMin, dayType) {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      let sum = 0, n = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds >= today || !recs.length) continue; // hôm qua về trước
+        const d = new Date(ds + 'T00:00:00');
+        const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        if (dt !== dayType) continue;
+        let c = 0;
+        for (const r of recs) {
+          const t = new Date(r.time);
+          if (t.getHours() * 60 + t.getMinutes() <= nowMin) c++;
+        }
+        sum += c; n++;
+      }
+      return n ? sum / n : 0;
     }
 
     // 4-state note: GOAL (reached/exceeded) > PRAISE (behind usual pace) > WARN (next chain cig) > TARGET
@@ -404,6 +419,21 @@
         return;
       }
 
+      // PRAISE: so STT hiện tại với STT của ideal (trung bình hôm qua về trước) — ít hơn thì khen
+      // (ưu tiên TRƯỚC cảnh báo — user directive 2026-08-15)
+      const firstAvg = arr.length ? arr[0].avgTime : 0; // chỉ khen khi ngày đã "bắt đầu" theo nhịp
+      const avgCount = getAvgCountByNow(nowMin, dayType);
+      const idealStt = Math.ceil(avgCount);
+      if (todayCount < idealStt && nowMin >= firstAvg) {
+        const diff = idealStt - todayCount;
+        el.style.display = '';
+        el.className = 'cut-note praise';
+        gid('cutNoteIcon').textContent = '✅';
+        gid('cutNoteText').textContent = `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
+        gid('cutNoteSub').textContent = `Lúc này thường đã hút ~${avgCount.toFixed(1)} điếu — bạn mới ${todayCount}. Cứ đà này!`;
+        return;
+      }
+
       const nextStt = todayCount + 1;
       const st = arr[nextStt - 1];
       const slack = st ? Math.max(30, st.stdevTime) : 30;
@@ -415,19 +445,6 @@
         gid('cutNoteIcon').textContent = '⚠️';
         gid('cutNoteText').textContent = `Điếu #${nextStt} ≈ ${fmtHM(st.avgTime)} — đây là điếu hút theo, thử cắt!`;
         gid('cutNoteSub').textContent = `${st.chain}/${st.present} ngày là "điếu theo" (gap ≤40ph) trong 30 ngày qua`;
-        return;
-      }
-
-      // PRAISE: so STT hiện tại với nhịp thường ngày — hút ít hơn thì khen
-      // (user directive 2026-08-15: "so sánh số thứ tự của điếu hiện tại với trường hợp lý tưởng, nhỏ hơn thì khen")
-      const expectedStt = getExpectedStt(stats, dayType, nowMin);
-      if (todayCount < expectedStt) {
-        const diff = expectedStt - todayCount;
-        el.style.display = '';
-        el.className = 'cut-note praise';
-        gid('cutNoteIcon').textContent = '✅';
-        gid('cutNoteText').textContent = `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
-        gid('cutNoteSub').textContent = `Lúc này thường đã tới điếu #${expectedStt}${todayCount === 0 ? ' — bạn chưa hút điếu nào' : ` — bạn mới ${todayCount}`}. Cứ đà này!`;
         return;
       }
 

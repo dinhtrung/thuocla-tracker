@@ -2,6 +2,11 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.4 — 2026-08-15
+### ✨ Mới
+- **Khen theo "ideal" đúng nghĩa** — ideal = trung bình số điếu đã hút tới giờ này, tính từ dữ liệu hôm qua về trước (tách cuối tuần/ngày thường). Hôm nay hút ít hơn STT của ideal → ✅ khen "Hút ít hơn nhịp thường ngày X điếu". Lời khen ưu tiên trước cảnh báo — lúc 08:00 mới 2/12 sẽ thấy khen (thường đã hút ~2.4 điếu) thay vì bị đe "cắt điếu #3"
+- Khi hút NHIỀU hơn trung bình → không khen, quay lại cảnh báo điếu "hút theo" kế tiếp
+
 ## v1.4.3 — 2026-08-15
 ### ✨ Mới
 - **Khen khi hút ít hơn nhịp thường ngày** — note so sánh số điếu hôm nay với "trường hợp lý tưởng" (số điếu thường đã hút tới giờ này theo lịch sử): hút ít hơn → ✅ "Hút ít hơn nhịp thường ngày X điếu — giỏi lắm!". Ví dụ: cắt điếu #3 lúc 08:07 xong, đến 09:00 thấy ngay lời khen.
