@@ -1,6 +1,6 @@
 # 🚬 Thuốc Lá Tracker
 
-PWA đếm số điếu thuốc đã hút trong ngày — nhẹ, nhanh, miễn phí, không cần cài app. *[Changelog](CHANGELOG.md) • v1.3.1*
+PWA đếm số điếu thuốc đã hút trong ngày — nhẹ, nhanh, miễn phí, không cần cài app. *[Changelog](CHANGELOG.md) • v1.4.6*
 
 ## 📸 Giao diện
 
