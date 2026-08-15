@@ -378,6 +378,28 @@
       return n ? sum / n : 0;
     }
 
+    // Giờ điếu cuối trung bình theo loại ngày (hôm qua về trước) — record CUỐI mỗi ngày,
+    // không phải STT slot cuối (slot cuối có thể là ngày hiếm hút 20 điếu → sai giờ).
+    function getAvgLastCigTime(dayType) {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      let sum = 0, n = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds >= today || !recs.length) continue;
+        const d = new Date(ds + 'T00:00:00');
+        const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        if (dt !== dayType) continue;
+        const sorted = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        const t = new Date(sorted[sorted.length - 1].time);
+        sum += t.getHours() * 60 + t.getMinutes();
+        n++;
+      }
+      return n ? sum / n : 0;
+    }
+
     // 4-state note: GOAL (reached/exceeded) > PRAISE (behind usual pace) > WARN (next chain cig) > TARGET
     function renderCutReminder() {
       const el = gid('cutNote');
@@ -402,14 +424,27 @@
       const cfg = loadConfig();
       const goal = parseInt(cfg.goal, 10) || 0;
 
-      // GOAL state (top priority): reward at exactly goal, stop-warning when over
+      // GOAL state (top priority): reward at exactly goal, stop-warning when over.
+      // Đạt goal SỚM (trước giờ điếu cuối thường lệ) = hút quá nhanh → CẢNH BÁO hết hạn mức,
+      // không khen — user directive 2026-08-15: "mới 17:40 đã hút hết 12 điếu mà vẫn khen à?"
       if (goal > 0 && todayCount >= goal) {
         el.style.display = '';
         if (todayCount === goal) {
-          el.className = 'cut-note praise';
-          gid('cutNoteIcon').textContent = '🎉';
-          gid('cutNoteText').textContent = `Đạt mục tiêu ${goal} điếu — thắng hôm nay rồi!`;
-          gid('cutNoteSub').textContent = 'Đừng hút thêm nữa nhé, giữ đà!';
+          const lastCigAvg = getAvgLastCigTime(dayType);
+          const endDay = lastCigAvg > 0 ? lastCigAvg - 30 : 22 * 60; // qua giờ điếu cuối TB (hoặc 22:00) mới tính là hết ngày
+          if (nowMin >= endDay) {
+            el.className = 'cut-note praise';
+            gid('cutNoteIcon').textContent = '🎉';
+            gid('cutNoteText').textContent = `Đạt mục tiêu ${goal} điếu — thắng hôm nay rồi!`;
+            gid('cutNoteSub').textContent = 'Đừng hút thêm nữa nhé, giữ đà!';
+          } else {
+            el.className = 'cut-note warn';
+            gid('cutNoteIcon').textContent = '⚠️';
+            gid('cutNoteText').textContent = `Hết hạn mức ${goal} điếu rồi — tối nay đừng hút nữa!`;
+            gid('cutNoteSub').textContent = lastCigAvg > 0
+              ? `Mới ${fmtHM(nowMin)} đã dùng hết quota — thường ngày bạn hút đến ~${fmtHM(lastCigAvg)}. Giữ kỷ luật!`
+              : `Mới ${fmtHM(nowMin)} đã dùng hết quota — từ giờ đến hết ngày đừng hút thêm nữa!`;
+          }
         } else {
           el.className = 'cut-note warn';
           gid('cutNoteIcon').textContent = '⚠️';
@@ -419,18 +454,40 @@
         return;
       }
 
-      // PRAISE: so STT hiện tại với STT của ideal (trung bình hôm qua về trước) — ít hơn thì khen
+      // 2 CHUẨN SO SÁNH (user directive 2026-08-15):
+      // A) chuẩn thói quen = TB điếu đã hút tới giờ này (hôm qua về trước)
+      // B) chuẩn nhịp mục tiêu = giãn avgSpan/goal phút/điếu để vừa đủ goal cuối ngày
+      const firstAvg = arr.length ? arr[0].avgTime : 0; // giờ điếu đầu TB theo loại ngày
+      const avgCount = getAvgCountByNow(nowMin, dayType); // chuẩn A
+      const lastAvg = getAvgLastCigTime(dayType);         // giờ điếu cuối TB
+      const span = (lastAvg > 0 && firstAvg > 0) ? lastAvg - firstAvg : 0;
+      const minsPerCig = goal > 0 && span > 0 ? span / goal : 0; // phút cần giãn/điếu để về đúng goal
+      const targetCount = (minsPerCig > 0 && nowMin > firstAvg)
+        ? Math.min(goal, Math.ceil((nowMin - firstAvg) / minsPerCig)) // chuẩn B
+        : 0;
+
+      // PRAISE: dưới CẢ 2 chuẩn — hút ít hơn thói quen VÀ không vượt nhịp mục tiêu
       // (ưu tiên TRƯỚC cảnh báo — user directive 2026-08-15)
-      const firstAvg = arr.length ? arr[0].avgTime : 0; // chỉ khen khi ngày đã "bắt đầu" theo nhịp
-      const avgCount = getAvgCountByNow(nowMin, dayType);
-      const idealStt = Math.ceil(avgCount);
-      if (todayCount < idealStt && nowMin >= firstAvg) {
-        const diff = idealStt - todayCount;
+      const belowTarget = targetCount === 0 || todayCount <= targetCount;
+      if (belowTarget && todayCount < avgCount && nowMin >= firstAvg) {
+        const diff = Math.ceil(avgCount) - todayCount;
         el.style.display = '';
         el.className = 'cut-note praise';
         gid('cutNoteIcon').textContent = '✅';
         gid('cutNoteText').textContent = `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
-        gid('cutNoteSub').textContent = `Lúc này thường đã hút ~${avgCount.toFixed(1)} điếu — bạn mới ${todayCount}. Cứ đà này!`;
+        gid('cutNoteSub').textContent = targetCount > 0
+          ? `Lúc này thường ~${avgCount.toFixed(1)} điếu, nhịp mục tiêu ~${targetCount} — bạn mới ${todayCount}. Cứ đà này!`
+          : `Lúc này thường đã hút ~${avgCount.toFixed(1)} điếu — bạn mới ${todayCount}. Cứ đà này!`;
+        return;
+      }
+
+      // PACE-WARN: trên CẢ 2 chuẩn — hút nhanh hơn thói quen lẫn nhịp mục tiêu → giãn ra
+      if (targetCount > 0 && todayCount > avgCount && todayCount > targetCount) {
+        el.style.display = '';
+        el.className = 'cut-note warn';
+        gid('cutNoteIcon').textContent = '⚠️';
+        gid('cutNoteText').textContent = `Hút nhanh hơn cả thói quen lẫn nhịp mục tiêu — giãn ra!`;
+        gid('cutNoteSub').textContent = `Thường giờ này ~${avgCount.toFixed(1)} điếu, nhịp mục tiêu ~${targetCount} — bạn đã ${todayCount}. Cần giãn ~${Math.round(minsPerCig)}ph/điếu để về đúng ${goal} điếu.`;
         return;
       }
 
