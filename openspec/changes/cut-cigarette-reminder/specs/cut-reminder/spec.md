@@ -37,16 +37,20 @@ App SHALL hiển thị cảnh báo khi điếu kế tiếp người dùng sắp 
 - **WHEN** STT kế tiếp không phải là "điếu hút theo" theo ngưỡng trên
 - **THEN** note không hiện cảnh báo, giữ nguyên trạng thái mục tiêu (nếu có)
 
-### Requirement: Success acknowledgment
-App SHALL chuyển note sang trạng thái khen ngợi khi giờ dự kiến của điếu mục tiêu đã qua (cộng thêm độ lệch chuẩn, tối thiểu 30 phút) mà người dùng chưa hút điếu đó.
+### Requirement: Behind-pace praise
+App SHALL so sánh số thứ tự (STT) của điếu hiện tại với "trường hợp lý tưởng" — số điếu mà một ngày bình thường đáng lẽ đã hút tới thời điểm hiện tại (theo lịch sử 30 ngày, tách cuối tuần/ngày thường). Khi số điếu hôm nay nhỏ hơn vị trí lý tưởng, note SHALL hiển thị trạng thái khen ngợi.
 
-#### Scenario: Praises after skipping the target
-- **WHEN** giờ hiện tại > giờ dự kiến của điếu mục tiêu + độ lệch cho phép, và số điếu hôm nay chưa đạt tới STT mục tiêu
-- **THEN** note hiển thị dạng "✅ Đã qua HH:MM chưa hút điếu #N — cắt thành công!"
+#### Scenario: Praises when smoking fewer than usual pace
+- **WHEN** lúc 09:00 thường đã hút tới điếu #3 mà hôm nay mới hút 2 điếu (đã cắt điếu #3)
+- **THEN** note hiển thị khen ngợi dạng "Hút ít hơn nhịp thường ngày X điếu — giỏi lắm!"
 
-#### Scenario: Returns to normal state after smoking
-- **WHEN** người dùng hút thêm điếu (số điếu hôm nay tăng)
-- **THEN** note tính toán lại và hiển thị trạng thái phù hợp với STT kế tiếp mới
+#### Scenario: No praise when on or ahead of usual pace
+- **WHEN** số điếu hôm nay bằng hoặc lớn hơn vị trí STT lý tưởng theo nhịp thường ngày
+- **THEN** note không hiển thị trạng thái khen, chuyển sang cảnh báo/mục tiêu cắt tương ứng
+
+#### Scenario: Ideal position uses day-type history
+- **WHEN** hôm nay là cuối tuần
+- **THEN** vị trí lý tưởng tính từ thống kê riêng của các ngày cuối tuần (không trộn với ngày thường)
 
 ### Requirement: Goal-aware reward and warning
 App SHALL hiển thị khen thưởng ngay khi số điếu hôm nay đạt đúng mục tiêu ngày, và cảnh báo khi vượt mục tiêu. Mọi mục tiêu cắt SHALL được giới hạn trong hạn mức mục tiêu ngày (không đề xuất cắt điếu có STT lớn hơn goal).

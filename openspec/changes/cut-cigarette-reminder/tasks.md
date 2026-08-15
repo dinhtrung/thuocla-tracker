@@ -25,3 +25,9 @@
 - [x] 4.3 Cache target 1 lần/ngày (`cutDailyTarget`), tự roll sang điếu kế tiếp khi target đã bị hút
 - [x] 4.4 Cập nhật spec (Goal-aware reward requirement) + design (D2/D2b) + CHANGELOG v1.4.1 + SW v21
 - [x] 4.5 Verify 18 assertions: goal-reached/exceeded/tail mới + regression warn/target/praise/neutral/live/layout (puppeteer) → deploy + curl live
+
+## 5. Persistent visibility fix (phản hồi user 2026-08-14: "giờ ko thấy panel đâu nữa")
+
+- [x] 5.1 Probe tái hiện data thật (không chuỗi, 10 điếu/ngày, goal 10-12): xác nhận case `9/10 @ 22:30 → display:none` (panel ẩn đúng lúc hút ít hơn kế hoạch)
+- [x] 5.2 Thay nhánh ẩn bằng trạng thái động viên: "Còn X điếu trong hạn mức Y hôm nay — giữ nhịp nhé!" (goal>0) / 💪 không đáng cắt (goal=0); chuẩn hoá `goal = parseInt(cfg.goal,10)||0`
+- [x] 5.3 Verify 18 assertions (live-update expectation đổi thành "fallback shown") + probe 4/4 hiển thị → deploy SW v22 + curl live

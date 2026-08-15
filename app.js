@@ -269,12 +269,14 @@
       const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const fromKey = fmt(from);
       const raw = { weekday: [], weekend: [] };
+      const typeCount = { weekday: 0, weekend: 0 };
       let dayCount = 0;
       for (const [ds, recs] of Object.entries(data)) {
         if (ds < fromKey || ds > today || !recs.length) continue;
         dayCount++;
         const d = new Date(ds + 'T00:00:00');
         const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        typeCount[dayType]++;
         const s = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
         for (let i = 0; i < s.length && i < CUT_STT_CAP; i++) {
           const st = raw[dayType][i] || (raw[dayType][i] = { present: 0, tSum: 0, t2Sum: 0, chain: 0, kep: 0 });
@@ -291,7 +293,7 @@
           }
         }
       }
-      const result = { weekday: [], weekend: [], dayCount };
+      const result = { weekday: [], weekend: [], dayCount, typeCount };
       for (const dt of ['weekday', 'weekend']) {
         const arr = raw[dt];
         for (let i = 0; i < arr.length; i++) {
@@ -326,20 +328,19 @@
       let arr = stats[dayType] || [];
       if (goal > 0) arr = arr.filter(st => st.stt <= goal);          // never target beyond the goal
       if (!arr.length) return null;
-      const presentDays = stats.dayCount || 1;
+      const typeDays = stats.typeCount[dayType] || 1;
       const candidates = arr.filter(st => {
         if (st.stt <= todayCount) return false;                      // never target an already-smoked cig
         if (st.chainFreq < CUT_CHAIN_THRESHOLD && st.kepFreq < CUT_KEP_THRESHOLD) return false;
-        const presence = st.present / presentDays;
+        const presence = st.present / typeDays;                      // per day-TYPE count (weekend vs weekday)
         if (presence < CUT_MIN_PRESENCE) return false;               // stable pattern only (no 1-off STTs)
         const anchor = presence >= 0.6 && st.stdevTime <= 45 && st.chainFreq < 0.2;
         return !anchor;
       });
       const upcoming = candidates.filter(st => st.avgTime > nowMin - 15);
-      const pool = upcoming.length ? upcoming : candidates;
-      pool.sort((a, b) => a.avgTime - b.avgTime);
-      if (pool.length) {
-        cutDailyTarget = Object.assign({ date: today, reason: 'chain' }, pool[0]);
+      if (upcoming.length) {
+        upcoming.sort((a, b) => a.avgTime - b.avgTime);
+        cutDailyTarget = Object.assign({ date: today, reason: 'chain' }, upcoming[0]);
         return cutDailyTarget;
       }
       // Tail-of-day fallback: latest upcoming cigarette within the goal limit
@@ -351,7 +352,18 @@
       return null;
     }
 
-    // 4-state note: GOAL (reached/exceeded) > WARN (next chain cig) > PRAISE (target passed) > TARGET
+    // Expected STT by now ("trường hợp lý tưởng"): number of cigarettes a normal
+    // day would have reached by this time, per history (day-type split, presence floor)
+    function getExpectedStt(stats, dayType, nowMin) {
+      const arr = stats[dayType] || [];
+      const typeDays = stats.typeCount[dayType] || 1;
+      return arr.reduce((n, st) => n + (
+        st.present / typeDays >= CUT_MIN_PRESENCE &&
+        st.avgTime + Math.max(30, st.stdevTime) <= nowMin ? 1 : 0
+      ), 0);
+    }
+
+    // 4-state note: GOAL (reached/exceeded) > PRAISE (behind usual pace) > WARN (next chain cig) > TARGET
     function renderCutReminder() {
       const el = gid('cutNote');
       if (!el) return;
@@ -406,17 +418,20 @@
         return;
       }
 
-      const target = getDailyTarget(stats, dayType, goal, todayCount);
-
-      // PRAISE: daily target's predicted time passed without smoking it
-      if (target && nowMin > target.avgTime + Math.max(30, target.stdevTime) && todayCount < target.stt) {
+      // PRAISE: so STT hiện tại với nhịp thường ngày — hút ít hơn thì khen
+      // (user directive 2026-08-15: "so sánh số thứ tự của điếu hiện tại với trường hợp lý tưởng, nhỏ hơn thì khen")
+      const expectedStt = getExpectedStt(stats, dayType, nowMin);
+      if (todayCount < expectedStt) {
+        const diff = expectedStt - todayCount;
         el.style.display = '';
         el.className = 'cut-note praise';
         gid('cutNoteIcon').textContent = '✅';
-        gid('cutNoteText').textContent = `Đã qua ${fmtHM(target.avgTime)} mà chưa hút điếu #${target.stt} — cắt thành công!`;
-        gid('cutNoteSub').textContent = 'Giữ đà nhé!';
+        gid('cutNoteText').textContent = `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
+        gid('cutNoteSub').textContent = `Lúc này thường đã tới điếu #${expectedStt}${todayCount === 0 ? ' — bạn chưa hút điếu nào' : ` — bạn mới ${todayCount}`}. Cứ đà này!`;
         return;
       }
+
+      const target = getDailyTarget(stats, dayType, goal, todayCount);
 
       // TARGET: default state
       if (target) {

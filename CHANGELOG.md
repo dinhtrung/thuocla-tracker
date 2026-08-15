@@ -2,6 +2,13 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.3 — 2026-08-15
+### ✨ Mới
+- **Khen khi hút ít hơn nhịp thường ngày** — note so sánh số điếu hôm nay với "trường hợp lý tưởng" (số điếu thường đã hút tới giờ này theo lịch sử): hút ít hơn → ✅ "Hút ít hơn nhịp thường ngày X điếu — giỏi lắm!". Ví dụ: cắt điếu #3 lúc 08:07 xong, đến 09:00 thấy ngay lời khen.
+
+### 🐛 Fixes
+- Presence chuẩn hoá theo loại ngày (cuối tuần/ngày thường) — trước đây candidate cuối tuần bị loại nhầm vì chia cho tổng số ngày, làm mục tiêu cắt nhảy sai điếu
+
 ## v1.4.2 — 2026-08-14
 ### 🐛 Fixes
 - **Note "Điếu nên cắt" không biến mất nữa** — trước đây khi hút dưới mục tiêu (ví dụ 9/10) và muộn giờ, panel ẩn hẳn. Giờ luôn hiển thị trạng thái động viên: "Còn X điếu trong hạn mức Y hôm nay — giữ nhịp nhé!"
