@@ -2,6 +2,10 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.7 — 2026-08-16
+### 🐛 Fixes
+- **Khen sai khi hút BẰNG nhịp mục tiêu** — trước đây điều kiện `todayCount <= targetCount` khiến lúc 08:00 thường ~2.3 điếu, nhịp mục tiêu ~2 mà hút đủ 2 vẫn khen "ít hơn 1 điếu". Giờ STRICT (`<`): chỉ khen khi hút ÍT HƠN nhịp mục tiêu (bạn mới 1 < 2 → ✅ "Hút ít hơn nhịp mục tiêu 1 điếu"); bằng chuẩn → không khen, chuyển sang note cắt/cảnh báo
+
 ## v1.4.6 — 2026-08-15
 ### ✨ Mới
 - **Tab Insights: section debug "2 chuẩn khen/cảnh báo"** — hiển thị số liệu đang dùng cho note chính: chuẩn thói quen (TB điếu giờ này, 30 ngày), chuẩn nhịp mục tiêu (giới hạn điếu giờ này + số phút cần giãn/điếu), điếu đầu/cuối TB, biên độ, và verdict hiện tại (khen / hết hạn mức sớm / trên cả 2 chuẩn…) — để kiểm tra thuật toán dễ dàng

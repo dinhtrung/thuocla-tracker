@@ -466,15 +466,18 @@
         ? Math.min(goal, Math.ceil((nowMin - firstAvg) / minsPerCig)) // chuẩn B
         : 0;
 
-      // PRAISE: dưới CẢ 2 chuẩn — hút ít hơn thói quen VÀ không vượt nhịp mục tiêu
-      // (ưu tiên TRƯỚC cảnh báo — user directive 2026-08-15)
-      const belowTarget = targetCount === 0 || todayCount <= targetCount;
+      // PRAISE: dưới CẢ 2 chuẩn — hút ít hơn nhịp mục tiêu (STRICT: bằng chuẩn không khen,
+      // user directive 2026-08-16: "thường 2.3, nhịp mục tiêu ~2, bạn mới 2 → không khen;
+      // bạn mới 1 mới khen") VÀ ít hơn thói quen (ưu tiên TRƯỚC cảnh báo)
+      const belowTarget = targetCount === 0 || todayCount < targetCount;
       if (belowTarget && todayCount < avgCount && nowMin >= firstAvg) {
-        const diff = Math.ceil(avgCount) - todayCount;
+        const diff = targetCount > 0 ? targetCount - todayCount : Math.ceil(avgCount) - todayCount;
         el.style.display = '';
         el.className = 'cut-note praise';
         gid('cutNoteIcon').textContent = '✅';
-        gid('cutNoteText').textContent = `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
+        gid('cutNoteText').textContent = targetCount > 0
+          ? `Hút ít hơn nhịp mục tiêu ${diff} điếu — giỏi lắm!`
+          : `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
         gid('cutNoteSub').textContent = targetCount > 0
           ? `Lúc này thường ~${avgCount.toFixed(1)} điếu, nhịp mục tiêu ~${targetCount} — bạn mới ${todayCount}. Cứ đà này!`
           : `Lúc này thường đã hút ~${avgCount.toFixed(1)} điếu — bạn mới ${todayCount}. Cứ đà này!`;
@@ -1587,7 +1590,7 @@
       const targetCount = (minsPerCig > 0 && nowMin > firstAvg)
         ? Math.min(goal, Math.ceil((nowMin - firstAvg) / minsPerCig))
         : 0;
-      const belowTarget = targetCount === 0 || todayCount <= targetCount;
+      const belowTarget = targetCount === 0 || todayCount < targetCount;
       let verdict = '—';
       if (stats.dayCount < CUT_MIN_DAYS) verdict = '📊 Cần thêm dữ liệu';
       else if (goal > 0 && todayCount >= goal) verdict = todayCount === goal
