@@ -1410,28 +1410,37 @@
       return null;
     }
 
+    // ========== FEATURES: Inline Counter Warnings ==========
+    // Cảnh báo render NGAY TRONG counter-card (chỗ số điếu) thay vì toast nổi
+    // fixed — trước đây toast che mất bottom-sheet chọn lý do hiện 2s sau +1.
+    let counterWarnTimer = null;
+    function showCounterWarn(html, variant, ms) {
+      const w = document.getElementById('counterWarn');
+      if (!w) return;
+      if (counterWarnTimer) { clearTimeout(counterWarnTimer); counterWarnTimer = null; }
+      w.className = 'counter-warn ' + variant;
+      w.innerHTML = html;
+      w.style.display = 'block'; // display:none→block restart animation fadeIn
+      counterWarnTimer = setTimeout(() => {
+        w.style.opacity = '0'; w.style.transition = 'opacity 0.3s';
+        setTimeout(() => { w.style.display = 'none'; w.style.opacity = ''; w.style.transition = ''; }, 300);
+      }, ms);
+    }
+
     function showChainAlert(gapMin) {
       const el = document.getElementById('todayCount');
       el.style.transition = 'background 0.2s';
       el.style.background = 'rgba(233,69,96,0.3)';
       setTimeout(() => { el.style.background = ''; }, 1500);
-      const n = document.createElement('div');
-      n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(233,69,96,0.95);color:white;padding:20px 28px;border-radius:16px;font-size:16px;font-weight:700;z-index:9999;text-align:center;animation:fadeIn 0.3s ease;max-width:85vw;box-shadow:0 8px 40px rgba(0,0,0,0.4);';
-      n.innerHTML = `🔥 <b>Chain-Smoke!</b><br><span style="font-size:13px;font-weight:400;">Chỉ cách điếu trước ${gapMin}ph!<br>Hãy chờ thêm ${Math.max(1,30-gapMin)}ph nữa.</span>`;
-      document.body.appendChild(n);
       if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
-      setTimeout(() => { n.style.opacity='0'; n.style.transition='opacity 0.3s'; setTimeout(()=>n.remove(),300); }, 2500);
+      showCounterWarn(`🔥 <b>Chain-Smoke!</b> Chỉ cách điếu trước ${gapMin}ph — chờ thêm ${Math.max(1,30-gapMin)}ph nữa nhé.`, 'warn-danger', 3000);
     }
 
     // ========== FEATURES: Peak Hours Warning ==========
     function checkPeakHour() {
       const h = new Date().getHours();
       if (h >= 6 && h < 12) {
-        const n = document.createElement('div');
-        n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(241,196,15,0.95);color:#1a1a2e;padding:20px 28px;border-radius:16px;font-size:15px;font-weight:600;z-index:9999;text-align:center;animation:fadeIn 0.3s ease;max-width:85vw;box-shadow:0 8px 40px rgba(0,0,0,0.4);';
-        n.innerHTML = `🌅 <b>Khung giờ đỉnh!</b><br><span style="font-size:13px;font-weight:400;">Sáng nay đã hút ${getTodayData().length} điếu.<br>36% tổng số rơi vào khung này — cố gắng giảm nhé!</span>`;
-        document.body.appendChild(n);
-        setTimeout(() => { n.style.opacity='0'; n.style.transition='opacity 0.3s'; setTimeout(()=>n.remove(),300); }, 3000);
+        showCounterWarn(`🌅 <b>Khung giờ đỉnh!</b> Sáng nay đã hút ${getTodayData().length} điếu — 36% tổng số rơi vào khung này, cố gắng giảm nhé!`, 'warn-yellow', 3000);
       }
     }
 
@@ -1442,11 +1451,7 @@
       const now = new Date();
       const recent = records.filter(r => new Date(r.time) >= new Date(now-7200000));
       if (recent.length >= 3) {
-        const n = document.createElement('div');
-        n.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(230,126,34,0.95);color:white;padding:14px 20px;border-radius:14px;font-size:14px;font-weight:600;z-index:9999;text-align:center;animation:fadeIn 0.3s ease;max-width:90vw;';
-        n.innerHTML = `🐌 <b>Chậm lại!</b> ${recent.length} điếu trong 2h — uống nước & thư giãn 15ph!`;
-        document.body.appendChild(n);
-        setTimeout(() => { n.style.opacity='0'; n.style.transition='opacity 0.3s'; setTimeout(()=>n.remove(),300); }, 4000);
+        showCounterWarn(`🐌 <b>Chậm lại!</b> ${recent.length} điếu trong 2h — uống nước & thư giãn 15ph!`, 'warn-orange', 3500);
       }
     }
 

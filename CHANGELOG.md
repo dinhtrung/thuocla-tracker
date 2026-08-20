@@ -2,6 +2,10 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.8 — 2026-08-20
+### 🐛 Fixes
+- **Cảnh báo sau +1 không còn che khung chọn lý do** — trước đây toast nổi (Chain-Smoke / Khung giờ đỉnh / Chậm lại) hiện giữa màn hình đè lên bottom-sheet "Lý do hút?". Giờ cả 3 cảnh báo hiện NGAY TRONG card số điếu (banner màu dưới progress bar), picker chọn lý do luôn nhìn rõ
+
 ## v1.4.7 — 2026-08-16
 ### 🐛 Fixes
 - **Khen sai khi hút BẰNG nhịp mục tiêu** — trước đây điều kiện `todayCount <= targetCount` khiến lúc 08:00 thường ~2.3 điếu, nhịp mục tiêu ~2 mà hút đủ 2 vẫn khen "ít hơn 1 điếu". Giờ STRICT (`<`): chỉ khen khi hút ÍT HƠN nhịp mục tiêu (bạn mới 1 < 2 → ✅ "Hút ít hơn nhịp mục tiêu 1 điếu"); bằng chuẩn → không khen, chuyển sang note cắt/cảnh báo
