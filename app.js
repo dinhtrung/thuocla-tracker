@@ -712,36 +712,28 @@
         const todayR = todayRecords[i];
         const lowestR = lowestRecords[i];
 
-        // Today side
+        // Today side — layout giống cột Trung bình: ⏰ giờ / xuống dòng / ⏱️ phút ± lệch mục tiêu
         let todayHtml = '';
         if (todayR) {
-          const num = `#${i + 1}`;
           const tgap = gapInfo(todayRecords, i, intervalGoal);
           const gapClass = tgap.bad ? 'bad' : tgap.good ? 'good' : '';
           const tIcon = triggerIcon(todayR.trigger);
           todayHtml = `
-            <div class="comp-num">${num}</div>
-            <div class="comp-time today">${formatTime(todayR.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
-            ${tgap.str ? `<div class="comp-gap ${gapClass}">${tgap.str}</div>` : ''}
+            <div class="comp-cell-time today">⏰ ${formatTime(todayR.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
+            <div class="comp-cell-gap ${gapClass}">⏱️ ${tgap.str || '—'}</div>
           `;
-        } else {
-          todayHtml = '<div class="comp-num" style="color:transparent;">-</div>';
         }
 
-        // Lowest side
+        // Lowest side — cùng layout 2 dòng, căn giữa
         let lowestHtml = '';
         if (lowestR) {
-          const num = `#${i + 1}`;
           const lgap = gapInfo(lowestRecords, i, intervalGoal);
           const gapClass = lgap.bad ? 'bad' : lgap.good ? 'good' : '';
           const lIcon = triggerIcon(lowestR.trigger);
           lowestHtml = `
-            ${lgap.str ? `<div class="comp-gap ${gapClass}">${lgap.str}</div>` : ''}
-            <div class="comp-time lowest">${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}${formatTime(lowestR.time)}</div>
-            <div class="comp-num">${num}</div>
+            <div class="comp-cell-time lowest">⏰ ${formatTime(lowestR.time)}${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}</div>
+            <div class="comp-cell-gap ${gapClass}">⏱️ ${lgap.str || '—'}</div>
           `;
-        } else {
-          lowestHtml = '<div class="comp-num" style="color:transparent;">-</div>';
         }
 
         // Trung bình side: ⏰ giờ TB điếu #i + dòng 2 ⏱️ phút TB từ điếu trước ± mục tiêu
@@ -755,9 +747,9 @@
             if (gR < intervalGoal) { gClass = 'bad'; gStr += ` ⚠️ -${intervalGoal - gR}`; }
             else { gClass = 'good'; gStr += ` ✅ +${gR - intervalGoal}`; }
           }
-          avgHtml = `<div class="comp-avg-time">⏰ ${fmtHM(avgSt.avgTime)}</div><div class="comp-avg-gap ${gClass}">⏱️ ${gStr}</div>`;
+          avgHtml = `<div class="comp-cell-time">⏰ ${fmtHM(avgSt.avgTime)}</div><div class="comp-cell-gap ${gClass}">⏱️ ${gStr}</div>`;
         } else {
-          avgHtml = '<div class="comp-avg-time">⏰ —</div><div class="comp-avg-gap">⏱️ —</div>';
+          avgHtml = '<div class="comp-cell-time">⏰ —</div><div class="comp-cell-gap">⏱️ —</div>';
         }
 
         const clickable = todayR ? 'clickable' : '';
