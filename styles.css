@@ -610,19 +610,7 @@
     }
     .comparison-header .hdr-today { color: var(--accent); font-weight: 600; }
     .comparison-header .hdr-lowest { color: var(--green); font-weight: 600; }
-    .comparison-header .hdr-threshold { color: var(--yellow); font-weight: 600; }
-    .hdr-main {
-      font-size: 11px;
-      color: var(--text);
-      font-weight: 600;
-      margin-top: 2px;
-    }
-    .hdr-sub {
-      font-size: 10px;
-      color: var(--text-dim);
-      font-weight: 400;
-      margin-top: 1px;
-    }
+    .comparison-header .hdr-average { color: var(--yellow); font-weight: 600; }
     .hdr-avg {
       font-size: 10px;
       color: var(--text-dim);
@@ -650,9 +638,33 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      justify-content: flex-end;
+      justify-content: center;
       min-width: 0;
     }
+    .comp-avg {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+      min-width: 0;
+    }
+    .comp-avg-time {
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      color: var(--text);
+    }
+    .comp-avg-gap {
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-dim);
+    }
+    .comp-avg-gap.bad { color: var(--accent); }
+    .comp-avg-gap.good { color: var(--green); }
     .comp-divider {
       width: 2px;
       height: 26px;

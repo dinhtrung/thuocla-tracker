@@ -4,7 +4,7 @@ Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ đượ
 
 ## v1.4.9 — 2026-08-21
 ### ✨ Mới
-- **Trang chủ: cột thứ 3 trong bảng So sánh — 🟡 Ngưỡng 30 ngày** — hiển thị series ngưỡng thói quen 30 ngày ngay cạnh Hôm nay | Ít nhất: số chính = "giờ này TB X điếu" (TB điếu đã hút tới giờ này theo 30 ngày, loại hôm nay, tách cuối tuần/ngày thường); dòng phụ = ⏰ giờ hiện tại + ⏱️ phút từ điếu trước ± phút mục tiêu (so với khoảng cách tối thiểu), thiếu chỗ tự tách 2 hàng
+- **Trang chủ: bảng So sánh thành 3 cột — Hôm nay | Ít nhất | Trung bình** — cột mới "🟡 Trung bình" chứa series 30 ngày theo từng điếu (STT): ⏰ giờ TB của điếu #i (cùng loại ngày với hôm nay, loại hôm nay khỏi TB) → xuống dòng → ⏱️ phút TB từ điếu trước ± phút mục tiêu (⚠️ −X = sớm hơn mục tiêu, ✅ +X = vượt mục tiêu). Header cột hiển thị TB điếu/ngày 30 ngày + TB khoảng cách
 
 ## v1.4.8 — 2026-08-20
 ### 🐛 Fixes

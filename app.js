@@ -172,7 +172,6 @@
     }
 
     function updateTimer() {
-      renderComparisonThreshold(); // cột 🟡 Ngưỡng 30 ngày: đồng hồ + phút từ điếu trước (tick mỗi giây)
       const records = getTodayData();
       const cfg = loadConfig();
       const intervalGoal = cfg.intervalGoal || 0;
@@ -661,7 +660,15 @@
       document.getElementById('comparisonTodayAvg').textContent = todayAvg !== null ? `TB ${todayAvg}ph` : '—';
       document.getElementById('comparisonLowestAvg').textContent = lowestAvg !== null ? `TB ${lowestAvg}ph` : '—';
 
-      const maxRows = Math.max(todayCount, lowestCount, 1);
+      // Cột Trung bình: series 30 ngày (cùng loại ngày với hôm nay, loại hôm nay khỏi TB)
+      const dayType = (new Date().getDay() === 0 || new Date().getDay() === 6) ? 'weekend' : 'weekday';
+      const avgSeries = computeAvgSeries(dayType);
+      document.getElementById('comparisonAvgCount').textContent = avgSeries.avgCount > 0 ? `(${avgSeries.avgCount.toFixed(1)})` : '(-)';
+      document.getElementById('comparisonAvgSub').textContent = avgSeries.avgCount > 0
+        ? `30 ngày · TB ${avgSeries.avgGapAll !== null ? Math.round(avgSeries.avgGapAll) : '—'}ph`
+        : '30 ngày · —';
+
+      const maxRows = Math.max(todayCount, lowestCount, avgSeries.series.length, 1);
 
       if (maxRows === 0 || todayCount === 0) {
         rows.innerHTML = '<div class="empty-state">Chưa hút điếu nào hôm nay</div>';
@@ -737,6 +744,22 @@
           lowestHtml = '<div class="comp-num" style="color:transparent;">-</div>';
         }
 
+        // Trung bình side: ⏰ giờ TB điếu #i + dòng 2 ⏱️ phút TB từ điếu trước ± mục tiêu
+        const avgSt = avgSeries.series[i];
+        let avgHtml;
+        if (avgSt) {
+          let gStr = avgSt.avgGap !== null ? `${Math.round(avgSt.avgGap)}ph` : '—';
+          let gClass = '';
+          if (avgSt.avgGap !== null && intervalGoal > 0) {
+            const gR = Math.round(avgSt.avgGap);
+            if (gR < intervalGoal) { gClass = 'bad'; gStr += ` ⚠️ -${intervalGoal - gR}`; }
+            else { gClass = 'good'; gStr += ` ✅ +${gR - intervalGoal}`; }
+          }
+          avgHtml = `<div class="comp-avg-time">⏰ ${fmtHM(avgSt.avgTime)}</div><div class="comp-avg-gap ${gClass}">⏱️ ${gStr}</div>`;
+        } else {
+          avgHtml = '<div class="comp-avg-time">⏰ —</div><div class="comp-avg-gap">⏱️ —</div>';
+        }
+
         const clickable = todayR ? 'clickable' : '';
         const onclick = todayR ? `onclick="openTimeEditor(${i})"` : '';
 
@@ -745,54 +768,52 @@
             <div class="comp-today">${todayHtml}</div>
             <div class="comp-divider"></div>
             <div class="comp-lowest">${lowestHtml}</div>
+            <div class="comp-divider"></div>
+            <div class="comp-avg">${avgHtml}</div>
           </div>
         `;
       }
 
       rows.innerHTML = html;
-      renderComparisonThreshold();
     }
 
-    // Cột thứ 3 của bảng So sánh: "series ngưỡng trung bình 30 ngày" —
-    // ① giờ này TB X điếu (chuẩn thói quen, getAvgCountByNow: 30 ngày, loại hôm nay,
-    //    tách cuối tuần/ngày thường) ② ⏰ giờ hiện tại ③ ⏱️ phút từ điếu trước ± phút mục tiêu.
-    // Main value chỉ tính lại khi đổi phút (cache thresholdLastMin); giờ/phút tick mỗi giây.
-    let thresholdLastMin = -1;
-    function renderComparisonThreshold() {
-      const mainEl = document.getElementById('comparisonThresholdMain');
-      if (!mainEl) return;
-      const now = new Date();
-      const nowMin = now.getHours() * 60 + now.getMinutes();
-
-      if (nowMin !== thresholdLastMin) {
-        thresholdLastMin = nowMin;
-        const dayType = (now.getDay() === 0 || now.getDay() === 6) ? 'weekend' : 'weekday';
-        const habitAvg = getAvgCountByNow(nowMin, dayType);
-        const data = loadData();
-        const hasData = Object.keys(data).some(ds => (data[ds] || []).length > 0);
-        mainEl.textContent = hasData ? `giờ này TB ${habitAvg.toFixed(1)} điếu` : 'chưa đủ dữ liệu';
+    // Cột "🟡 Trung bình" (bảng So sánh): series 30 ngày theo STT — ⏰ giờ TB điếu #i
+    // (cùng loại ngày với hôm nay, loại hôm nay khỏi TB) + dòng 2: ⏱️ phút TB từ điếu trước
+    // ± phút mục tiêu (cùng convention gapInfo: ⚠️ -X = sớm hơn mục tiêu, ✅ +X = vượt mục tiêu).
+    function computeAvgSeries(dayType) {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      const stt = [];
+      let countSum = 0, countN = 0, gapSum = 0, gapN = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds >= today || !recs.length) continue; // hôm qua về trước
+        const d = new Date(ds + 'T00:00:00');
+        const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        if (dt !== dayType) continue;
+        countSum += recs.length; countN++;
+        const s = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        for (let i = 0; i < s.length; i++) {
+          const st = stt[i] || (stt[i] = { tSum: 0, present: 0, gSum: 0, gN: 0 });
+          const t = new Date(s[i].time);
+          st.tSum += t.getHours() * 60 + t.getMinutes();
+          st.present++;
+          if (i > 0) {
+            const g = Math.round((new Date(s[i].time) - new Date(s[i-1].time)) / 60000);
+            if (g > 0) { st.gSum += g; st.gN++; gapSum += g; gapN++; }
+          }
+        }
       }
-
-      const clockEl = document.getElementById('thresholdClock');
-      const timerEl = document.getElementById('thresholdTimer');
-      const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      clockEl.textContent = `⏰ ${hhmm}`;
-
-      const records = getTodayData();
-      if (!records.length) {
-        timerEl.textContent = '⏱️ —';
-        return;
-      }
-      const last = new Date(records[records.length - 1].time);
-      const diffMin = Math.max(0, Math.round((now - last) / 60000)); // clamp âm khi record tương lai
-      const cfg = loadConfig();
-      const intervalGoal = parseInt(cfg.intervalGoal, 10) || 0;
-      let str = `⏱️ ${diffMin}ph`;
-      if (intervalGoal > 0) {
-        const dev = diffMin - intervalGoal;
-        str += dev < 0 ? ` · −${-dev}ph mục tiêu` : dev > 0 ? ` · +${dev}ph mục tiêu` : '';
-      }
-      timerEl.textContent = str;
+      return {
+        series: stt.map(st => ({
+          avgTime: st.tSum / st.present,
+          avgGap: st.gN ? st.gSum / st.gN : null,
+        })),
+        avgCount: countN ? countSum / countN : 0,
+        avgGapAll: gapN ? gapSum / gapN : null,
+      };
     }
 
     let chartPage = 0; // 0 = latest 7 days, 1 = previous week, etc.
