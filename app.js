@@ -772,39 +772,59 @@
     // Cột "🟡 Trung bình" (bảng So sánh): series 30 ngày theo STT — ⏰ giờ TB điếu #i
     // (cùng loại ngày với hôm nay, loại hôm nay khỏi TB) + dòng 2: ⏱️ phút TB từ điếu trước
     // ± phút mục tiêu (cùng convention gapInfo: ⚠️ -X = sớm hơn mục tiêu, ✅ +X = vượt mục tiêu).
+    // USER FIX 2026-08-21 ("trung bình 17 điếu? series không giống"): ① bỏ record trùng phút
+    // (gap=0 do tap nhầm — 07-24 có 4 bản 21:04); ② MEDIAN thay mean (outlier điếu đầu 1-4h sáng
+    // kéo mean xuống 05:17 trong khi nhịp thật ~06:00); ③ lọc STT hiếm presence < 50% (đuôi
+    // #16-17 chỉ 19% ngày — không phải series thật). Header avgCount vẫn là mean số điếu/ngày.
+    const AVG_MIN_PRESENCE = 0.5;
+    function medArr(a) {
+      if (!a.length) return null;
+      const s = a.slice().sort((x, y) => x - y);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    }
     function computeAvgSeries(dayType) {
       const data = loadData();
       const today = getToday();
       const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
       const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const fromKey = fmt(from);
-      const stt = [];
-      let countSum = 0, countN = 0, gapSum = 0, gapN = 0;
+      const stt = []; // { times: [], gaps: [], present: 0 }
+      let countSum = 0, countN = 0, gapList = [];
       for (const [ds, recs] of Object.entries(data)) {
         if (ds < fromKey || ds >= today || !recs.length) continue; // hôm qua về trước
         const d = new Date(ds + 'T00:00:00');
         const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
         if (dt !== dayType) continue;
-        countSum += recs.length; countN++;
+        countN++;
         const s = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
-        for (let i = 0; i < s.length; i++) {
-          const st = stt[i] || (stt[i] = { tSum: 0, present: 0, gSum: 0, gN: 0 });
-          const t = new Date(s[i].time);
-          st.tSum += t.getHours() * 60 + t.getMinutes();
+        const clean = [];
+        let prevMin = null;
+        for (const r of s) {
+          const t = new Date(r.time);
+          const min = t.getHours() * 60 + t.getMinutes();
+          if (prevMin !== null && min === prevMin) continue; // bỏ record trùng phút (tap nhầm)
+          clean.push(min);
+          prevMin = min;
+        }
+        countSum += clean.length;
+        for (let i = 0; i < clean.length; i++) {
+          const st = stt[i] || (stt[i] = { times: [], gaps: [], present: 0 });
           st.present++;
+          st.times.push(clean[i]);
           if (i > 0) {
-            const g = Math.round((new Date(s[i].time) - new Date(s[i-1].time)) / 60000);
-            if (g > 0) { st.gSum += g; st.gN++; gapSum += g; gapN++; }
+            const g = clean[i] - clean[i - 1];
+            if (g > 0) { st.gaps.push(g); gapList.push(g); }
           }
         }
       }
+      const typeDays = countN || 1;
       return {
-        series: stt.map(st => ({
-          avgTime: st.tSum / st.present,
-          avgGap: st.gN ? st.gSum / st.gN : null,
-        })),
+        series: stt
+          .map(st => ({ avgTime: medArr(st.times), avgGap: st.gaps.length ? medArr(st.gaps) : null }))
+          .filter((st, i) => stt[i].present / typeDays >= AVG_MIN_PRESENCE),
         avgCount: countN ? countSum / countN : 0,
-        avgGapAll: gapN ? gapSum / gapN : null,
+        avgGapAll: gapList.length ? medArr(gapList) : null,
       };
     }
 

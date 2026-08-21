@@ -6,6 +6,8 @@ Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ đượ
 ### ✨ Mới
 - **Trang chủ: bảng So sánh thành 3 cột — Hôm nay | Ít nhất | Trung bình** — cột mới "🟡 Trung bình" chứa series 30 ngày theo từng điếu (STT): ⏰ giờ TB của điếu #i (cùng loại ngày với hôm nay, loại hôm nay khỏi TB) → xuống dòng → ⏱️ phút TB từ điếu trước ± phút mục tiêu (⚠️ −X = sớm hơn mục tiêu, ✅ +X = vượt mục tiêu). Header cột hiển thị TB điếu/ngày 30 ngày + TB khoảng cách
 - **Bảng So sánh: cả 3 cột cùng layout 2 dòng** — ô Hôm nay và Ít nhất đổi sang giống cột Trung bình: dòng 1 ⏰ giờ (kèm icon lý do) → dòng 2 ⏱️ phút từ điếu trước ± lệch mục tiêu (⚠️ −X / ✅ +X); căn trái – giữa – phải cho 3 cột, bỏ số thứ tự # cho gọn
+### 🐛 Fixes
+- **Cột Trung bình tính sai do dữ liệu bẩn + outlier** — ① bỏ record trùng phút (gap=0 do tap nhầm, vd 07-24 có 4 bản 21:04); ② giờ/gap TB chuyển sang **MEDIAN** (các điếu đầu 1–4h sáng ngẫu nhiên kéo mean xuống 05:17 trong khi nhịp thật ~06:00); ③ **lọc STT hiếm** (xuất hiện < 50% số ngày, vd đuôi #16–17 chỉ 19%) — bảng không còn kéo dài tới 17 hàng gây hiểu nhầm "TB 17 điếu", giờ chuẩn 14.3 điếu / 14 hàng
 
 ## v1.4.8 — 2026-08-20
 ### 🐛 Fixes
