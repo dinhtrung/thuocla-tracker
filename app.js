@@ -712,15 +712,15 @@
         const todayR = todayRecords[i];
         const lowestR = lowestRecords[i];
 
-        // Today side — layout giống cột Trung bình: ⏰ giờ / xuống dòng / ⏱️ phút ± lệch mục tiêu
+        // Today side — layout giống cột Trung bình: giờ (+ icon thói quen) / xuống dòng / phút ± lệch mục tiêu
         let todayHtml = '';
         if (todayR) {
           const tgap = gapInfo(todayRecords, i, intervalGoal);
           const gapClass = tgap.bad ? 'bad' : tgap.good ? 'good' : '';
           const tIcon = triggerIcon(todayR.trigger);
           todayHtml = `
-            <div class="comp-cell-time today">⏰ ${formatTime(todayR.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
-            <div class="comp-cell-gap ${gapClass}">⏱️ ${tgap.str || '—'}</div>
+            <div class="comp-cell-time today">${formatTime(todayR.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
+            <div class="comp-cell-gap ${gapClass}">${tgap.str || '—'}</div>
           `;
         }
 
@@ -731,12 +731,12 @@
           const gapClass = lgap.bad ? 'bad' : lgap.good ? 'good' : '';
           const lIcon = triggerIcon(lowestR.trigger);
           lowestHtml = `
-            <div class="comp-cell-time lowest">⏰ ${formatTime(lowestR.time)}${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}</div>
-            <div class="comp-cell-gap ${gapClass}">⏱️ ${lgap.str || '—'}</div>
+            <div class="comp-cell-time lowest">${formatTime(lowestR.time)}${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}</div>
+            <div class="comp-cell-gap ${gapClass}">${lgap.str || '—'}</div>
           `;
         }
 
-        // Trung bình side: ⏰ giờ TB điếu #i + dòng 2 ⏱️ phút TB từ điếu trước ± mục tiêu
+        // Trung bình side: giờ TB điếu #i + dòng 2 phút TB từ điếu trước ± mục tiêu
         const avgSt = avgSeries.series[i];
         let avgHtml;
         if (avgSt) {
@@ -747,9 +747,9 @@
             if (gR < intervalGoal) { gClass = 'bad'; gStr += ` ⚠️ -${intervalGoal - gR}`; }
             else { gClass = 'good'; gStr += ` ✅ +${gR - intervalGoal}`; }
           }
-          avgHtml = `<div class="comp-cell-time">⏰ ${fmtHM(avgSt.avgTime)}</div><div class="comp-cell-gap ${gClass}">⏱️ ${gStr}</div>`;
+          avgHtml = `<div class="comp-cell-time">${fmtHM(avgSt.avgTime)}</div><div class="comp-cell-gap ${gClass}">${gStr}</div>`;
         } else {
-          avgHtml = '<div class="comp-cell-time">⏰ —</div><div class="comp-cell-gap">⏱️ —</div>';
+          avgHtml = '<div class="comp-cell-time">—</div><div class="comp-cell-gap">—</div>';
         }
 
         const clickable = todayR ? 'clickable' : '';
