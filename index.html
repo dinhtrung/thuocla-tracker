@@ -126,11 +126,17 @@
       <div class="section-title">📋 So sánh — chạm giờ hôm nay để sửa</div>
       <div class="comparison-card" id="comparisonCard">
         <div class="comparison-header" id="comparisonHeader">
-          <div>
+          <div style="flex:1;min-width:0;">
             <span class="hdr-today">🔴 Hôm nay <span id="comparisonTodayCount">(0)</span></span>
             <div class="hdr-avg" id="comparisonTodayAvg">—</div>
           </div>
-          <div style="text-align:right;">
+          <div style="flex:1;min-width:0;text-align:center;padding:0 4px;">
+            <span class="hdr-threshold">🟡 Ngưỡng 30 ngày</span>
+            <div class="hdr-main" id="comparisonThresholdMain">—</div>
+            <div class="hdr-sub" id="thresholdClock"></div>
+            <div class="hdr-sub" id="thresholdTimer"></div>
+          </div>
+          <div style="flex:1;min-width:0;text-align:right;">
             <span class="hdr-lowest">🟢 Ngày ít nhất <span id="comparisonLowestCount">(-)</span></span>
             <div class="hdr-avg" id="comparisonLowestAvg">—</div>
           </div>

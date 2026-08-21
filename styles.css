@@ -610,6 +610,19 @@
     }
     .comparison-header .hdr-today { color: var(--accent); font-weight: 600; }
     .comparison-header .hdr-lowest { color: var(--green); font-weight: 600; }
+    .comparison-header .hdr-threshold { color: var(--yellow); font-weight: 600; }
+    .hdr-main {
+      font-size: 11px;
+      color: var(--text);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .hdr-sub {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 400;
+      margin-top: 1px;
+    }
     .hdr-avg {
       font-size: 10px;
       color: var(--text-dim);

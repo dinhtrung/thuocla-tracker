@@ -172,6 +172,7 @@
     }
 
     function updateTimer() {
+      renderComparisonThreshold(); // cột 🟡 Ngưỡng 30 ngày: đồng hồ + phút từ điếu trước (tick mỗi giây)
       const records = getTodayData();
       const cfg = loadConfig();
       const intervalGoal = cfg.intervalGoal || 0;
@@ -749,6 +750,49 @@
       }
 
       rows.innerHTML = html;
+      renderComparisonThreshold();
+    }
+
+    // Cột thứ 3 của bảng So sánh: "series ngưỡng trung bình 30 ngày" —
+    // ① giờ này TB X điếu (chuẩn thói quen, getAvgCountByNow: 30 ngày, loại hôm nay,
+    //    tách cuối tuần/ngày thường) ② ⏰ giờ hiện tại ③ ⏱️ phút từ điếu trước ± phút mục tiêu.
+    // Main value chỉ tính lại khi đổi phút (cache thresholdLastMin); giờ/phút tick mỗi giây.
+    let thresholdLastMin = -1;
+    function renderComparisonThreshold() {
+      const mainEl = document.getElementById('comparisonThresholdMain');
+      if (!mainEl) return;
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+
+      if (nowMin !== thresholdLastMin) {
+        thresholdLastMin = nowMin;
+        const dayType = (now.getDay() === 0 || now.getDay() === 6) ? 'weekend' : 'weekday';
+        const habitAvg = getAvgCountByNow(nowMin, dayType);
+        const data = loadData();
+        const hasData = Object.keys(data).some(ds => (data[ds] || []).length > 0);
+        mainEl.textContent = hasData ? `giờ này TB ${habitAvg.toFixed(1)} điếu` : 'chưa đủ dữ liệu';
+      }
+
+      const clockEl = document.getElementById('thresholdClock');
+      const timerEl = document.getElementById('thresholdTimer');
+      const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      clockEl.textContent = `⏰ ${hhmm}`;
+
+      const records = getTodayData();
+      if (!records.length) {
+        timerEl.textContent = '⏱️ —';
+        return;
+      }
+      const last = new Date(records[records.length - 1].time);
+      const diffMin = Math.max(0, Math.round((now - last) / 60000)); // clamp âm khi record tương lai
+      const cfg = loadConfig();
+      const intervalGoal = parseInt(cfg.intervalGoal, 10) || 0;
+      let str = `⏱️ ${diffMin}ph`;
+      if (intervalGoal > 0) {
+        const dev = diffMin - intervalGoal;
+        str += dev < 0 ? ` · −${-dev}ph mục tiêu` : dev > 0 ? ` · +${dev}ph mục tiêu` : '';
+      }
+      timerEl.textContent = str;
     }
 
     let chartPage = 0; // 0 = latest 7 days, 1 = previous week, etc.
