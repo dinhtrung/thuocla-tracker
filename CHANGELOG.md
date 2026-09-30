@@ -2,6 +2,10 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.5.1 — 2026-09-30
+### 🔧 Sửa
+- **Chữ version trên app không còn đứng yên ở v1.4.6** — trước đây số version là chữ viết tay trong `index.html` nên mấy tháng không được bump (app vẫn cập nhật tính năng, chỉ số hiển thị sai). Giờ badge đọc từ hằng số `APP_VERSION` trong `app.js` và tự render khi mở app ⇒ chỉ cần bump 1 chỗ (`APP_VERSION` + `CACHE` trong `service-worker.js`) mỗi lần release
+
 ## v1.5.0 — 2026-09-30
 ### ✨ Mới
 - **💾 Sao lưu / Phục hồi (JSON)** — tab Cài đặt thêm khối mới: **Sao lưu** tải file `thuocla_backup_YYYY-MM-DD.json` (giữ cả điếu + lý do + cài đặt), **Phục hồi** đọc lại file đó và hỏi **THAY THẾ toàn bộ** hay **GỘP** (bỏ điếu trùng phút, giữ cài đặt cũ). Trước đây dữ liệu chỉ nằm trong localStorage của điện thoại — xoá cache / đổi máy là mất sạch nhiều tháng log

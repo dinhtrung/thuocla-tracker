@@ -1,6 +1,8 @@
     // ========== DATA LAYER ==========
     const DB_KEY = 'smoking_data';
     const CFG_KEY = 'smoking_config';
+    // ⚠️ RELEASE: bump APP_VERSION ở đây + CACHE trong service-worker.js (cùng 1 commit)
+    const APP_VERSION = '1.5.1';
     const TRIGGERS = ['🍜 Sau ăn','☕ Cà phê','😤 Stress','🍻 Nhậu','😞 Buồn','🌀 Thói quen','🚬 Thèm','🤷 Khác'];
 
     function getToday() {
@@ -180,6 +182,12 @@
 
     // ========== TIMER ==========
     let timerInterval = null;
+
+    // Badge phiên bản trên header — render từ APP_VERSION (một nguồn duy nhất, khỏi quên bump HTML)
+    function renderAppVersion() {
+      const el = document.getElementById('appVersion');
+      if (el) el.textContent = 'v' + APP_VERSION;
+    }
 
     function startTimer() {
       if (timerInterval) clearInterval(timerInterval);
@@ -1602,6 +1610,7 @@
     updateDisplay();
     loadSettingsUI();
     startTimer();
+    renderAppVersion();
 
     // Auto-refresh every 30s, timer every 1s
     setInterval(() => { updateDisplay(); loadSettingsUI(); }, 30000);
