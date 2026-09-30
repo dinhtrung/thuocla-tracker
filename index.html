@@ -337,6 +337,18 @@
       </div>
 
       <div class="settings-card" style="margin-top:12px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">💾 Sao lưu / Phục hồi</div>
+          <div style="font-size:12px;color:var(--text-dim);">File JSON giữ cả lý do + cài đặt — dùng khi đổi máy hoặc lỡ xoá cache</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn-add-back" style="flex:1;" onclick="exportBackup()">💾 Sao lưu</button>
+          <button class="btn-add-back" style="flex:1;" onclick="pickRestoreFile()">♻️ Phục hồi</button>
+        </div>
+        <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restoreFromFile(event)">
+      </div>
+
+      <div class="settings-card" style="margin-top:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:14px;font-weight:600;">🗑️ Xoá dữ liệu</div>

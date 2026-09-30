@@ -2,6 +2,14 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.5.0 — 2026-09-30
+### ✨ Mới
+- **💾 Sao lưu / Phục hồi (JSON)** — tab Cài đặt thêm khối mới: **Sao lưu** tải file `thuocla_backup_YYYY-MM-DD.json` (giữ cả điếu + lý do + cài đặt), **Phục hồi** đọc lại file đó và hỏi **THAY THẾ toàn bộ** hay **GỘP** (bỏ điếu trùng phút, giữ cài đặt cũ). Trước đây dữ liệu chỉ nằm trong localStorage của điện thoại — xoá cache / đổi máy là mất sạch nhiều tháng log
+- **Badge ❓ "chưa có lý do"** trong chi tiết ngày (tab Thống kê) — bấm vào để gắn / sửa / bỏ lý do cho đúng điếu đó (trước đây chỉ gắn được ngay sau +1, hoặc phải mở sửa giờ)
+### 🐛 Fixes
+- **Chống log trùng phút** — bấm +1 hai lần trong cùng một phút (tap nhầm) không tạo thêm điếu nữa mà hiện cảnh báo "Đã có điếu lúc HH:MM rồi"; áp dụng cả cho ô thêm điếu trong modal (hôm nay + ngày quá khứ). Tháng 9/2026 có 2 lần log trùng: 15/9 14:40, 19/9 20:55
+- **Lý do bị gán lệch khi +1 liên tiếp** — picker "Lý do hút?" giờ ghi vào **đúng** điếu vừa bấm (trước đây luôn ghi vào điếu cuối cùng của ngày, nên 2 lần +1 trong 2 giây là lý do bay sang điếu khác); đồng thời chỉ mở 1 sheet, không xếp chồng 2 sheet
+
 ## v1.4.10 — 2026-09-30
 ### ✨ Mới
 - **Xuất CSV có thêm cột "Lý do"** — đặt ngay sau cột Giờ, xuất đúng lý do đã chọn trong app (Sau ăn / Cà phê / Stress / Nhậu / Buồn / Thói quen / Thèm / Khác), không kèm emoji để dễ lọc–thống kê trong Excel/Sheets. Điếu chưa chọn lý do để trống; cột "Ghi chú" giữ nguyên cho dữ liệu cũ

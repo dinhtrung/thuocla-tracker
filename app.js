@@ -62,16 +62,33 @@
       saveData(data);
     }
 
+    // Key của 1 điếu theo NGÀY + GIỜ + PHÚT (dùng để chống log trùng phút)
+    function timeKey(isoStr) {
+      const d = new Date(isoStr);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}-${d.getMinutes()}`;
+    }
+
+    // true nếu lần addRecord vừa rồi bị chặn vì trùng phút (để caller bỏ qua afterAddCig)
+    let lastAddDup = false;
+
     function addRecord(isoTime) {
       const records = getTodayData();
-      if (isoTime) {
-        records.push({ time: isoTime });
-      } else {
+      let iso = isoTime;
+      if (!iso) {
         // Round to nearest 5 min (0,5,10...) to match the time picker
         const now = new Date();
         now.setMinutes(Math.round(now.getMinutes() / 5) * 5, 0, 0);
-        records.push({ time: now.toISOString() });
+        iso = now.toISOString();
       }
+      // Chống tap trùng: cùng ngày + cùng phút (gap 0) — tháng 9/2026 đã có 2 lần log trùng
+      if (records.some(r => timeKey(r.time) === timeKey(iso))) {
+        lastAddDup = true;
+        if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+        showCounterWarn(`⚠️ Đã có điếu lúc <b>${formatTime(iso)}</b> rồi — không thêm trùng nhé!`, 'warn-orange', 2500);
+        return records;
+      }
+      lastAddDup = false;
+      records.push({ time: iso });
       setTodayData(records);
       return records;
     }
@@ -1046,6 +1063,7 @@
               <div class="timeline-label">
                 ${label}
                 ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
+                ${tIcon ? '' : `<button class="reason-chip" onclick="event.stopPropagation();openReasonPicker('${selectedDate}', ${i})" title="Chưa có lý do — bấm để chọn">❓</button>`}
               </div>
               <div class="delete-hint">✕</div>
             </div>
@@ -1251,6 +1269,10 @@
         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), h, m, 0);
         const iso = d.toISOString();
         const records = getDayData(dateStr);
+        if (records.some(r => timeKey(r.time) === timeKey(iso))) {
+          alert(`⚠️ Ngày này đã có điếu lúc ${formatTime(iso)} rồi!`); // chống log trùng phút
+          return;
+        }
         const rec = { time: iso };
         if (modalTrigger >= 0) rec.trigger = modalTrigger;
         records.push(rec);
@@ -1264,6 +1286,10 @@
         const iso = d.toISOString();
         const records = getTodayData();
         if (modalMode === 'add') {
+          if (records.some(r => timeKey(r.time) === timeKey(iso))) {
+            alert(`⚠️ Hôm nay đã có điếu lúc ${formatTime(iso)} rồi!`); // chống log trùng phút
+            return;
+          }
           const rec = { time: iso };
           if (modalTrigger >= 0) rec.trigger = modalTrigger;
           records.push(rec);
@@ -1424,6 +1450,110 @@
       }
     }
 
+    // ========== BACKUP / RESTORE (v1.5.0) ==========
+    // Dữ liệu nằm trong localStorage của điện thoại — mất máy / xoá cache là mất hết.
+    // JSON backup giữ cả data (kèm lý do) + cài đặt, để phục hồi được.
+    function backupPayload() {
+      return JSON.stringify({
+        app: 'thuocla-tracker',
+        format: 1,
+        exportedAt: new Date().toISOString(),
+        config: loadConfig(),
+        data: loadData()
+      }, null, 1);
+    }
+
+    function exportBackup() {
+      const data = loadData();
+      const days = Object.keys(data).length;
+      if (!days) { alert('Chưa có dữ liệu để sao lưu!'); return; }
+      let recs = 0; for (const v of Object.values(data)) recs += (v || []).length;
+      const blob = new Blob([backupPayload()], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      a.download = `thuocla_backup_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (navigator.vibrate) navigator.vibrate(15);
+      alert(`✅ Đã sao lưu ${days} ngày / ${recs} điếu — file JSON nằm trong Downloads.`);
+    }
+
+    // Gộp 2 mảng record theo ngày, bỏ điếu trùng phút (giữ bản đầu tiên)
+    function mergeDayRecords(a, b) {
+      const seen = new Set(), out = [];
+      for (const r of [...a, ...b]) {
+        const k = timeKey(r.time);
+        if (seen.has(k)) continue;
+        seen.add(k); out.push(r);
+      }
+      return out.sort((x, y) => new Date(x.time) - new Date(y.time));
+    }
+
+    // Đọc + làm sạch payload backup; trả null nếu file không có dữ liệu thuốc lá
+    function normalizeBackup(obj) {
+      if (!obj || typeof obj !== 'object') return null;
+      const raw = obj.data;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+      const clean = {};
+      for (const key of Object.keys(raw)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Array.isArray(raw[key])) continue;
+        const recs = [];
+        for (const r of raw[key]) {
+          if (!r || typeof r.time !== 'string') continue;
+          const d = new Date(r.time);
+          if (isNaN(d.getTime())) continue;
+          const out = { time: d.toISOString() };
+          if (typeof r.trigger === 'number' && r.trigger >= 0 && r.trigger < TRIGGERS.length) out.trigger = r.trigger;
+          if (typeof r.note === 'string' && r.note) out.note = r.note;
+          recs.push(out);
+        }
+        if (recs.length) clean[key] = mergeDayRecords([], recs);
+      }
+      if (!Object.keys(clean).length) return null;
+      return { data: clean, config: (obj.config && typeof obj.config === 'object') ? obj.config : null };
+    }
+
+    function pickRestoreFile() {
+      const el = document.getElementById('restoreFile');
+      if (el) { el.value = ''; el.click(); }
+    }
+
+    function restoreFromFile(ev) {
+      const f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let obj = null;
+        try { obj = JSON.parse(String(reader.result)); }
+        catch (e) { alert('❌ File không phải JSON hợp lệ'); return; }
+        const norm = normalizeBackup(obj);
+        if (!norm) { alert('❌ File này không có dữ liệu thuốc lá (thiếu "data")'); return; }
+        const days = Object.keys(norm.data).length;
+        let recs = 0; for (const v of Object.values(norm.data)) recs += v.length;
+        const replace = confirm(`📥 Phục hồi ${days} ngày / ${recs} điếu.\n\nOK = THAY THẾ toàn bộ dữ liệu đang có\nCancel = GỘP thêm (bỏ điếu trùng phút)`);
+        let out;
+        if (replace) {
+          out = norm.data;
+        } else {
+          out = loadData();
+          for (const key of Object.keys(norm.data)) out[key] = mergeDayRecords(out[key] || [], norm.data[key]);
+        }
+        saveData(out);
+        if (norm.config) saveConfig(Object.assign({}, loadConfig(), norm.config));
+        loadSettingsUI();
+        updateDisplay();
+        if (selectedDate) afterDayEdit();
+        let total = 0; for (const v of Object.values(out)) total += (v || []).length;
+        alert(`✅ Đã phục hồi (${replace ? 'thay thế' : 'gộp'}): ${Object.keys(out).length} ngày / ${total} điếu`);
+      };
+      reader.onerror = () => alert('❌ Không đọc được file');
+      reader.readAsText(f, 'utf-8');
+    }
+
     function clearAllData() {
       if (confirm('Xoá toàn bộ lịch sử hút thuốc?')) {
         localStorage.removeItem(DB_KEY);
@@ -1567,7 +1697,11 @@
       if (nameEl) nameEl.textContent = modalTrigger >= 0 ? TRIGGERS[modalTrigger] : '';
     }
 
-    function showTriggerPicker() {
+    let triggerPickerTarget = null; // ISO time của điếu đang hỏi lý do (chống gán lệch khi +1 liên tiếp)
+
+    function showTriggerPicker(targetTime) {
+      if (targetTime) triggerPickerTarget = targetTime;
+      const old = document.getElementById('triggerPicker'); if (old) old.remove(); // không xếp 2 sheet cùng lúc
       const c = document.createElement('div'); c.id='triggerPicker';
       c.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 20px;z-index:9998;box-shadow:0 -4px 30px rgba(0,0,0,0.5);animation:fadeIn 0.25s ease;';
       let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:14px;font-weight:700;">☕ Lý do hút?</span><button onclick="dismissTriggerPicker()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;">✕</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
@@ -1575,9 +1709,59 @@
       h += '</div>'; c.innerHTML = h; document.body.appendChild(c);
     }
     function dismissTriggerPicker() { const e=document.getElementById('triggerPicker'); if(e){e.style.opacity='0'; e.style.transition='opacity 0.2s'; setTimeout(()=>e.remove(),200);} }
+
+    // ===== Gắn/sửa lý do cho 1 điếu cụ thể trong chi tiết ngày (v1.5.0) =====
+    let reasonPickerCtx = null; // { dateStr, index }
+
+    function openReasonPicker(dateStr, index) {
+      const records = getDayData(dateStr);
+      if (!records[index]) return;
+      reasonPickerCtx = { dateStr: dateStr, index: index };
+      const old = document.getElementById('reasonPicker'); if (old) old.remove();
+      const cur = records[index].trigger;
+      const c = document.createElement('div'); c.id = 'reasonPicker';
+      c.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 20px;z-index:9998;box-shadow:0 -4px 30px rgba(0,0,0,0.5);animation:fadeIn 0.25s ease;';
+      let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:14px;font-weight:700;">☕ Lý do hút — #${index + 1} lúc ${formatTime(records[index].time)}</span>
+        <button onclick="dismissReasonPicker()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;">✕</button>
+      </div><div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+      TRIGGERS.forEach((t, i) => {
+        const sel = cur === i ? 'border:1.5px solid var(--accent);font-weight:800;' : '';
+        h += `<button class="preset-btn" onclick="setRecordTrigger(${i})" style="font-size:14px;padding:10px 16px;${sel}">${t}</button>`;
+      });
+      h += '</div>';
+      c.innerHTML = h;
+      document.body.appendChild(c);
+    }
+
+    function dismissReasonPicker() {
+      const e = document.getElementById('reasonPicker');
+      if (e) { e.style.opacity='0'; e.style.transition='opacity 0.2s'; setTimeout(()=>e.remove(),200); }
+      reasonPickerCtx = null;
+    }
+
+    function setRecordTrigger(idx) {
+      const ctx = reasonPickerCtx;
+      if (!ctx) return dismissReasonPicker();
+      const records = getDayData(ctx.dateStr);
+      const rec = records[ctx.index];
+      if (rec) {
+        if (rec.trigger === idx) delete rec.trigger; // bấm lại = bỏ lý do
+        else rec.trigger = idx;
+        setDayData(ctx.dateStr, records);
+      }
+      dismissReasonPicker();
+      renderDayDetail();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
     function setTrigger(idx) {
       const r = getTodayData();
-      if (r.length > 0) { r[r.length-1].trigger = idx; setTodayData(r); }
+      // Gán vào ĐÚNG điếu đã mở picker (bugfix v1.5.0: trước đây luôn ghi vào điếu cuối → lệch khi +1 liên tiếp)
+      let rec = triggerPickerTarget ? r.find(x => x.time === triggerPickerTarget) : null;
+      if (!rec && r.length > 0) rec = r[r.length - 1]; // fallback: điếu cuối cùng
+      if (rec) { rec.trigger = idx; setTodayData(r); }
+      triggerPickerTarget = null;
       dismissTriggerPicker();
       updateDisplay(); // re-render so the trigger icon appears immediately (bugfix: was stale until refresh)
     }
@@ -1905,10 +2089,13 @@
 
     // ========== FEATURES: After-Add Hooks ==========
     function afterAddCig() {
+      // Nhớ ĐÚNG điếu vừa thêm để picker lý do không gán lệch khi bấm +1 liên tiếp
+      const arr = getTodayData();
+      const addedTime = arr.length ? arr[arr.length - 1].time : null;
       const cg=checkChainSmoke(); if(cg) setTimeout(()=>showChainAlert(cg),600);
       if(getTodayData().length<=3) setTimeout(checkPeakHour,1200);
       setTimeout(checkSlowDown,1800);
-      setTimeout(showTriggerPicker,2000);
+      setTimeout(()=>showTriggerPicker(addedTime),2000);
     }
 
     // Patch addCig
@@ -1918,7 +2105,8 @@
       const el = document.getElementById('todayCount');
       el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
       if (navigator.vibrate) navigator.vibrate(15);
-      afterAddCig();
+      // Trùng phút → không mở picker lý do (điếu cũ đã có lý do rồi)
+      if (!lastAddDup) afterAddCig();
     };
 
     // Patch switchTab

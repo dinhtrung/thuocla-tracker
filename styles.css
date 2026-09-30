@@ -343,6 +343,21 @@
     }
     .timeline-gap.bad { color: var(--accent); }
     .timeline-gap.good { color: var(--green); }
+    /* Nút "chưa có lý do" trong chi tiết ngày (v1.5.0) */
+    .reason-chip {
+      background: none;
+      border: 1px dashed currentColor;
+      color: var(--faint-2);
+      opacity: 0.8;
+      border-radius: 10px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 3px 6px;
+      margin-left: 6px;
+      cursor: pointer;
+      vertical-align: middle;
+    }
+    .reason-chip:active { transform: scale(0.92); opacity: 1; }
     .empty-state {
       text-align: center;
       padding: 24px;
