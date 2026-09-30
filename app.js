@@ -1355,9 +1355,8 @@
 
       // Build CSV rows
       let rows = [
-        ['Ngày', 'Giờ', 'Ghi chú', 'Khoảng cách (phút)', 'STT trong ngày']
+        ['Ngày', 'Giờ', 'Lý do', 'Ghi chú', 'Khoảng cách (phút)', 'STT trong ngày']
       ];
-      const header = rows[0].join(',');
 
       for (const dateKey of dates) {
         const records = data[dateKey] || [];
@@ -1367,6 +1366,7 @@
           const d = new Date(r.time);
           const timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
           const note = r.note || '';
+          const reason = triggerName(r.trigger);
 
           // Gap from previous cigarette
           let gap = '';
@@ -1376,7 +1376,7 @@
             gap = Math.round((curr - prev) / 60000);
           }
 
-          rows.push(`"${dateKey}","${timeStr}","${note}","${gap}","${i + 1}"`);
+          rows.push(`"${dateKey}","${timeStr}","${reason}","${note}","${gap}","${i + 1}"`);
         }
       }
 
@@ -1540,6 +1540,12 @@
     function triggerIcon(idx) {
       if (idx === undefined || idx === null || idx < 0 || idx >= TRIGGERS.length) return '';
       return TRIGGERS[idx].split(' ')[0];
+    }
+
+    // Reason label without the emoji prefix (used by the CSV export)
+    function triggerName(idx) {
+      if (idx === undefined || idx === null || idx < 0 || idx >= TRIGGERS.length) return '';
+      return TRIGGERS[idx].split(' ').slice(1).join(' ');
     }
 
     function renderModalTriggers() {

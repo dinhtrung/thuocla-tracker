@@ -2,6 +2,12 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.4.10 — 2026-09-30
+### ✨ Mới
+- **Xuất CSV có thêm cột "Lý do"** — đặt ngay sau cột Giờ, xuất đúng lý do đã chọn trong app (Sau ăn / Cà phê / Stress / Nhậu / Buồn / Thói quen / Thèm / Khác), không kèm emoji để dễ lọc–thống kê trong Excel/Sheets. Điếu chưa chọn lý do để trống; cột "Ghi chú" giữ nguyên cho dữ liệu cũ
+### 🧹 Dọn dẹp
+- Xoá biến `header` không dùng trong hàm `exportCSV()`
+
 ## v1.4.9 — 2026-08-21
 ### ✨ Mới
 - **Trang chủ: bảng So sánh thành 3 cột — Hôm nay | Ít nhất | Trung bình** — cột mới "🟡 Trung bình" chứa series 30 ngày theo từng điếu (STT): ⏰ giờ TB của điếu #i (cùng loại ngày với hôm nay, loại hôm nay khỏi TB) → xuống dòng → ⏱️ phút TB từ điếu trước ± phút mục tiêu (⚠️ −X = sớm hơn mục tiêu, ✅ +X = vượt mục tiêu). Header cột hiển thị TB điếu/ngày 30 ngày + TB khoảng cách
