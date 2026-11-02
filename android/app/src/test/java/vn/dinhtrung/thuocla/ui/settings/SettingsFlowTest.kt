@@ -12,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -38,6 +40,7 @@ import org.robolectric.annotation.Config
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
 import vn.dinhtrung.thuocla.domain.CigaretteLog
+import vn.dinhtrung.thuocla.domain.ThemeMode
 import vn.dinhtrung.thuocla.testutil.MutableClock
 import vn.dinhtrung.thuocla.ui.today.TodayScreen
 import vn.dinhtrung.thuocla.ui.today.TodayViewModel
@@ -128,6 +131,7 @@ class SettingsFlowTest {
                                     onIntervalGoalChange = settingsVm::onIntervalGoalChange,
                                     onPriceChange = settingsVm::onPricePerPackChange,
                                     onCigsPerPackChange = settingsVm::onCigsPerPackChange,
+                                    onThemeModeChange = settingsVm::onThemeModeChange,
                                     onSave = settingsVm::save,
                                 )
                             }
@@ -159,6 +163,57 @@ class SettingsFlowTest {
         composeRule.onNodeWithText("25%", substring = true).assertIsDisplayed()
 
         assertEquals(8, settingsVm.state.value.storedConfig.goal)
+    }
+
+    /**
+     * #19 acceptance: "Trong Cài đặt đặt 'Tối'". The picker starts on what the store holds, a tap moves
+     * the selection without writing, and Lưu persists it. Then reopening Cài đặt shows "Tối" again.
+     */
+    @Test
+    fun choosingDarkInSettings_persistsIt_andReopeningShowsIt() {
+        var vm by mutableStateOf(SettingsViewModel(repo, versionName = "1.0.0"))
+
+        composeRule.setContent {
+            val current = vm
+            val state by current.state.collectAsState()
+            MaterialTheme {
+                Surface {
+                    SettingsScreen(
+                        state = state,
+                        onGoalChange = current::onGoalChange,
+                        onIntervalGoalChange = current::onIntervalGoalChange,
+                        onPriceChange = current::onPricePerPackChange,
+                        onCigsPerPackChange = current::onCigsPerPackChange,
+                        onThemeModeChange = current::onThemeModeChange,
+                        onSave = current::save,
+                    )
+                }
+            }
+        }
+
+        composeRule.waitUntil(10_000) { vm.state.value.fields.goal == "10" }
+        composeRule.onNodeWithTag("settingThemeMode-SYSTEM").assertIsSelected()
+
+        composeRule.onNodeWithTag("settingThemeMode-DARK").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settingThemeMode-DARK").assertIsSelected()
+        composeRule.onNodeWithTag("settingThemeMode-SYSTEM").assertIsNotSelected()
+
+        // A tap alone must not write; only Lưu does.
+        assertEquals(ThemeMode.SYSTEM, vm.state.value.storedConfig.themeMode)
+
+        composeRule.onNodeWithTag("settingSave").performScrollTo().performClick()
+        waitForCondition("the mode to be stored") { vm.state.value.storedConfig.themeMode == ThemeMode.DARK }
+
+        // Reopening Cài đặt is a fresh ViewModel over the same store: the picker must come back on "Tối".
+        val reopened = SettingsViewModel(repo, versionName = "1.0.0")
+        vm = reopened
+        waitForCondition("the reopened screen to read the stored mode") {
+            reopened.state.value.themeMode == ThemeMode.DARK
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settingThemeMode-DARK").assertIsSelected()
+        composeRule.onNodeWithTag("settingThemeMode-SYSTEM").assertIsNotSelected()
     }
 
     // ------------------------------------------------------------------ helpers

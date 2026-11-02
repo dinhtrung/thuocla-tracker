@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import vn.dinhtrung.thuocla.AppContainer
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.domain.TrackerConfig
+import vn.dinhtrung.thuocla.domain.ThemeMode
 
 /** What the four inputs currently hold, as the user typed them (blank is a valid intermediate). */
 data class SettingsFields(
@@ -36,6 +37,11 @@ data class SettingsUiState(
     val daysWithData: Int = 0,
     val versionName: String = "",
     val savedMessage: String? = null,
+    /**
+     * The mode the picker is showing. It starts as the stored mode and changes on tap, so the radio
+     * group reflects the choice the user is about to save rather than the one already stored.
+     */
+    val themeMode: ThemeMode = ThemeMode.DEFAULT,
 ) {
     /** "v1.0.0 · 128 ngày" (tasks.md 7.2). */
     val footer: String get() = "v$versionName · $daysWithData ngày"
@@ -55,19 +61,22 @@ class SettingsViewModel(
 
     private val fields = MutableStateFlow(SettingsFields())
     private val savedMessage = MutableStateFlow<String?>(null)
+    private val themeMode = MutableStateFlow(ThemeMode.DEFAULT)
 
     val state: StateFlow<SettingsUiState> = combine(
         fields,
         repository.configFlow(),
         repository.distinctDayCountFlow(),
         savedMessage,
-    ) { typed, config, days, saved ->
+        themeMode,
+    ) { typed, config, days, saved, mode ->
         SettingsUiState(
             fields = typed,
             storedConfig = config,
             daysWithData = days,
             versionName = versionName,
             savedMessage = saved,
+            themeMode = mode,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -77,8 +86,16 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            fields.value = SettingsFields.of(repository.getConfig())
+            val stored = repository.getConfig()
+            fields.value = SettingsFields.of(stored)
+            themeMode.value = stored.themeMode
         }
+    }
+
+    /** Tapping a mode in Cài đặt: it takes effect on save, like every other field on this screen. */
+    fun onThemeModeChange(mode: ThemeMode) {
+        themeMode.value = mode
+        savedMessage.value = null
     }
 
     fun onGoalChange(value: String) {
@@ -108,11 +125,14 @@ class SettingsViewModel(
             intervalGoal = typed.intervalGoal.toIntOrNull() ?: 0,
             pricePerPack = typed.pricePerPack.toLongOrNull() ?: 0L,
             cigsPerPack = typed.cigsPerPack.toIntOrNull() ?: 0,
+            themeMode = themeMode.value,
         )
         viewModelScope.launch {
             val stored = repository.saveConfig(requested)
             savedMessage.value = savedText(requested, stored)
             fields.value = SettingsFields.of(stored)
+            // Re-read the mode the store kept, so the picker cannot drift from what is persisted.
+            themeMode.value = stored.themeMode
         }
     }
 

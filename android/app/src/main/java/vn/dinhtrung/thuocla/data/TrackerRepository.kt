@@ -13,6 +13,7 @@ import vn.dinhtrung.thuocla.domain.DailySummary
 import vn.dinhtrung.thuocla.domain.LOWEST_DAY_WINDOW_DAYS
 import vn.dinhtrung.thuocla.domain.buildDailySummary
 import vn.dinhtrung.thuocla.domain.TRIGGER_COUNT
+import vn.dinhtrung.thuocla.domain.ThemeMode
 import vn.dinhtrung.thuocla.domain.TrackerConfig
 import vn.dinhtrung.thuocla.domain.WriteBlock
 import vn.dinhtrung.thuocla.domain.WriteResult
@@ -226,9 +227,16 @@ class TrackerRepository(private val db: AppDatabase) {
         intervalGoal = intervalGoal,
         pricePerPack = pricePerPack,
         cigsPerPack = cigsPerPack,
+        themeMode = themeMode.name,
     )
 
-    private fun ConfigEntity.toDomain() = TrackerConfig(goal, intervalGoal, pricePerPack, cigsPerPack)
+    private fun ConfigEntity.toDomain() = TrackerConfig(
+        goal = goal,
+        intervalGoal = intervalGoal,
+        pricePerPack = pricePerPack,
+        cigsPerPack = cigsPerPack,
+        themeMode = ThemeMode.fromStorage(themeMode),
+    )
 
     private companion object {
         val MINUTE_RANGE = 0..1439

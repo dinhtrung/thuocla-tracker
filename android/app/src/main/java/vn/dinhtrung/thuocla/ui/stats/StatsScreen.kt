@@ -35,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,9 +50,6 @@ import vn.dinhtrung.thuocla.domain.history.DayDetailRow
 import vn.dinhtrung.thuocla.domain.history.DayPoint
 import vn.dinhtrung.thuocla.domain.history.TypeStats
 import vn.dinhtrung.thuocla.domain.roundTo5
-
-private val TodayBarColor = Color(0xFFFF6B81)
-private val OtherBarColor = Color(0xFFE94560)
 
 /**
  * Stats tab host. [requestedDay] is a day the Today screen asked to open (the "ít nhất" and "Hôm qua"
@@ -250,7 +246,10 @@ private fun RowScope.ChartBar(
             modifier = Modifier
                 .width(18.dp)
                 .height(barHeight)
-                .background(if (isToday) TodayBarColor else OtherBarColor, RoundedCornerShape(3.dp)),
+                .background(
+                    if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                    RoundedCornerShape(3.dp),
+                ),
         )
         Spacer(Modifier.height(4.dp))
         Text(

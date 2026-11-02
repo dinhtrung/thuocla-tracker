@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The platform theme for a device in dark mode (values-night/ overrides values/ by system setting).
+    The parent is the non-Light platform theme, so the window chrome is dark-correct too.
+-->
+<resources>
+    <style name="Theme.Thuocla" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>

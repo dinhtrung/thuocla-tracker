@@ -24,7 +24,13 @@ data class RecordEntity(
     @ColumnInfo(name = "note") val note: String? = null,
 )
 
-/** Single-row configuration table; [id] is always 1. */
+/**
+ * Single-row configuration table; [id] is always 1.
+ *
+ * [themeMode] was added in schema version 2 (#19). It is a TEXT column holding a `ThemeMode` name, and
+ * the migration fills existing rows with `SYSTEM`, so an upgraded install keeps every cigarette and
+ * simply follows the device until the user chooses otherwise.
+ */
 @Entity(tableName = "config")
 data class ConfigEntity(
     @PrimaryKey val id: Int = SINGLETON_ID,
@@ -32,6 +38,7 @@ data class ConfigEntity(
     @ColumnInfo(name = "intervalGoal") val intervalGoal: Int,
     @ColumnInfo(name = "pricePerPack") val pricePerPack: Long,
     @ColumnInfo(name = "cigsPerPack") val cigsPerPack: Int,
+    @ColumnInfo(name = "themeMode", defaultValue = "SYSTEM") val themeMode: String = "SYSTEM",
 ) {
     companion object {
         const val SINGLETON_ID = 1

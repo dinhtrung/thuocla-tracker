@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The window background drawn before the first Compose frame (values/ = light devices).
+    Matches LightSurface in ui/theme/Color.kt so launching the app in light mode does not flash
+    the other scheme. Kept here rather than in Kotlin because the window is created by the platform
+    before any Compose code runs.
+-->
+<resources>
+    <color name="window_background">#F2F4FA</color>
+</resources>

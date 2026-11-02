@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The window background for a device in dark mode (values-night/ overrides values/ by system
+    setting). Matches DarkSurface in ui/theme/Color.kt — this is what removes the white border
+    around the app when the phone is dark.
+-->
+<resources>
+    <color name="window_background">#1A1A2E</color>
+</resources>

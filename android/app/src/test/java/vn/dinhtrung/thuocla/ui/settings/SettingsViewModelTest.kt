@@ -18,6 +18,7 @@ import org.robolectric.annotation.Config
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
 import vn.dinhtrung.thuocla.domain.TrackerConfig
+import vn.dinhtrung.thuocla.domain.ThemeMode
 import vn.dinhtrung.thuocla.testutil.MainDispatcherRule
 
 /**
@@ -109,6 +110,49 @@ class SettingsViewModelTest {
 
         awaitUntil("two days counted") { vm.state.value.daysWithData == 2 }
         assertEquals("v1.0.0 · 2 ngày", vm.state.value.footer)
+    }
+
+    // ------------------------------------------------------------ #19 theme mode
+
+    @Test
+    fun emptyStore_showsTheSystemModeInThePicker() = runBlocking {
+        val vm = viewModel()
+        awaitUntil("mode loaded") { vm.state.value.fields.goal == "10" }
+
+        assertEquals(ThemeMode.SYSTEM, vm.state.value.themeMode)
+    }
+
+    @Test
+    fun choosingDark_showsItInThePicker_butOnlySavePersistsIt() = runBlocking {
+        val vm = viewModel()
+        awaitUntil("defaults loaded") { vm.state.value.fields.goal == "10" }
+
+        vm.onThemeModeChange(ThemeMode.DARK)
+
+        // The radio group follows the tap immediately; the store still holds the old choice.
+        assertEquals(ThemeMode.DARK, vm.state.value.themeMode)
+        assertEquals(ThemeMode.SYSTEM, repo.getConfig().themeMode)
+
+        vm.save()
+        awaitUntil("mode saved") { repo.getConfig().themeMode == ThemeMode.DARK }
+
+        assertEquals(ThemeMode.DARK, repo.getConfig().themeMode)
+        assertEquals(ThemeMode.DARK, vm.state.value.themeMode)
+    }
+
+    @Test
+    fun reopeningSettings_showsTheStoredMode_notTheDefault() = runBlocking {
+        repo.saveConfig(TrackerConfig(goal = 8, themeMode = ThemeMode.LIGHT))
+
+        val vm = viewModel()
+        awaitUntil("stored mode loaded") { vm.state.value.themeMode == ThemeMode.LIGHT }
+
+        assertEquals(ThemeMode.LIGHT, vm.state.value.themeMode)
+        // Saving without touching the picker must not silently reset the user's choice to SYSTEM.
+        vm.onGoalChange("9")
+        vm.save()
+        awaitUntil("goal saved") { repo.getConfig().goal == 9 }
+        assertEquals(ThemeMode.LIGHT, repo.getConfig().themeMode)
     }
 
     private suspend fun awaitUntil(what: String, condition: suspend () -> Boolean) {

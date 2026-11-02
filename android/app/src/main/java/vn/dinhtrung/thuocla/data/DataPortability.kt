@@ -179,6 +179,10 @@ class DataPortability(
                 intervalGoal = file.intervalGoal.takeIf { it > 0 } ?: current.intervalGoal,
                 pricePerPack = file.pricePerPack.takeIf { it > 0 } ?: current.pricePerPack,
                 cigsPerPack = file.cigsPerPack.takeIf { it > 0 } ?: current.cigsPerPack,
+                // The backup format is the PWA's, and it carries only the four numeric settings — no
+                // theme. Importing must not silently reset the user's chosen mode, so the device's
+                // current one is kept rather than defaulted.
+                themeMode = current.themeMode,
             ).normalized()
         }
 
@@ -197,6 +201,7 @@ class DataPortability(
                         intervalGoal = mergedConfig.intervalGoal,
                         pricePerPack = mergedConfig.pricePerPack,
                         cigsPerPack = mergedConfig.cigsPerPack,
+                        themeMode = mergedConfig.themeMode.name,
                     ),
                 )
             }
