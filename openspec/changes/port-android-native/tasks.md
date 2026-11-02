@@ -15,10 +15,10 @@
 
 ## 3. cigarette-log
 
-- [ ] 3.1 Hàm thuần: `roundTo5(minuteOfDay)`, `timeKey(record)`, `addNow`, `addAt(dateKey, hh:mm)`, `undoLast`. Test: 14:07→14:05, 14:08→14:10; thêm 10:15 khi đã có 10:15 → bị chặn.
-- [ ] 3.2 UI Hôm nay: nút +1 (lớn, gradient), nút hoàn tác (icon), bộ đếm + tiến độ mục tiêu. Bằng chứng: test Compose tìm được `testTag("addCig")`, bấm 2 lần → bộ đếm = 2.
-- [ ] 3.3 Bottom sheet 8 lý do đúng thứ tự (Sau ăn, Cà phê, Stress, Nhậu, Buồn, Thói quen, Thèm, Khác), mở ~2s sau +1, ghi vào đúng điếu vừa tạo; bấm lại lý do đang gắn = bỏ. Test: +1 rồi chọn Cà phê, +1 rồi chọn Stress → điếu 1 = Cà phê, điếu 2 = Stress.
-- [ ] 3.4 Sửa giờ một điếu và thêm điếu vào ngày quá khứ, cả hai đi qua luật làm tròn 5 phút + chống trùng phút.
+- [x] 3.1 Hàm thuần: `roundTo5(minuteOfDay)`, `timeKey(record)`, `addNow`, `addAt(dateKey, hh:mm)`, `undoLast`. Test: 14:07→14:05, 14:08→14:10; thêm 10:15 khi đã có 10:15 → bị chặn.
+- [x] 3.2 UI Hôm nay: nút +1 (lớn, gradient), nút hoàn tác (icon), bộ đếm + tiến độ mục tiêu. Bằng chứng: test Compose tìm được `testTag("addCig")`, bấm 2 lần → bộ đếm = 2.
+- [x] 3.3 Bottom sheet 8 lý do đúng thứ tự (Sau ăn, Cà phê, Stress, Nhậu, Buồn, Thói quen, Thèm, Khác), mở ~2s sau +1, ghi vào đúng điếu vừa tạo; bấm lại lý do đang gắn = bỏ. Test: +1 rồi chọn Cà phê, +1 rồi chọn Stress → điếu 1 = Cà phê, điếu 2 = Stress.
+- [x] 3.4 Sửa giờ một điếu và thêm điếu vào ngày quá khứ, cả hai đi qua luật làm tròn 5 phút + chống trùng phút.
 
 ## 4. daily-summary
 
