@@ -10,15 +10,22 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import vn.dinhtrung.thuocla.AppContainer
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.domain.CigRecord
 import vn.dinhtrung.thuocla.domain.CigaretteLog
+import vn.dinhtrung.thuocla.domain.DailySummary
+import vn.dinhtrung.thuocla.domain.ComparisonRow
+import vn.dinhtrung.thuocla.domain.IntervalStatus
 import vn.dinhtrung.thuocla.domain.TrackerConfig
 import vn.dinhtrung.thuocla.domain.WriteBlock
 import vn.dinhtrung.thuocla.domain.WriteResult
+import vn.dinhtrung.thuocla.domain.comparisonRows
 import vn.dinhtrung.thuocla.domain.formatHhMm
+import vn.dinhtrung.thuocla.domain.intervalStatus
 
 /** State the Today screen renders. Group 4 extends this with timer, quick stats and the cut note. */
 data class TodayUiState(
@@ -29,6 +36,10 @@ data class TodayUiState(
     val warning: String? = null,
     /** Non-null while the reason sheet is open; the record the tap will write into. */
     val triggerTarget: CigRecord? = null,
+    /** Four quick stats + comparison series for this day (tasks.md 4.1 / 4.3). */
+    val summary: DailySummary? = null,
+    /** Clock card facts for the minute the screen was built (tasks.md 4.2). */
+    val interval: IntervalStatus = IntervalStatus.EMPTY,
 ) {
     val count: Int get() = records.size
 
@@ -49,6 +60,8 @@ class TodayViewModel(
     private val log: CigaretteLog,
     private val repository: TrackerRepository,
     private val triggerPromptDelayMillis: Long = TRIGGER_PROMPT_DELAY_MILLIS,
+    /** Re-emits once a minute so the clock card and the "ít nhất" window roll over without a tap. */
+    minuteTicker: Flow<Unit> = minuteTickerFlow(),
 ) : ViewModel() {
 
     private val dateKey: String = log.todayKey()
@@ -59,15 +72,22 @@ class TodayViewModel(
     val state: StateFlow<TodayUiState> = combine(
         repository.dayFlow(dateKey),
         repository.configFlow(),
-        warning,
-        triggerTarget,
-    ) { records, config, warn, target ->
+        repository.dailySummaryFlow(dateKey),
+        minuteTicker,
+        combine(warning, triggerTarget) { w, t -> w to t },
+    ) { records, config, summary, _, (warn, target) ->
         TodayUiState(
             dateKey = dateKey,
             records = records,
             goal = config.goal,
             warning = warn,
             triggerTarget = target,
+            summary = summary,
+            interval = intervalStatus(
+                lastMinute = records.lastOrNull()?.minuteOfDay,
+                nowMinute = log.nowMinuteOfDay(),
+                intervalGoal = config.intervalGoal,
+            ),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -163,6 +183,24 @@ class TodayViewModel(
 
         const val DUPLICATE_WARNING = "⚠️ Đã có điếu lúc này rồi — không thêm trùng nhé!"
         const val INVALID_TIME_WARNING = "⚠️ Giờ không hợp lệ"
+    }
+}
+
+/** Rows of the three-column table for the state's own records and summary (tasks.md 4.3). */
+fun TodayUiState.comparisonRows(): List<ComparisonRow> =
+    summary?.let { comparisonRows(records, it) }.orEmpty()
+
+/**
+ * Emits immediately and then on every minute boundary of the wall clock.
+ *
+ * The PWA re-renders the timer every second and the cut note every minute; the native screen only
+ * needs the minute boundary, because every number it shows is whole minutes.
+ */
+fun minuteTickerFlow(): Flow<Unit> = flow {
+    while (true) {
+        emit(Unit)
+        val millisToNextMinute = 60_000L - System.currentTimeMillis() % 60_000L
+        delay(millisToNextMinute)
     }
 }
 

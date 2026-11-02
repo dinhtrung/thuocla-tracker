@@ -9,6 +9,9 @@ import vn.dinhtrung.thuocla.data.db.AppDatabase
 import vn.dinhtrung.thuocla.data.db.ConfigEntity
 import vn.dinhtrung.thuocla.data.db.RecordEntity
 import vn.dinhtrung.thuocla.domain.CigRecord
+import vn.dinhtrung.thuocla.domain.DailySummary
+import vn.dinhtrung.thuocla.domain.LOWEST_DAY_WINDOW_DAYS
+import vn.dinhtrung.thuocla.domain.buildDailySummary
 import vn.dinhtrung.thuocla.domain.TRIGGER_COUNT
 import vn.dinhtrung.thuocla.domain.TrackerConfig
 import vn.dinhtrung.thuocla.domain.WriteBlock
@@ -149,6 +152,38 @@ class TrackerRepository(private val db: AppDatabase) {
     suspend fun distinctDayCount(): Int = recordDao.distinctDayCount()
 
     fun distinctDayCountFlow(): Flow<Int> = recordDao.distinctDayCountFlow()
+
+    // ------------------------------------------------------- daily-summary (task 4)
+
+    /**
+     * Everything the "Hôm nay" screen needs besides today's own records: the four quick stats and
+     * the 30-day comparison series (tasks.md 4.1 / 4.3).
+     *
+     * One read covers both the 31-day "ít nhất" window and the 30-day average window — the second is
+     * a subset of the first — and [dailySummary] derives every number from it. Today's records come
+     * from [dayFlow] so the screen's own list and the summary never disagree.
+     */
+    suspend fun dailySummary(today: String): DailySummary {
+        val todayDate = runCatching { LocalDate.parse(today) }.getOrNull()
+            ?: return DailySummary.empty(today)
+        val from = todayDate.minusDays((LOWEST_DAY_WINDOW_DAYS - 1).toLong()).toString()
+        val to = todayDate.minusDays(1).toString()
+        return buildDailySummary(range(from, to) + day(today), today)
+    }
+
+    /** The same summary as a flow, recomputed whenever the records table changes. */
+    fun dailySummaryFlow(today: String): Flow<DailySummary> {
+        val todayDate = runCatching { LocalDate.parse(today) }.getOrNull()
+            ?: return kotlinx.coroutines.flow.flowOf(DailySummary.empty(today))
+        val from = todayDate.minusDays((LOWEST_DAY_WINDOW_DAYS - 1).toLong()).toString()
+        return recordDao.rangeFlow(from, today).map { rows ->
+            buildDailySummary(rows.map { it.toDomain() }, today)
+        }
+    }
+
+    /** Cigarettes in [dateKey] — the count behind "Hôm qua" and the day-detail header. */
+    suspend fun countInDay(dateKey: String): Int =
+        if (!isValidDateKey(dateKey)) 0 else recordDao.countInDay(dateKey)
 
     // ----------------------------------------------------------------- config
 

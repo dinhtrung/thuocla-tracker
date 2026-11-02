@@ -18,6 +18,8 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
 import java.time.Duration
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -148,6 +150,7 @@ class TodayScreenTest {
             runBlocking { repo.day(today) }.singleOrNull()?.triggerIdx == 1
         }
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("record_845"))
         composeRule.onNodeWithText("☕ Cà phê", substring = true).assertIsDisplayed()
     }
 
@@ -169,6 +172,7 @@ class TodayScreenTest {
         setContentWithViewModel()
         composeRule.waitUntil(5_000) { counterIs("1 / 10 điếu") }
 
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("record_615"))
         composeRule.onNodeWithTag("record_615").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("editTimeInput").assertIsDisplayed()
@@ -181,7 +185,55 @@ class TodayScreenTest {
             runBlocking { repo.day(today) }.singleOrNull()?.minuteOfDay == 505
         }
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("record_505"))
         composeRule.onNodeWithTag("record_505").assertIsDisplayed()
+    }
+
+    // ------------------------------------------------------------ tasks.md 4.1 / 4.2 / 4.3
+
+    @Test
+    fun firstDay_fiveCigarettes_avg7ReadsFivePointZero_andLowestCardSaysToday() {
+        runBlocking {
+            // 08:25, 09:50, 11:45, 12:35, 14:05 — the five cigarettes of the first day.
+            listOf(505, 590, 705, 755, 845).forEach { repo.addRecord(today, it) }
+        }
+        setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("5 / 10 điếu") }
+
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("statAvg7"))
+        // The spec's two mandatory numbers: TB 7 ngày = 5.0 (not 0.7), thẻ ít nhất = "5 • Hôm nay".
+        composeRule.onNodeWithTag("statAvg7").assertIsDisplayed()
+        composeRule.onNodeWithText("5.0", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("statLowest").assertIsDisplayed()
+        composeRule.onNodeWithText("Ít nhất • Hôm nay", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun comparisonTable_firstDay_stillDrawsFiveTodayRows_withDashesInReferenceColumns() {
+        runBlocking {
+            listOf(505, 590, 705, 755, 845).forEach { repo.addRecord(today, it) }
+        }
+        setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("5 / 10 điếu") }
+
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("comparisonTable"))
+        // Row 5 exists even though there is no reference day: the Today column is never cut short.
+        composeRule.onNodeWithTag("comparisonRow_5").assertExists()
+        composeRule.onNodeWithTag("comparisonTable").assertIsDisplayed()
+        composeRule.onNodeWithText("(5)", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun intervalCard_overGoal_showsMinutesOver() {
+        runBlocking { repo.addRecord(today, 755) } // 12:35, goal 60, clock frozen at 14:07
+        setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("1 / 10 điếu") }
+
+        // 14:07 - 12:35 = 92 minutes, so 32 minutes past the 60-minute goal.
+        composeRule.onNodeWithTag("intervalElapsed").assertIsDisplayed()
+        composeRule.onNodeWithText("01:32", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("intervalOver").assertIsDisplayed()
+        composeRule.onNodeWithText("+32 phút", substring = true).assertIsDisplayed()
     }
 
     // ------------------------------------------------------------------ helpers

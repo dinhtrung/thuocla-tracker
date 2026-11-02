@@ -47,6 +47,9 @@ interface RecordDao {
     @Query("SELECT COUNT(*) FROM records WHERE dateKey BETWEEN :from AND :to")
     fun countBetweenFlow(from: String, to: String): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM records WHERE dateKey = :dateKey")
+    suspend fun countInDay(dateKey: String): Int
+
     @Query("SELECT COUNT(DISTINCT dateKey) FROM records")
     suspend fun distinctDayCount(): Int
 
