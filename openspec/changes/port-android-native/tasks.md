@@ -2,9 +2,9 @@
 
 - [ ] 1.1 Cài JDK 17 và ép Gradle dùng nó: `sudo apt-get install -y openjdk-17-jdk` → `java -version` phải in `17.` khi chạy với `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`. Java 25 đang có KHÔNG dùng được cho AGP 8.x.
 - [ ] 1.2 Cài Android SDK: `cmdline-tools/latest`, `platform-tools`, `platforms;android-35`, `build-tools;35.0.0`; `yes | sdkmanager --licenses`; export `ANDROID_HOME=$HOME/Android/Sdk` vào `~/.profile`. Bằng chứng: `sdkmanager --list_installed | grep -E 'platforms;android-35|build-tools;35'`.
-- [ ] 1.3 Tạo `android/` + Gradle wrapper (Kotlin DSL, AGP 8.x, Compose BOM, Room, KSP, minSdk 26, targetSdk 35): `./gradlew :app:assembleDebug` xanh, in đường dẫn APK. Bằng chứng: dòng `BUILD SUCCESSFUL` + `ls -l app/build/outputs/apk/debug/app-debug.apk`.
-- [ ] 1.4 Manifest KHÔNG có `android.permission.INTERNET`. Bằng chứng: `aapt2 dump permissions app/build/outputs/apk/debug/app-debug.apk` không liệt kê INTERNET.
-- [ ] 1.5 Thêm `android/` vào `.vercelignore`; commit nhánh `feature/android-skeleton`; mở PR draft. Không đụng `index.html`/`app.js`/`service-worker.js`.
+- [x] 1.3 Tạo `android/` + Gradle wrapper (Kotlin DSL, AGP 8.x, Compose BOM, Room, KSP, minSdk 26, targetSdk 35): `./gradlew :app:assembleDebug` xanh, in đường dẫn APK. Bằng chứng: dòng `BUILD SUCCESSFUL` + `ls -l app/build/outputs/apk/debug/app-debug.apk`.
+- [x] 1.4 Manifest KHÔNG có `android.permission.INTERNET`. Bằng chứng: `aapt2 dump permissions app/build/outputs/apk/debug/app-debug.apk` không liệt kê INTERNET.
+- [x] 1.5 Thêm `android/` vào `.vercelignore`; commit nhánh `feature/android-skeleton`; mở PR draft. Không đụng `index.html`/`app.js`/`service-worker.js`.
 
 ## 2. offline-store (chặn lane B cho tới khi xong 2.2)
 
