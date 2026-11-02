@@ -45,10 +45,10 @@
 
 ## 8. data-portability
 
-- [ ] 8.1 Xuất CSV đúng 6 cột `Ngày,Giờ,Lý do,Ghi chú,Khoảng cách (phút),STT trong ngày`: tên lý do không emoji, khoảng cách rỗng ở điếu đầu, STT từ 1. Test với ngày 02/11 5 điếu → 1 header + 5 dòng, khoảng cách `,85,115,50,90`.
-- [ ] 8.2 Xuất JSON `thuocla_backup_YYYY-MM-DD.json` với `{app, format, exportedAt, config, data}`; `data` là map ngày → records `{time, trigger?, note?}`. Test: đọc lại file, `data["2026-11-02"]` có đúng 5 phần tử.
-- [ ] 8.3 Nhập JSON: hỏi THAY THẾ / GỘP; chuẩn hoá bỏ key ngày không hợp lệ, bỏ record `time` hỏng, bỏ `trigger` ngoài 0–7; GỘP bỏ trùng phút, config trong file thắng. Test: file 40 ngày + đang có 3 ngày ⇒ 43 ngày (hoặc ít hơn nếu trùng ngày); file JSON không có `data` ⇒ báo lỗi, dữ liệu không đổi.
-- [ ] 8.4 Nhập CSV: parse 6 cột, suy lại gap/STT (không tin file), map tên lý do → chỉ số, dòng hỏng (vd `25:99`) ⇒ abort toàn bộ + báo số dòng lỗi.
+- [x] 8.1 Xuất CSV đúng 6 cột `Ngày,Giờ,Lý do,Ghi chú,Khoảng cách (phút),STT trong ngày`: tên lý do không emoji, khoảng cách rỗng ở điếu đầu, STT từ 1. Test với ngày 02/11 5 điếu → 1 header + 5 dòng, khoảng cách `,85,115,50,90`.
+- [x] 8.2 Xuất JSON `thuocla_backup_YYYY-MM-DD.json` với `{app, format, exportedAt, config, data}`; `data` là map ngày → records `{time, trigger?, note?}`. Test: đọc lại file, `data["2026-11-02"]` có đúng 5 phần tử.
+- [x] 8.3 Nhập JSON: hỏi THAY THẾ / GỘP; chuẩn hoá bỏ key ngày không hợp lệ, bỏ record `time` hỏng, bỏ `trigger` ngoài 0–7; GỘP bỏ trùng phút, config trong file thắng. Test: file 40 ngày + đang có 3 ngày ⇒ 43 ngày (hoặc ít hơn nếu trùng ngày); file JSON không có `data` ⇒ báo lỗi, dữ liệu không đổi.
+- [x] 8.4 Nhập CSV: parse 6 cột, suy lại gap/STT (không tin file), map tên lý do → chỉ số, dòng hỏng (vd `25:99`) ⇒ abort toàn bộ + báo số dòng lỗi.
 - [ ] 8.5 Round-trip: export JSON → xoá dữ liệu (xoá app data) → import → cùng số ngày/điếu/lý do. Bằng chứng: 2 lần `adb shell run-as ... ls databases/` + số đếm trong app trước/sau.
 
 ## 9. Build, đóng gói, verify với người dùng
