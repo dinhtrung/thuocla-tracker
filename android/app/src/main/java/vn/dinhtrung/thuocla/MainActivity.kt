@@ -242,7 +242,13 @@ private fun TodayRoute(container: AppContainer) {
 
 @Composable
 private fun SettingsPlaceholder() {
-    Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .testTag("settingsPlaceholder"),
+        contentAlignment = Alignment.Center,
+    ) {
         Text(text = "Cài đặt", style = MaterialTheme.typography.headlineMedium)
     }
 }
