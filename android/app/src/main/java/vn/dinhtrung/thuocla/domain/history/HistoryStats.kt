@@ -4,7 +4,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.math.roundToInt
 import vn.dinhtrung.thuocla.domain.CigRecord
-import vn.dinhtrung.thuocla.domain.dayName
 
 /** Minutes in a displayed week (tasks.md 6.1: "biểu đồ cột số điếu 7 ngày"). */
 const val WEEK_DAYS = 7
@@ -33,6 +32,26 @@ fun weekWindow(today: LocalDate, pagesBack: Int): WeekWindow {
     val to = today.minusDays(WEEK_DAYS.toLong() * pagesBack)
     return WeekWindow(from = to.minusDays((WEEK_DAYS - 1).toLong()), to = to, pagesBack = pagesBack)
 }
+
+/**
+ * "CN", "T2" … "T7" — the PWA's day labels (`getDayName`). Display-only helpers for this screen;
+ * they live next to the chart code instead of in `domain/Time.kt`, which owns time arithmetic.
+ */
+fun dayName(date: LocalDate): String = when (date.dayOfWeek) {
+    DayOfWeek.MONDAY -> "T2"
+    DayOfWeek.TUESDAY -> "T3"
+    DayOfWeek.WEDNESDAY -> "T4"
+    DayOfWeek.THURSDAY -> "T5"
+    DayOfWeek.FRIDAY -> "T6"
+    DayOfWeek.SATURDAY -> "T7"
+    DayOfWeek.SUNDAY -> "CN"
+    // DayOfWeek is a Java enum, so the compiler sees a nullable subject; a LocalDate always has one.
+    null -> ""
+}
+
+/** "dd/MM" — the day-detail title suffix. */
+fun dayMonth(date: LocalDate): String =
+    "${date.dayOfMonth.toString().padStart(2, '0')}/${date.monthValue.toString().padStart(2, '0')}"
 
 /** One bar of the chart. */
 data class DayPoint(

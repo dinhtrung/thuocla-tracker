@@ -9,6 +9,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -28,12 +29,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
-import vn.dinhtrung.thuocla.domain.formatMinuteOfDay
+import vn.dinhtrung.thuocla.domain.formatHhMm
 
 /**
  * tasks.md 6.1 ("seed 14 ngày → bấm lùi 1 tuần, dữ liệu đổi đúng khoảng") and 6.2 (edit time /
  * attach reason from the day detail), exercised through the real Room store.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class StatsViewModelTest {
@@ -150,7 +152,7 @@ class StatsViewModelTest {
         val blocked = awaitState { state -> state.message != null }
 
         assertEquals(
-            "Đã có điếu lúc ${formatMinuteOfDay(605)} rồi",
+            "Đã có điếu lúc ${formatHhMm(605)} rồi",
             blocked.message,
         )
         assertEquals(listOf(605, 630), blocked.detail.map { it.record.minuteOfDay })
@@ -171,5 +173,19 @@ class StatsViewModelTest {
         assertNull(state.weekend)
         assertEquals(5, state.weekday!!.dayCount)
         assertEquals(4, state.weekday!!.avgPerDay)
+    }
+
+    @Test
+    fun moveTime_refusesAChangeThatRoundsIntoTomorrow() = runTest {
+        repository.addRecord(today.toString(), 600)
+
+        viewModel.selectDay(today.toString())
+        val opened = awaitState { state -> state.detail.size == 1 }
+
+        viewModel.moveTime(opened.detail[0], 1438) // 23:58 -> the PWA rounds to 00:00 next day
+        val refused = awaitState { state -> state.message != null }
+
+        assertEquals("Giờ này làm tròn sang ngày khác — chọn giờ khác", refused.message)
+        assertEquals(600, refused.detail[0].record.minuteOfDay) // nothing moved
     }
 }

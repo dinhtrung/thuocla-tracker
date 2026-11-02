@@ -14,6 +14,14 @@ class HistoryStatsTest {
     private fun record(date: String, minuteOfDay: Int, trigger: Int? = null) =
         CigRecord(dateKey = date, minuteOfDay = minuteOfDay, triggerIdx = trigger)
 
+    @Test
+    fun dayNames_matchThePwaLabels() {
+        assertEquals("T2", dayName(LocalDate.of(2026, 11, 2)))   // Monday
+        assertEquals("T7", dayName(LocalDate.of(2026, 10, 31)))  // Saturday
+        assertEquals("CN", dayName(LocalDate.of(2026, 11, 1)))   // Sunday
+        assertEquals("02/11", dayMonth(LocalDate.of(2026, 11, 2)))
+    }
+
     // ------------------------------------------------------------ 6.1 chart
 
     @Test

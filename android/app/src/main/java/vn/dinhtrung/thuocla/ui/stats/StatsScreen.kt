@@ -45,13 +45,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.Locale
 import kotlinx.coroutines.delay
 import vn.dinhtrung.thuocla.AppContainer
-import vn.dinhtrung.thuocla.domain.TRIGGERS
-import vn.dinhtrung.thuocla.domain.formatMinuteOfDay
+import vn.dinhtrung.thuocla.domain.Triggers
+import vn.dinhtrung.thuocla.domain.formatHhMm
 import vn.dinhtrung.thuocla.domain.history.DayDetailRow
 import vn.dinhtrung.thuocla.domain.history.DayPoint
 import vn.dinhtrung.thuocla.domain.history.TypeStats
 import vn.dinhtrung.thuocla.domain.roundTo5
-import vn.dinhtrung.thuocla.domain.triggerLabel
 
 private val TodayBarColor = Color(0xFFFF6B81)
 private val OtherBarColor = Color(0xFFE94560)
@@ -307,7 +306,7 @@ private fun DayDetailLine(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = formatMinuteOfDay(row.record.minuteOfDay),
+            text = formatHhMm(row.record.minuteOfDay),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.width(56.dp),
         )
@@ -334,7 +333,7 @@ private fun DayDetailLine(
                 onClick = onPickReason,
                 modifier = Modifier.testTag("reason_${row.index}"),
             ) {
-                Text(triggerLabel(row.record.triggerIdx) ?: "❓ Chọn lý do")
+                Text(Triggers.byIdx(row.record.triggerIdx)?.label ?: "❓ Chọn lý do")
             }
         }
         TextButton(
@@ -387,7 +386,7 @@ private fun Metric(label: String, value: String?) {
 private fun rangeLabel(stats: TypeStats?): String? {
     val first = stats?.avgFirstMinute ?: return null
     val last = stats.avgLastMinute ?: return null
-    return "${formatMinuteOfDay(first)}–${formatMinuteOfDay(last)}"
+    return "${formatHhMm(first)}–${formatHhMm(last)}"
 }
 
 @Composable
@@ -406,12 +405,12 @@ private fun ReasonPickerDialog(
             ) {
                 Text("Chọn lý do", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                TRIGGERS.forEachIndexed { idx, label ->
+                Triggers.ALL.forEach { trigger ->
                     TextButton(
-                        onClick = { onPick(idx) },
-                        modifier = Modifier.fillMaxWidth().testTag("reasonOption_$idx"),
+                        onClick = { onPick(trigger.idx) },
+                        modifier = Modifier.fillMaxWidth().testTag("reasonOption_${trigger.idx}"),
                     ) {
-                        Text(if (idx == selectedIdx) "$label ✓" else label)
+                        Text(if (trigger.idx == selectedIdx) "${trigger.label} ✓" else trigger.label)
                     }
                 }
                 if (selectedIdx != null) {
@@ -445,9 +444,13 @@ private fun TimeEditDialog(
                 Text("Sửa giờ điếu", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 TimePicker(state = pickerState)
+                val preview = roundTo5(pickerState.hour * 60 + pickerState.minute)
                 Text(
-                    text = "Làm tròn 5 phút: " +
-                        formatMinuteOfDay(roundTo5(pickerState.hour * 60 + pickerState.minute)),
+                    text = if (preview.dayOffset == 0) {
+                        "Làm tròn 5 phút: ${formatHhMm(preview.minuteOfDay)}"
+                    } else {
+                        "Làm tròn 5 phút: 00:00 ngày kế — không lưu được, chọn giờ khác"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp).testTag("roundedPreview"),
                 )

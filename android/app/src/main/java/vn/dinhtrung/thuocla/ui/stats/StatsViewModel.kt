@@ -17,9 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.domain.WriteBlock
-import vn.dinhtrung.thuocla.domain.dayMonth
-import vn.dinhtrung.thuocla.domain.dayName
-import vn.dinhtrung.thuocla.domain.formatMinuteOfDay
+import vn.dinhtrung.thuocla.domain.formatHhMm
 import vn.dinhtrung.thuocla.domain.history.COMPARISON_WINDOW_DAYS
 import vn.dinhtrung.thuocla.domain.history.DayDetailRow
 import vn.dinhtrung.thuocla.domain.history.DayPoint
@@ -27,6 +25,8 @@ import vn.dinhtrung.thuocla.domain.history.TypeStats
 import vn.dinhtrung.thuocla.domain.history.WeekWindow
 import vn.dinhtrung.thuocla.domain.history.chartDays
 import vn.dinhtrung.thuocla.domain.history.dayDetail
+import vn.dinhtrung.thuocla.domain.history.dayMonth
+import vn.dinhtrung.thuocla.domain.history.dayName
 import vn.dinhtrung.thuocla.domain.history.weekWindow
 import vn.dinhtrung.thuocla.domain.history.weekendComparison
 import vn.dinhtrung.thuocla.domain.roundTo5
@@ -112,14 +112,24 @@ class StatsViewModel(
         message.value = null
     }
 
-    /** Moves one cigarette to [minuteOfDay], rounded to 5 minutes by the same rule as logging. */
+    /**
+     * Moves one cigarette to [minuteOfDay], rounded to 5 minutes by the PWA rule.
+     *
+     * The PWA's rounding can roll into the next day (23:58 -> 00:00). An edit must not silently
+     * change the date, and the store only moves a record inside one day, so a day-crossing round is
+     * refused instead of clamped or reassigned.
+     */
     fun moveTime(row: DayDetailRow, minuteOfDay: Int) {
-        val target = roundTo5(minuteOfDay)
+        val rounded = roundTo5(minuteOfDay)
+        if (rounded.dayOffset != 0) {
+            message.value = "Giờ này làm tròn sang ngày khác — chọn giờ khác"
+            return
+        }
         viewModelScope.launch {
-            val result = repository.updateTime(row.record.dateKey, row.record.minuteOfDay, target)
+            val result = repository.updateTime(row.record.dateKey, row.record.minuteOfDay, rounded.minuteOfDay)
             message.value = when (result.block) {
                 WriteBlock.DUPLICATE_MINUTE ->
-                    "Đã có điếu lúc ${formatMinuteOfDay(target)} rồi"
+                    "Đã có điếu lúc ${formatHhMm(rounded.minuteOfDay)} rồi"
                 WriteBlock.INVALID -> "Không sửa được giờ"
                 WriteBlock.NONE -> null
             }
