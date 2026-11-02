@@ -21,14 +21,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import vn.dinhtrung.thuocla.ui.data.DataScreen
 import vn.dinhtrung.thuocla.ui.data.DataViewModel
 import vn.dinhtrung.thuocla.ui.data.DataViewModelFactory
+import vn.dinhtrung.thuocla.ui.settings.SettingsScreen
+import vn.dinhtrung.thuocla.ui.settings.SettingsViewModel
+import vn.dinhtrung.thuocla.ui.settings.SettingsViewModelFactory
 import vn.dinhtrung.thuocla.ui.stats.StatsRoute
 import vn.dinhtrung.thuocla.ui.today.TodayScreen
 import vn.dinhtrung.thuocla.ui.today.TodayViewModel
@@ -48,8 +49,8 @@ private const val TAB_SETTINGS = 3
  * a content URI, this activity reads or writes UTF-8 text through [contentResolver], and no storage
  * permission is ever requested — nor is `android.permission.INTERNET`.
  *
- * Task 7 owns the full "Cài đặt" tab; when it lands it should fold [DataScreen] in beside the four
- * config fields and the shell drops back to three tabs.
+ * "Cài đặt" is task 7's settings screen (four config fields + version footer); [DataScreen] keeps
+ * its own tab so #15's export/import stays reachable rather than being folded in.
  */
 class MainActivity : ComponentActivity() {
 
@@ -172,7 +173,7 @@ class MainActivity : ComponentActivity() {
                         onDismissMessage = dataViewModel::dismissMessage,
                     )
 
-                    TAB_SETTINGS -> SettingsPlaceholder()
+                    TAB_SETTINGS -> SettingsRoute(container)
                     else -> TodayRoute(container)
                 }
             }
@@ -241,14 +242,18 @@ private fun TodayRoute(container: AppContainer) {
 }
 
 @Composable
-private fun SettingsPlaceholder() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .testTag("settingsPlaceholder"),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = "Cài đặt", style = MaterialTheme.typography.headlineMedium)
-    }
+private fun SettingsRoute(container: AppContainer) {
+    val vm: SettingsViewModel = viewModel(
+        factory = SettingsViewModelFactory(container, BuildConfig.VERSION_NAME),
+    )
+    val state by vm.state.collectAsState()
+
+    SettingsScreen(
+        state = state,
+        onGoalChange = vm::onGoalChange,
+        onIntervalGoalChange = vm::onIntervalGoalChange,
+        onPriceChange = vm::onPricePerPackChange,
+        onCigsPerPackChange = vm::onCigsPerPackChange,
+        onSave = vm::save,
+    )
 }
