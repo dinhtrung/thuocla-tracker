@@ -40,8 +40,8 @@
 
 ## 7. settings
 
-- [ ] 7.1 Form 4 trường (mục tiêu ngày, khoảng cách mục tiêu, giá bao, điếu/bao) + lưu; ô trống/quá nhỏ ⇒ giữ default 10 / 60 / 25000 / 20, không tạo config rỗng. Test: đổi mục tiêu 10→8, quay về Hôm nay thấy 8 và tiến độ tính lại.
-- [ ] 7.2 Hiện phiên bản app + số ngày có dữ liệu (vd `v1.0.0 · 128 ngày`).
+- [x] 7.1 Form 4 trường (mục tiêu ngày, khoảng cách mục tiêu, giá bao, điếu/bao) + lưu; ô trống/quá nhỏ ⇒ giữ default 10 / 60 / 25000 / 20, không tạo config rỗng. Test: đổi mục tiêu 10→8, quay về Hôm nay thấy 8 và tiến độ tính lại.
+- [x] 7.2 Hiện phiên bản app + số ngày có dữ liệu (vd `v1.0.0 · 128 ngày`).
 
 ## 8. data-portability
 
