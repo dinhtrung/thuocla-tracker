@@ -22,9 +22,9 @@
 
 ## 4. daily-summary
 
-- [ ] 4.1 Bốn thẻ nhanh: ít nhất (31 ngày, trừ hôm nay), hôm qua, TB 7 ngày, tháng này — kèm fallback ngày-đầu-tiên: chỉ có hôm nay 5 điếu ⇒ TB 7 ngày = **5.0** (không phải 0.7) và thẻ ít nhất = **5 • Hôm nay**. Test đúng 2 con số này.
-- [ ] 4.2 Thẻ đồng hồ: đã trôi từ điếu cuối, mục tiêu khoảng cách, giờ dự kiến điếu kế tiếp + số phút còn lại / số phút đã vượt. Test: cuối 12:35, goal 60, now 12:50 → "13:35, còn 45 phút"; now 13:50 → "vượt 15".
-- [ ] 4.3 Bảng so sánh 3 cột (Hôm nay | Ngày ít nhất | TB 30 ngày), mỗi ô 2 dòng; cột Hôm nay luôn vẽ đủ kể cả khi chưa có ngày tham chiếu (2 cột kia hiện "—").
+- [x] 4.1 Bốn thẻ nhanh: ít nhất (31 ngày, trừ hôm nay), hôm qua, TB 7 ngày, tháng này — kèm fallback ngày-đầu-tiên: chỉ có hôm nay 5 điếu ⇒ TB 7 ngày = **5.0** (không phải 0.7) và thẻ ít nhất = **5 • Hôm nay**. Test đúng 2 con số này. → `DailySummaryTest.avg7Days_withOnlyTodayFive_isFivePointZero_notZeroPointSeven`, `lowestDayCard_onTheFirstDay_readsFiveToday`, `TodayScreenTest.firstDay_fiveCigarettes_avg7ReadsFivePointZero_andLowestCardSaysToday`
+- [x] 4.2 Thẻ đồng hồ: đã trôi từ điếu cuối, mục tiêu khoảng cách, giờ dự kiến điếu kế tiếp + số phút còn lại / số phút đã vượt. Test: cuối 12:35, goal 60, now 12:50 → "13:35, còn 45 phút"; now 13:50 → "vượt 15". → `DailySummaryTest.intervalStatus_underGoal_*`, `intervalStatus_overGoal_*`
+- [x] 4.3 Bảng so sánh 3 cột (Hôm nay | Ngày ít nhất | TB 30 ngày), mỗi ô 2 dòng; cột Hôm nay luôn vẽ đủ kể cả khi chưa có ngày tham chiếu (2 cột kia hiện "—"). → `DailySummaryTest.comparisonRows_firstDay_*`, `comparisonRows_withHistory_*`, `TodayScreenTest.comparisonTable_firstDay_*`
 
 ## 5. cut-reminder (thuật toán port nguyên hằng số)
 

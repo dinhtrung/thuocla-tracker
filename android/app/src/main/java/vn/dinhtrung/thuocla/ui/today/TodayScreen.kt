@@ -40,6 +40,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import vn.dinhtrung.thuocla.domain.ComparisonRow
+import vn.dinhtrung.thuocla.domain.DailySummary
+import vn.dinhtrung.thuocla.domain.formatAverage
+import vn.dinhtrung.thuocla.domain.lowestDayLabel
 import vn.dinhtrung.thuocla.domain.CigRecord
 import vn.dinhtrung.thuocla.domain.Triggers
 import vn.dinhtrung.thuocla.domain.formatHhMm
@@ -59,43 +63,62 @@ fun TodayScreen(
     onDismissTriggerSheet: () -> Unit,
     onAddAt: (String, Int, Int) -> Unit,
     onEditTime: (String, Int, Int) -> Unit,
+    /**
+     * Opens the day detail for a quick-stat card (spec `daily-summary`, "Ngày đầu tiên dùng app":
+     * the "ít nhất" card must open today's detail when tapped). The PWA's `openLowestDay()` and
+     * `goToDay()` switch to Thống kê and select the day; the host activity does the same here.
+     *
+     * Defaulted so a host that has no day detail to show (a preview, a slice's own test) can omit it:
+     * #16's `SettingsFlowTest` calls this screen without it, and a required parameter broke the merged
+     * tree even though each branch was green alone. A no-op default keeps the tap harmless instead.
+     */
+    onOpenDay: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showAddAtDialog by remember { mutableStateOf(false) }
     var editingRecord by remember { mutableStateOf<CigRecord?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .testTag("todayScroll"),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "Hôm nay",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-
-            CounterCard(state = state, onAdd = onAdd, onUndo = onUndo) { showAddAtDialog = true }
-
-            Text(
-                text = "Điếu hôm nay",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("recordList"),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (state.records.isEmpty()) {
-                    item { Text("Chưa có điếu nào hôm nay", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item {
+                Text(
+                    text = "Hôm nay",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            item { IntervalCard(state = state) }
+            item { CounterCard(state = state, onAdd = onAdd, onUndo = onUndo) { showAddAtDialog = true } }
+            item {
+                Text(
+                    text = "Điếu hôm nay",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (state.records.isEmpty()) {
+                item {
+                    Text("Chưa có điếu nào hôm nay", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                items(state.records, key = { it.minuteOfDay }) { record ->
-                    RecordRow(record = record, onClick = { editingRecord = record })
+            }
+            items(state.records, key = { "record_${it.minuteOfDay}" }) { record ->
+                RecordRow(record = record, onClick = { editingRecord = record })
+            }
+            item { QuickStats(state = state, onOpenDay = onOpenDay) }
+            state.summary?.let { summary ->
+                item {
+                    ComparisonTable(
+                        summary = summary,
+                        rows = state.comparisonRows(),
+                        intervalGoal = state.interval.intervalGoal,
+                        onEditRow = { row -> row.today?.let { editingRecord = it } },
+                    )
                 }
             }
         }
@@ -133,6 +156,290 @@ fun TodayScreen(
     }
 }
 
+/**
+ * Clock card (tasks.md 4.2): time elapsed since the last cigarette, the interval goal, and either the
+ * expected next time with the minutes left or the minutes already over the goal.
+ */
+@Composable
+private fun IntervalCard(state: TodayUiState) {
+    val interval = state.interval
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("intervalCard"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Từ điếu cuối",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = if (state.records.isEmpty()) "--:--" else formatHhMm(interval.elapsedMinutes),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("intervalElapsed"),
+                )
+                Text(
+                    text = "Mục tiêu: ≥${interval.intervalGoal} phút",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (interval.expectedNext != null) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "🎯 Dự kiến",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = interval.expectedNext,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag("intervalNext"),
+                    )
+                    Text(
+                        text = "còn ${interval.minutesRemaining} phút",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.testTag("intervalRemaining"),
+                    )
+                }
+            } else if (interval.reachedGoal && state.records.isNotEmpty()) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "✅ Đạt mục tiêu",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "+${interval.minutesOver} phút",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("intervalOver"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The four quick stats (tasks.md 4.1), in the PWA's order and labels.
+ *
+ * The "ít nhất" and "Hôm qua" cards are clickable exactly like the PWA's `.stat-card` buttons
+ * (`onclick="openLowestDay()"` / `goToDay(getYesterdayKey())`): the spec's "Ngày đầu tiên dùng app"
+ * scenario requires the "ít nhất" card to open the day detail. "TB 7 ngày" and "Tháng này" are
+ * aggregates over many days rather than one day, so they stay static.
+ */
+@Composable
+private fun QuickStats(state: TodayUiState, onOpenDay: (String) -> Unit) {
+    val summary = state.summary
+    val lowest = summary?.lowestDay
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("quickStats"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        QuickStatCard(
+            value = lowest?.count?.toString() ?: "-",
+            label = lowestDayLabel(lowest),
+            modifier = Modifier
+                .weight(1f)
+                .testTag("statLowest"),
+            onClick = lowest?.takeIf { it.count > 0 }?.let { day -> { onOpenDay(day.dateKey) } },
+        )
+        QuickStatCard(
+            value = summary?.yesterdayCount?.toString() ?: "-",
+            label = "Hôm qua",
+            modifier = Modifier
+                .weight(1f)
+                .testTag("statYesterday"),
+            onClick = summary?.yesterdayKey?.let { key -> { onOpenDay(key) } },
+        )
+        QuickStatCard(
+            value = summary?.let { formatAverage(it.avg7Days) } ?: "-",
+            label = "TB 7 ngày",
+            modifier = Modifier
+                .weight(1f)
+                .testTag("statAvg7"),
+        )
+        QuickStatCard(
+            value = summary?.monthCount?.toString() ?: "-",
+            label = "Tháng này",
+            modifier = Modifier
+                .weight(1f)
+                .testTag("statMonth"),
+        )
+    }
+}
+
+@Composable
+private fun QuickStatCard(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    Card(modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Three-column comparison table (tasks.md 4.3): Hôm nay | Ngày ít nhất | TB 30 ngày.
+ *
+ * Every cell carries the time and, from the second cigarette on, the gap to the previous one with
+ * its difference from the interval goal. The "Hôm nay" column is always drawn in full — the two
+ * reference columns show "—" while there is no history.
+ */
+@Composable
+private fun ComparisonTable(
+    summary: DailySummary,
+    rows: List<ComparisonRow>,
+    intervalGoal: Int,
+    onEditRow: (ComparisonRow) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("comparisonTable"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "📋 So sánh",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            ComparisonHeader("Hôm nay", "(${rows.count { it.today != null }})", Modifier.weight(1f))
+            ComparisonHeader(
+                "Ngày ít nhất",
+                summary.lowestDay?.takeIf { it.isReference }?.let { "(${it.count})" } ?: "(-)",
+                Modifier.weight(1f),
+                Alignment.CenterHorizontally,
+            )
+            ComparisonHeader(
+                "TB 30 ngày",
+                summary.avgCount.takeIf { it > 0f }?.let { "(${formatAverage(it)})" } ?: "(-)",
+                Modifier.weight(1f),
+                Alignment.End,
+            )
+        }
+        if (rows.isEmpty()) {
+            Text("Chưa có điếu nào hôm nay", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("comparisonRow_${row.stt}")
+                    .clickable(enabled = row.today != null) { onEditRow(row) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ComparisonCell(
+                    time = row.today?.minuteOfDay?.let(::formatHhMm) ?: "—",
+                    gap = row.today?.let { gapToPrevious(rows, row.stt, intervalGoal) },
+                    modifier = Modifier.weight(1f),
+                )
+                ComparisonCell(
+                    time = row.lowest?.minuteOfDay?.let(::formatHhMm) ?: "—",
+                    gap = row.lowest?.let { gapToPreviousLowest(rows, row.stt, intervalGoal) },
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                )
+                ComparisonCell(
+                    time = row.avg?.avgMinute?.let(::formatHhMm) ?: "—",
+                    gap = row.avg?.avgGapMinutes?.let { gapText(it, intervalGoal) },
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonHeader(
+    title: String,
+    count: String,
+    modifier: Modifier = Modifier,
+    alignment: Alignment.Horizontal = Alignment.Start,
+) {
+    Column(modifier = modifier, horizontalAlignment = alignment) {
+        Text(
+            text = "$title $count",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun ComparisonCell(
+    time: String,
+    gap: String?,
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+) {
+    Column(modifier = modifier, horizontalAlignment = horizontalAlignment) {
+        Text(text = time, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = gap ?: "—",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** "85 phút ✅ +25" style cell text: gap to the previous cigarette and its distance from the goal. */
+private fun gapText(gapMinutes: Int, intervalGoal: Int): String {
+    if (gapMinutes <= 0) return "—"
+    return if (intervalGoal > 0) {
+        if (gapMinutes < intervalGoal) {
+            "$gapMinutes phút ⚠️ -${intervalGoal - gapMinutes}"
+        } else {
+            "$gapMinutes phút ✅ +${gapMinutes - intervalGoal}"
+        }
+    } else {
+        "$gapMinutes phút"
+    }
+}
+
+private fun gapToPrevious(rows: List<ComparisonRow>, stt: Int, intervalGoal: Int): String? {
+    if (stt <= 1) return null
+    val previous = rows.getOrNull(stt - 2)?.today ?: return null
+    val current = rows[stt - 1].today ?: return null
+    return gapText(current.minuteOfDay - previous.minuteOfDay, intervalGoal)
+}
+
+private fun gapToPreviousLowest(rows: List<ComparisonRow>, stt: Int, intervalGoal: Int): String? {
+    if (stt <= 1) return null
+    val previous = rows.getOrNull(stt - 2)?.lowest ?: return null
+    val current = rows[stt - 1].lowest ?: return null
+    return gapText(current.minuteOfDay - previous.minuteOfDay, intervalGoal)
+}
 @Composable
 private fun CounterCard(
     state: TodayUiState,

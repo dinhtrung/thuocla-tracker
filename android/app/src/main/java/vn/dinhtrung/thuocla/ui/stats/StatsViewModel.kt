@@ -104,6 +104,15 @@ class StatsViewModel(
     /** Tapping a bar opens that day; tapping the selected bar again closes it (PWA `selectDay`). */
     fun selectDay(dateKey: String) = selectedDateKey.update { if (it == dateKey) null else dateKey }
 
+    /**
+     * Opens [dateKey]'s detail unconditionally. Unlike [selectDay] this never toggles: a quick-stat
+     * card on the Today screen means "show me this day", so a second tap must not close the detail the
+     * user just asked for. The PWA's `goToDay()` also selects without toggling.
+     */
+    fun openDay(dateKey: String) {
+        selectedDateKey.value = dateKey
+    }
+
     fun closeDayDetail() {
         selectedDateKey.value = null
     }

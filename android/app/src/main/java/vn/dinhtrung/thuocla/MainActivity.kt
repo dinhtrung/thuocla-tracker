@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -102,6 +103,9 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun RootScreen(container: AppContainer) {
         var selectedTab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
+        // Set when a quick-stat card on the Today screen asks for one day's detail; the stats tab
+        // consumes it and clears it. This is the PWA's goToDay(): switchTab('stats') + selectDay(key).
+        var requestedDay by rememberSaveable { mutableStateOf<String?>(null) }
         val dataState by dataViewModel.state.collectAsState()
 
         Scaffold(
@@ -144,7 +148,11 @@ class MainActivity : ComponentActivity() {
                     .padding(innerPadding),
             ) {
                 when (selectedTab) {
-                    TAB_STATS -> StatsRoute(container)
+                    TAB_STATS -> StatsRoute(
+                        container = container,
+                        requestedDay = requestedDay,
+                        onDayConsumed = { requestedDay = null },
+                    )
                     TAB_DATA -> DataScreen(
                         state = dataState,
                         onExportCsv = {
@@ -174,7 +182,13 @@ class MainActivity : ComponentActivity() {
                     )
 
                     TAB_SETTINGS -> SettingsRoute(container)
-                    else -> TodayRoute(container)
+                    else -> TodayRoute(
+                        container = container,
+                        onOpenDay = { day ->
+                            requestedDay = day
+                            selectedTab = TAB_STATS
+                        },
+                    )
                 }
             }
         }
@@ -226,7 +240,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun TodayRoute(container: AppContainer) {
+private fun TodayRoute(container: AppContainer, onOpenDay: (String) -> Unit) {
     val viewModel: TodayViewModel = viewModel(factory = TodayViewModelFactory(container))
     val state by viewModel.state.collectAsState()
 
@@ -238,6 +252,7 @@ private fun TodayRoute(container: AppContainer) {
         onDismissTriggerSheet = viewModel::dismissTriggerSheet,
         onAddAt = viewModel::addAt,
         onEditTime = viewModel::editTime,
+        onOpenDay = onOpenDay,
     )
 }
 
