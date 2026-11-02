@@ -6,6 +6,7 @@
         app must never add it. Everything lives in the app's own Room database.
     -->
     <application
+        android:name=".ThuoclaApp"
         android:allowBackup="false"
         android:label="Thuốc lá"
         android:supportsRtl="false"
