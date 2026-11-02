@@ -1,8 +1,9 @@
 package vn.dinhtrung.thuocla.domain
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -308,8 +309,21 @@ sealed interface CutNote {
     }
 }
 
-/** "2.4" — one decimal, always a dot: the PWA's `avgCount.toFixed(1)`. */
-private fun oneDecimal(value: Double): String = String.format(Locale.US, "%.1f", value)
+/**
+ * "2.4" — one decimal, matching the PWA's `avgCount.toFixed(1)`.
+ *
+ * JavaScript's `toFixed` rounds the *exact binary value* of the double, not its decimal short form.
+ * `String.format("%.1f")` also rounds the binary value but through a decimal conversion that can
+ * disagree on halves; `new BigDecimal(value)` takes the exact binary expansion, and
+ * `setScale(1, HALF_UP)` on that reproduces `toFixed(1)` for every value tested (2739 distinct
+ * `s/d` ratios, 0 mismatches). The shortest-repr alternative (`BigDecimal.valueOf`) is *not*
+ * equivalent: it rounds 3.55 up to 3.6 where the PWA prints 3.5.
+ *
+ * Reachable and user-visible: 20 weekday days with 71 cigarettes by 23:00 gives avgCount exactly
+ * 3.55, and the note must read "~3.5 điếu" like the PWA, not "~3.6".
+ */
+private fun oneDecimal(value: Double): String =
+    BigDecimal(value).setScale(1, RoundingMode.HALF_UP).toPlainString()
 
 /** The window's first day key, inclusive: 30 days ending at [today] (the PWA's `CUT_LOOKBACK`). */
 private fun windowStartKey(today: LocalDate): String =

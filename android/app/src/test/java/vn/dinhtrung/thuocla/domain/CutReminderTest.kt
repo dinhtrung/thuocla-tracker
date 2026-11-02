@@ -3,7 +3,9 @@ package vn.dinhtrung.thuocla.domain
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -118,7 +120,7 @@ class CutReminderTest {
         note as CutNote.PaceWarning
         assertEquals("⚠️", note.icon)
         assertEquals("Hút nhanh hơn cả thói quen lẫn nhịp mục tiêu — giãn ra!", note.title)
-        // The spec's own scenario text: habit 3.3, goal pace 3, five cigarettes already.
+        // The spec's own scenario text: habit 3.3, goal pace 4, five cigarettes already.
         assertEquals(
             "Thường giờ này ~3.3 điếu, nhịp mục tiêu ~4 — bạn đã 5. Cần giãn ~25ph/điếu để về đúng 12 điếu.",
             note.subtitle,
@@ -334,7 +336,6 @@ class CutReminderTest {
             after !is CutNote.NextChainWarning,
         )
     }
-
     @Test
     fun dailyTarget_neverExceedsTheDailyGoal() {
         val today = LocalDate.of(2026, 8, 17)
@@ -342,9 +343,10 @@ class CutReminderTest {
 
         val target = dailyTarget(stats, DayKind.WEEKDAY, goal = 4, todayCount = 1, nowMinute = 8 * 60)
 
-        if (target != null) {
-            assertTrue("target STT ${target.stt} must stay inside the goal 4", target.stt <= 4)
-        }
+        // Assert non-null first: wrapping the bound in `if (target != null)` would let a future null
+        // pass silently, which is the regression this test exists to catch.
+        assertNotNull("a target is expected inside the goal 4", target)
+        assertTrue("target STT ${target!!.stt} must stay inside the goal 4", target.stt <= 4)
     }
 
     @Test
@@ -354,21 +356,32 @@ class CutReminderTest {
 
         val target = dailyTarget(stats, DayKind.WEEKDAY, goal = 12, todayCount = 6, nowMinute = 8 * 60)
 
-        if (target != null) {
-            assertTrue("target STT ${target.stt} must be ahead of 6", target.stt > 6)
-        }
+        assertNotNull("a target is expected beyond the smoked STT 6", target)
+        assertTrue("target STT ${target!!.stt} must be ahead of 6", target.stt > 6)
     }
 
-    /** The spec: "Cut target never exceeds the daily goal" — goal 10 must not suggest STT 17. */
+    /**
+     * The spec's "Cut target never exceeds the daily goal": with goal 10, weekday STT 11 is a "hút
+     * theo" (it chains 30 minutes after STT 10 on every seed day), so a missing goal filter would
+     * suggest STT 11 here — outside the quota. With nine cigarettes already smoked the praise and
+     * pace branches both decline, so the note really reaches the target branch, and the goal filter
+     * leaves STT 10 as the tail fallback.
+     */
     @Test
     fun targetCut_staysInsideTheGoal() {
         val today = LocalDate.of(2026, 8, 17)
-        val records = history(today) + todayRecords(today, List(3) { 7 * 60 + it * 40 })
-        val note = cutNote(records, today, nowMinute = 9 * 60, goal = 10)
+        // Nine cigarettes by 20:00: equal to the habit baseline (9.0) and equal to the goal pace (9),
+        // so neither praise (needs fewer than habit) nor pace warning (needs more than both) applies.
+        val nine = listOf(420, 460, 500, 540, 660, 780, 900, 1080, 1200)
+        val records = history(today) + todayRecords(today, nine)
+        val note = cutNote(records, today, nowMinute = 20 * 60, goal = 10)
 
-        if (note is CutNote.TargetCut) {
-            assertTrue("target STT ${note.target.stt} must be ≤ goal 10", note.target.stt <= 10)
-        }
+        assertTrue("expected a cut target, got $note", note is CutNote.TargetCut)
+        note as CutNote.TargetCut
+        assertTrue("target STT ${note.target.stt} must be ≤ goal 10", note.target.stt <= 10)
+        // STT 11 is the candidate the goal filter must suppress; STT 10 is the tail fallback instead.
+        assertEquals(10, note.target.stt)
+        assertEquals(CutTargetReason.TAIL, note.target.reason)
     }
 
     /**
@@ -475,5 +488,107 @@ class CutReminderTest {
         assertEquals(3.25, avgCountByNow(records, today, DayKind.WEEKEND, 8 * 60 + 40), 0.001)
         assertEquals(720.0, avgLastCigMinute(records, today, DayKind.WEEKEND), 0.001)
         assertTrue(abs(2.375 - 2.4) < 0.05)
+    }
+
+    /**
+     * The spec's "Excludes rigid anchor cigarettes" (`app.js:368`): an STT present on most same-kind
+     * days, at a steady time, that rarely follows the previous cigarette is an anchor — the user's
+     * fixed daily habit — and must never be offered as a cut target.
+     *
+     * The fixture is built so the anchor predicate is *load-bearing* rather than merely present.
+     * The comparison window is 30 calendar days, of which only 20 are weekdays, so 20 weekday days is
+     * the whole population. Weekday STT 2 sits at exactly 07:40 on all 20 days (stdev 0) and on 3 of
+     * them the first cigarette lands at 07:20, so STT 2 "hút theo" 3/20 = 0.15 of the time: enough to
+     * clear the candidate frequency gate (≥ 0.15) and still under the anchor's 0.2 chain ceiling.
+     * Every other STT is steady and unchained, so the anchor filter leaves no candidate at all.
+     * With the `!isAnchor` filter removed, STT 2 is the earliest upcoming candidate and wins; with it,
+     * the chain branch finds nothing and falls through to the tail of the day.
+     */
+    @Test
+    fun dailyTarget_excludesRigidAnchorStt() {
+        val today = LocalDate.of(2026, 8, 17)
+        val anchorKey = "07:40"
+        val rest = listOf(540, 640, 740, 840, 940, 1040, 1140, 1240, 1340)
+
+        // 20 weekday days — the whole weekday population of the 30-day window, newest first.
+        // Days 0, 7 and 14 follow a 07:20 first cigarette (a "kép" gap to 07:40); the others start at
+        // 05:00 so the gap is far past the 40-minute chain rule. That puts STT 2's chain frequency at
+        // exactly 3/20 while keeping its 07:40 time perfectly steady.
+        val days = generateSequence(today.minusDays(1)) { it.minusDays(1) }
+            .filter { DayKind.of(it) == DayKind.WEEKDAY }
+            .take(20)
+            .toList()
+        val records = days.flatMapIndexed { index, day ->
+            val first = if (index % 7 == 0) 440 else 300
+            (listOf(first, 460) + rest).sorted().map { CigRecord(day.toString(), it) }
+        }
+
+        val stats = computeSttStats(records, today)
+        assertEquals("the fixture must supply 20 weekday days", 20, stats.weekdayDays)
+        val anchor = stats.weekday.single { it.stt == 2 }
+
+        // STT 2 really is an anchor, so the assertion below is not vacuous.
+        assertEquals("weekday STT 2 must appear every day", 20, anchor.present)
+        assertEquals("weekday STT 2 must sit at a steady time", 0.0, anchor.stdevMinutes, 0.001)
+        assertTrue(
+            "weekday STT 2 must clear the candidate frequency gate, was ${anchor.chainFreq}",
+            anchor.chainFreq >= CUT_KEP_FREQ_THRESHOLD,
+        )
+        assertTrue(
+            "weekday STT 2 must be under the anchor chain ceiling, was ${anchor.chainFreq}",
+            anchor.chainFreq < CUT_ANCHOR_MAX_CHAIN_FREQ,
+        )
+        assertEquals(anchorKey, formatHhMm(anchor.avgMinute.roundToInt()))
+
+        // At 07:40 the anchor is within the lookahead, so without the filter it would be the target.
+        val nowMinute = 460
+        assertTrue(anchor.avgMinute > nowMinute - CUT_UPCOMING_LOOKAHEAD_MINUTES)
+        val target = dailyTarget(stats, DayKind.WEEKDAY, goal = 12, todayCount = 0, nowMinute = nowMinute)
+        assertNotNull("the tail fallback still supplies a target", target)
+        assertTrue(
+            "anchor STT 2 must not be offered as a target, got STT ${target!!.stt}",
+            target.stt != 2,
+        )
+        assertEquals(
+            "the chain branch must find nothing once the anchor is excluded",
+            CutTargetReason.TAIL,
+            target.reason,
+        )
+    }
+
+    /**
+     * The PWA's `toFixed(1)` tie case. 20 weekday days with 71 cigarettes by 23:00 gives avgCount
+     * exactly 3.55, whose binary value is 3.5499999999999998. The PWA prints "~3.5 điếu" because
+     * `toFixed(1)` rounds that exact binary value, while Java's `String.format("%.1f")` prints "~3.6"
+     * (it rounds the decimal literal). Asserted on the rendered subtitle, so a regression to `%.1f`
+     * fails here — the case the reviewer reproduced end-to-end in both implementations.
+     */
+    @Test
+    fun praise_roundsAnXx5AverageLikeToFixed_notHalfUpOnTheLiteral() {
+        val today = LocalDate.of(2026, 8, 17)
+
+        // 20 weekday days reaching 71 cigarettes by 23:00: 11 days of 4 + 9 days of 3 = 44 + 27 = 71.
+        val four = listOf(420, 460, 500, 540)
+        val three = listOf(420, 460, 500)
+        val days = generateSequence(today.minusDays(1)) { it.minusDays(1) }
+            .filter { DayKind.of(it) == DayKind.WEEKDAY }
+            .take(20)
+            .toList()
+        val records = days.flatMapIndexed { index, day ->
+            (if (index < 11) four else three).map { CigRecord(day.toString(), it) }
+        } + todayRecords(today, listOf(420))
+
+        val avgCount = avgCountByNow(records, today, DayKind.WEEKDAY, nowMinute = 23 * 60)
+        assertEquals("the fixture must land on the x.x5 tie", 3.55, avgCount, 1e-9)
+
+        val note = cutNote(records, today, nowMinute = 23 * 60, goal = 12)
+        assertTrue("expected praise at 1 cigarette, got $note", note is CutNote.Praise)
+        note as CutNote.Praise
+        assertEquals(3.55, note.avgCount, 1e-9)
+        // The PWA's exact wording: 3.5, never 3.6.
+        assertEquals(
+            "Lúc này thường ~3.5 điếu, nhịp mục tiêu ~12 — bạn mới 1. Cứ đà này!",
+            note.subtitle,
+        )
     }
 }
