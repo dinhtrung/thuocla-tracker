@@ -52,6 +52,16 @@ interface RecordDao {
 
     @Query("SELECT COUNT(DISTINCT dateKey) FROM records")
     fun distinctDayCountFlow(): Flow<Int>
+
+    /** Bulk insert used by import; -1 marks a row skipped because its minute was already taken. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(entities: List<RecordEntity>): List<Long>
+
+    @Query("DELETE FROM records")
+    suspend fun deleteAll(): Int
+
+    @Query("SELECT * FROM records ORDER BY dateKey ASC, minuteOfDay ASC")
+    suspend fun all(): List<RecordEntity>
 }
 
 @Dao
