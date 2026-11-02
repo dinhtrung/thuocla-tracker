@@ -42,6 +42,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import vn.dinhtrung.thuocla.domain.ComparisonRow
 import vn.dinhtrung.thuocla.domain.DailySummary
+import vn.dinhtrung.thuocla.domain.CutNote
+import vn.dinhtrung.thuocla.domain.CutTone
 import vn.dinhtrung.thuocla.domain.formatAverage
 import vn.dinhtrung.thuocla.domain.lowestDayLabel
 import vn.dinhtrung.thuocla.domain.CigRecord
@@ -95,6 +97,9 @@ fun TodayScreen(
             }
             item { IntervalCard(state = state) }
             item { CounterCard(state = state, onAdd = onAdd, onUndo = onUndo) { showAddAtDialog = true } }
+            // The PWA places #cutNote after the button row and before the stats grid, so it sits
+            // between the counter card and today's list here (design D3).
+            state.cutNote?.let { note -> item { CutNoteCard(note = note) } }
             item {
                 Text(
                     text = "Điếu hôm nay",
@@ -227,6 +232,61 @@ private fun IntervalCard(state: TodayUiState) {
                         modifier = Modifier.testTag("intervalOver"),
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The "Điếu nên cắt" note card (tasks.md 5.2, spec "Note \"điếu nên cắt\"").
+ *
+ * The PWA's `#cutNote`: icon, one bold line and one explanation line, coloured by tone — `.praise`
+ * green, `.warn` amber, `.target` blue, neutral grey. It is passive: the PWA's design deliberately has
+ * no button inside it (design D3, "Không tạo nút bấm trong note").
+ *
+ * The card stays visible once there is enough data: the spec's "Never hides with sufficient data" means
+ * a below-goal day still gets the encouragement line instead of a blank space.
+ */
+@Composable
+private fun CutNoteCard(note: CutNote) {
+    val accent = when (note.tone) {
+        CutTone.PRAISE -> MaterialTheme.colorScheme.primary
+        CutTone.WARN -> MaterialTheme.colorScheme.error
+        CutTone.TARGET -> MaterialTheme.colorScheme.tertiary
+        CutTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("cutNote"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text(
+                text = note.icon,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.testTag("cutNoteIcon"),
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = note.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accent,
+                    modifier = Modifier.testTag("cutNoteTitle"),
+                )
+                Text(
+                    text = note.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("cutNoteSubtitle"),
+                )
             }
         }
     }

@@ -12,6 +12,7 @@ import vn.dinhtrung.thuocla.domain.CigRecord
 import vn.dinhtrung.thuocla.domain.DailySummary
 import vn.dinhtrung.thuocla.domain.LOWEST_DAY_WINDOW_DAYS
 import vn.dinhtrung.thuocla.domain.buildDailySummary
+import vn.dinhtrung.thuocla.domain.history.COMPARISON_WINDOW_DAYS
 import vn.dinhtrung.thuocla.domain.TRIGGER_COUNT
 import vn.dinhtrung.thuocla.domain.TrackerConfig
 import vn.dinhtrung.thuocla.domain.WriteBlock
@@ -179,6 +180,18 @@ class TrackerRepository(private val db: AppDatabase) {
         return recordDao.rangeFlow(from, today).map { rows ->
             buildDailySummary(rows.map { it.toDomain() }, today)
         }
+    }
+
+    /**
+     * The records the "Điếu nên cắt" note scores (tasks.md 5.1): the 30 days ending at [today],
+     * today included. Emits on every change to that window, so the note recomputes after each +1 and
+     * undo without a separate read path — [cutNote] itself takes the records and the minute.
+     */
+    fun cutReminderFlow(today: String): Flow<List<CigRecord>> {
+        val todayDate = runCatching { LocalDate.parse(today) }.getOrNull()
+            ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        val from = todayDate.minusDays((COMPARISON_WINDOW_DAYS - 1).toLong()).toString()
+        return recordDao.rangeFlow(from, today).map { rows -> rows.map { it.toDomain() } }
     }
 
     /** Cigarettes in [dateKey] — the count behind "Hôm qua" and the day-detail header. */

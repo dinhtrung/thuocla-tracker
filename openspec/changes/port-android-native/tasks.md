@@ -28,9 +28,9 @@
 
 ## 5. cut-reminder (thuật toán port nguyên hằng số)
 
-- [ ] 5.1 Port `computeSttStats` + `getDailyTarget` + hai chuẩn (nhịp quen thuộc theo giờ hiện tại, nhịp mục tiêu = span/mục tiêu ngày) thành Kotlin thuần; hằng số: lookback 30, gap 40, kép 20, chain 0.25, kép 0.15, min ngày 7, presence 0.3, cap STT 20.
-- [ ] 5.2 Note 5 trạng thái đúng thứ tự ưu tiên: đạt mục tiêu (phân biệt sớm/muộn theo giờ điếu cuối TB) > khen (dưới cả hai chuẩn) > cảnh báo nhịp (trên cả hai) > cảnh báo điếu kế tiếp > gợi ý điếu mục tiêu > fallback "còn X điếu trong hạn mức". Tính lại mỗi phút và sau mỗi lần ghi/hoàn tác.
-- [ ] 5.3 Test vàng bằng dữ liệu thật của Trung (goal 12, seed có cả ngày cuối tuần): 08:00 với 2 điếu → khen; 08:40 với 5 điếu → cảnh báo nhịp; 17:40 với 12/12 → hết hạn mức; 22:10 với 12/12 → đạt mục tiêu. Ghi 4 verdict thực tế vào PR.
+- [x] 5.1 Port `computeSttStats` + `getDailyTarget` + hai chuẩn (nhịp quen thuộc theo giờ hiện tại, nhịp mục tiêu = span/mục tiêu ngày) thành Kotlin thuần; hằng số: lookback 30, gap 40, kép 20, chain 0.25, kép 0.15, min ngày 7, presence 0.3, cap STT 20.
+- [x] 5.2 Note 5 trạng thái đúng thứ tự ưu tiên: đạt mục tiêu (phân biệt sớm/muộn theo giờ điếu cuối TB) > khen (dưới cả hai chuẩn) > cảnh báo nhịp (trên cả hai) > cảnh báo điếu kế tiếp > gợi ý điếu mục tiêu > fallback "còn X điếu trong hạn mức". Tính lại mỗi phút và sau mỗi lần ghi/hoàn tác.
+- [x] 5.3 Test vàng bằng dữ liệu thật của Trung (goal 12, seed có cả ngày cuối tuần): 08:00 với 2 điếu → khen; 08:40 với 5 điếu → cảnh báo nhịp; 17:40 với 12/12 → hết hạn mức; 22:10 với 12/12 → đạt mục tiêu. Ghi 4 verdict thực tế vào PR.
 
 ## 6. history-stats
 

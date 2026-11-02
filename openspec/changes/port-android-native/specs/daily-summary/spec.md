@@ -68,5 +68,5 @@ Màn Hôm nay SHALL hiển thị một note gợi ý điếu nên cắt, tính l
 
 #### Scenario: Hút nhanh hơn cả hai chuẩn
 
-- **WHEN** đã hút 5 điếu lúc 08:40 trong khi nhịp quen thuộc là 3.3 điếu và nhịp mục tiêu là 3
+- **WHEN** đã hút 5 điếu lúc 08:40 trong khi nhịp quen thuộc là 3.3 điếu và nhịp mục tiêu là 4
 - **THEN** note hiện cảnh báo hút nhanh hơn cả thói quen lẫn nhịp mục tiêu kèm số phút cần giãn mỗi điếu
