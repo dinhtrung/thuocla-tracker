@@ -3,6 +3,7 @@ package vn.dinhtrung.thuocla
 import android.app.Application
 import android.content.Context
 import java.time.Clock
+import vn.dinhtrung.thuocla.data.DataPortability
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
 
@@ -21,6 +22,8 @@ class AppContainer(
     val database: AppDatabase by lazy { AppDatabase.build(appContext) }
 
     val repository: TrackerRepository by lazy { TrackerRepository(database) }
+
+    val dataPortability: DataPortability by lazy { DataPortability(database, repository) }
 }
 
 class ThuoclaApp : Application() {

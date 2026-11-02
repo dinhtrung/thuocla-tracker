@@ -52,6 +52,17 @@ interface RecordDao {
 
     @Query("SELECT COUNT(DISTINCT dateKey) FROM records")
     fun distinctDayCountFlow(): Flow<Int>
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(entities: List<RecordEntity>): List<Long>
+
+    @Query("DELETE FROM records")
+    suspend fun deleteAll(): Int
+
+    @Query("SELECT * FROM records ORDER BY dateKey ASC, minuteOfDay ASC")
+    suspend fun all(): List<RecordEntity>
+
+    @Query("SELECT * FROM records ORDER BY dateKey ASC, minuteOfDay ASC")
+    fun allFlow(): Flow<List<RecordEntity>>
 }
 
 @Dao
