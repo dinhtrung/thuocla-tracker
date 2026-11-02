@@ -1,0 +1,53 @@
+==========================================================================
+1. LAYER GEOMETRY — exact, from the packaged adaptive foreground PNG
+  source: layer-source/ic_launcher_foreground.png
+  canvas 432x432 px = 108dp  ->  1 px = 0.2500 dp
+  artwork alpha bbox = (112, 116, 319, 316)  (207 x 200 px)
+  art centre (215.5,216.0) vs canvas centre (216.0,216.0)
+  OFFSET = (-0.5, +0.0) px = (-0.12%, +0.00%) of canvas
+  safe viewport = central 288 px (72dp), i.e. 72..360
+  artwork entirely inside the safe viewport? True
+==========================================================================
+2. DISC GEOMETRY — what a screenshot can settle (screen-final.png)
+  largest navy component = 2703 sampled px, bbox (68, 1784, 209, 1925)
+  disc diameter 141 x 141 px   ASPECT w/h = 1.000   (1.000 = circle)
+  NOTE: pixel counts of artwork inside the disc are NOT reported here. The
+  launcher background is light grey and a brightness mask cannot separate it
+  from light artwork at this render size, which is how the first version of
+  this document produced an unreproducible centring figure. Containment is
+  established exactly by section 1 instead.
+==========================================================================
+3. THEMED SWITCH OFF vs ON — pixel diff over the icon cell
+  cell box = (810, 1700, 1014, 1904)   (41616 px compared)
+  changed = 0 of 41616  (0.00 %)
+  -> the themed switch changed nothing in our icon cell
+==========================================================================
+4. PER-APP SATURATION — every launcher cell with an icon (screen-final.png)
+       cell(x,y)  saturated     navy  note
+  (  20, 345)      11.1%     1.0%  
+  ( 221, 345)      20.2%     1.1%  
+  ( 422, 345)       8.5%     0.9%  
+  ( 623, 345)      20.3%     0.7%  
+  ( 824, 345)       7.4%     1.0%  
+  (  20, 698)       9.8%     0.0%  
+  ( 221, 698)      19.0%     0.0%  
+  ( 422, 698)      26.2%     0.0%  
+  ( 623, 698)      20.3%     0.0%  
+  ( 824, 698)       7.4%     0.0%  
+  (  20,1051)      10.3%     0.4%  
+  ( 221,1051)      19.3%     0.4%  
+  ( 422,1051)       8.2%     0.5%  
+  ( 623,1051)      10.0%     0.5%  
+  ( 824,1051)       7.7%     0.5%  
+  (  20,1404)      10.6%     1.4%  
+  ( 221,1404)       5.0%     0.8%  
+  ( 422,1404)       8.5%     0.9%  
+  ( 623,1404)       8.2%     0.8%  
+  ( 824,1404)      20.2%     1.1%  
+  (  20,1757)       0.9%    20.1%  <- ours (navy ground)
+  ( 221,1757)       3.4%     1.0%  
+  ( 422,1757)      11.1%     1.0%  
+  ( 623,1757)      13.5%     1.0%  
+
+  The point of this table: cells other than ours still show saturated colour, so
+  the platform is not applying monochrome tinting to ANY app on this launcher.
