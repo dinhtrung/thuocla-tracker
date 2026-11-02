@@ -8,10 +8,10 @@
 
 ## 2. offline-store (chặn lane B cho tới khi xong 2.2)
 
-- [ ] 2.1 Room entity `RecordEntity(dateKey TEXT, minuteOfDay INT, triggerIdx INT NULL, note TEXT NULL)` với `UNIQUE INDEX (dateKey, minuteOfDay)`; `ConfigEntity(id=1, goal, intervalGoal, pricePerPack, cigsPerPack)`. Test: insert hai bản ghi cùng (dateKey, minuteOfDay) → chỉ 1 hàng tồn tại.
-- [ ] 2.2 DAO + repository: `addRecord` (OnConflict IGNORE trả về cờ bị chặn), `deleteLast(dateKey)`, `updateTime`, `setTrigger`, `day(dateKey)`, `range(from,to)`, `monthCount`, `distinctDayCount`, `getConfig/saveConfig` với default 10/60/25000/20. Chạy trong `withTransaction` cho thao tác nhiều bước.
-- [ ] 2.3 Test JVM (Robolectric + Room in-memory): đọc/ghi/trùng phút/default config. Bằng chứng: `./gradlew :app:testDebugUnitTest` xanh, in số test.
-- [ ] 2.4 Kiểm tra sống sót: `adb install -r app-debug.apk`, ghi 3 điếu, `adb shell am force-stop vn.dinhtrung.thuocla`, mở lại → vẫn 3 điếu. Ghi lại output `adb shell run-as vn.dinhtrung.thuocla ls databases/`.
+- [x] 2.1 Room entity `RecordEntity(dateKey TEXT, minuteOfDay INT, triggerIdx INT NULL, note TEXT NULL)` với `UNIQUE INDEX (dateKey, minuteOfDay)`; `ConfigEntity(id=1, goal, intervalGoal, pricePerPack, cigsPerPack)`. Test: insert hai bản ghi cùng (dateKey, minuteOfDay) → chỉ 1 hàng tồn tại.
+- [x] 2.2 DAO + repository: `addRecord` (OnConflict IGNORE trả về cờ bị chặn), `deleteLast(dateKey)`, `updateTime`, `setTrigger`, `day(dateKey)`, `range(from,to)`, `monthCount`, `distinctDayCount`, `getConfig/saveConfig` với default 10/60/25000/20. Chạy trong `withTransaction` cho thao tác nhiều bước.
+- [x] 2.3 Test JVM (Robolectric + Room in-memory): đọc/ghi/trùng phút/default config. Bằng chứng: `./gradlew :app:testDebugUnitTest` xanh, in số test.
+- [x] 2.4 Kiểm tra sống sót: `adb install -r app-debug.apk`, ghi 3 điếu, `adb shell am force-stop vn.dinhtrung.thuocla`, mở lại → vẫn 3 điếu. Ghi lại output `adb shell run-as vn.dinhtrung.thuocla ls databases/`.
 
 ## 3. cigarette-log
 
