@@ -18,12 +18,14 @@ import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.domain.CigRecord
 import vn.dinhtrung.thuocla.domain.CigaretteLog
 import vn.dinhtrung.thuocla.domain.DailySummary
+import vn.dinhtrung.thuocla.domain.CutNote
 import vn.dinhtrung.thuocla.domain.ComparisonRow
 import vn.dinhtrung.thuocla.domain.IntervalStatus
 import vn.dinhtrung.thuocla.domain.TrackerConfig
 import vn.dinhtrung.thuocla.domain.WriteBlock
 import vn.dinhtrung.thuocla.domain.WriteResult
 import vn.dinhtrung.thuocla.domain.comparisonRows
+import vn.dinhtrung.thuocla.domain.cutNote
 import vn.dinhtrung.thuocla.domain.formatHhMm
 import vn.dinhtrung.thuocla.domain.intervalStatus
 
@@ -40,6 +42,11 @@ data class TodayUiState(
     val summary: DailySummary? = null,
     /** Clock card facts for the minute the screen was built (tasks.md 4.2). */
     val interval: IntervalStatus = IntervalStatus.EMPTY,
+    /**
+     * The "Điếu nên cắt" note for this minute (tasks.md 5.2). Rebuilt from the same records the list
+     * shows, so it changes on every +1/undo without an extra read and on every minute tick.
+     */
+    val cutNote: CutNote? = null,
 ) {
     val count: Int get() = records.size
 
@@ -73,9 +80,12 @@ class TodayViewModel(
         repository.dayFlow(dateKey),
         repository.configFlow(),
         repository.dailySummaryFlow(dateKey),
-        minuteTicker,
+        // The note's own inputs: the 30-day window's records, re-emitted on every write and on every
+        // minute tick. Nested so the outer combine keeps its five-argument form.
+        combine(repository.cutReminderFlow(dateKey), minuteTicker) { cutRecords, _ -> cutRecords },
         combine(warning, triggerTarget) { w, t -> w to t },
-    ) { records, config, summary, _, (warn, target) ->
+    ) { records, config, summary, cutRecords, (warn, target) ->
+        val nowMinute = log.nowMinuteOfDay()
         TodayUiState(
             dateKey = dateKey,
             records = records,
@@ -85,9 +95,10 @@ class TodayViewModel(
             summary = summary,
             interval = intervalStatus(
                 lastMinute = records.lastOrNull()?.minuteOfDay,
-                nowMinute = log.nowMinuteOfDay(),
+                nowMinute = nowMinute,
                 intervalGoal = config.intervalGoal,
             ),
+            cutNote = cutNote(cutRecords, dateKey, nowMinute, config.goal),
         )
     }.stateIn(
         scope = viewModelScope,

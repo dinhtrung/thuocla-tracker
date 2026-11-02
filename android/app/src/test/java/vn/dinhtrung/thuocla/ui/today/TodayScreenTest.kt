@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
@@ -25,6 +26,7 @@ import java.time.Duration
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -301,6 +303,109 @@ class TodayScreenTest {
         composeRule.onNodeWithText("13:35", substring = true).assertIsDisplayed()
         composeRule.onNodeWithTag("intervalRemaining").assertIsDisplayed()
         composeRule.onNodeWithText("còn 45 phút", substring = true).assertIsDisplayed()
+    }
+
+    // ------------------------------------------- 5.2 the note on the rendered screen
+
+    /**
+     * Seeds 29 days of history (weekday 12-cigarette days plus three weekend shapes) so the note has
+     * enough data to leave its "cần thêm dữ liệu" state. 2026-11-02 is a Monday, so the weekday series
+     * supplies both baselines.
+     */
+    private fun seedCutHistory() {
+        val weekdayTail = listOf(420, 460, 500, 540, 660, 780, 900, 1080, 1200, 1260, 1290, 1320)
+        val weekendB = listOf(420, 460, 500, 540, 720)
+        val weekendC = listOf(420, 460, 480, 540, 720)
+        val weekendD = listOf(420, 460, 500, 515, 540, 720)
+        var b = 0
+        var c = 0
+        var d = 0
+        runBlocking {
+            for (back in 1..29) {
+                val day = java.time.LocalDate.parse(today).minusDays(back.toLong())
+                val minutes = if (day.dayOfWeek.value >= 6) {
+                    when {
+                        b < 3 -> weekendB.also { b++ }
+                        c < 3 -> weekendC.also { c++ }
+                        d < 2 -> weekendD.also { d++ }
+                        else -> weekendB.also { b++ }
+                    }
+                } else {
+                    weekdayTail
+                }
+                minutes.forEach { repo.addRecord(day.toString(), it) }
+            }
+        }
+    }
+
+    /**
+     * Tasks.md 5.2 on the real Compose surface: the note card renders with its icon, its one-line
+     * verdict and its explanation, all three carrying the note's own strings.
+     *
+     * At 14:07 with one cigarette the weekday habit baseline is 6.0 cigarettes and the goal pace is 5
+     * (goal 10, span 900 min → 90 min/cigarette), so the note praises — the PWA's "behind pace" state,
+     * not the cut target.
+     */
+    @Test
+    fun cutNoteCard_rendersTheVerdictForThisMinute() {
+        seedCutHistory()
+        setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("0 / 10 điếu") }
+        composeRule.onNodeWithTag("addCig").performClick()
+        waitForCondition("the note to move off the insufficient-data state") {
+            composeRule.onAllNodesWithTag("cutNote").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("cutNote"))
+        composeRule.onNodeWithTag("cutNote").assertIsDisplayed()
+        composeRule.onNodeWithTag("cutNoteIcon").assertIsDisplayed()
+
+        // The verdict at 14:07 with one cigarette is a praise: the weekday habit baseline is 6.0 and
+        // the goal pace is 5, so "behind both baselines" holds. Asserted as rendered text, not state.
+        composeRule.onNodeWithTag("cutNoteTitle").assertIsDisplayed()
+        composeRule.onNodeWithText("Hút ít hơn nhịp mục tiêu", substring = true).assertIsDisplayed()
+        // The subtitle sits below the fold in this viewport, so existence (not display) is asserted.
+        composeRule.onNodeWithTag("cutNoteSubtitle").assertExists()
+        assertTrue(
+            "the subtitle must quote the goal pace",
+            composeRule.onAllNodesWithText("nhịp mục tiêu ~5", substring = true)
+                .fetchSemanticsNodes().isNotEmpty(),
+        )
+    }
+
+    /** The same screen after +1 and undo: the note recomputes without a manual refresh. */
+    @Test
+    fun cutNoteCard_recomputesAfterAddAndUndo() {
+        seedCutHistory()
+        val vm = setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("0 / 10 điếu") }
+
+        val before = vm.state.value.cutNote
+        composeRule.onNodeWithTag("addCig").performClick()
+        composeRule.waitUntil(5_000) { counterIs("1 / 10 điếu") }
+        waitForCondition("the note to change after +1") { vm.state.value.cutNote != before }
+
+        val afterAdd = vm.state.value.cutNote
+        composeRule.runOnIdle { vm.dismissTriggerSheet() }
+        composeRule.onNodeWithTag("undoCig").performClick()
+        composeRule.waitUntil(5_000) { counterIs("0 / 10 điếu") }
+        waitForCondition("the note to change back after undo") { vm.state.value.cutNote != afterAdd }
+    }
+
+    /** With fewer than 7 days of history the note asks for data and invents no target. */
+    @Test
+    fun cutNoteCard_insufficientData_asksForMoreDays() {
+        setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("0 / 10 điếu") }
+        composeRule.onNodeWithTag("addCig").performClick()
+        waitForCondition("the insufficient-data note") {
+            composeRule.onAllNodesWithTag("cutNote").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("todayScroll").performScrollToNode(hasTestTag("cutNote"))
+        composeRule.onNodeWithText("Cần thêm dữ liệu để tính điếu nên cắt", substring = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("tối thiểu 7 ngày", substring = true).assertIsDisplayed()
     }
 
     // ------------------------------------------------------------------ helpers
