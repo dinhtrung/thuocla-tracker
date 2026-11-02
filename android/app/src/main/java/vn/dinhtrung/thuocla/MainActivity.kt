@@ -3,40 +3,41 @@ package vn.dinhtrung.thuocla
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import vn.dinhtrung.thuocla.ui.today.TodayScreen
+import vn.dinhtrung.thuocla.ui.today.TodayViewModel
+import vn.dinhtrung.thuocla.ui.today.TodayViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val container = (application as ThuoclaApp).container
+
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    PlaceholderScreen()
+                    val viewModel: TodayViewModel = viewModel(
+                        factory = TodayViewModelFactory(container),
+                    )
+                    val state by viewModel.state.collectAsState()
+
+                    TodayScreen(
+                        state = state,
+                        onAdd = viewModel::addCig,
+                        onUndo = viewModel::undo,
+                        onSelectTrigger = viewModel::selectTrigger,
+                        onDismissTriggerSheet = viewModel::dismissTriggerSheet,
+                        onAddAt = viewModel::addAt,
+                        onEditTime = viewModel::editTime,
+                    )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(text = "Thuốc lá", style = MaterialTheme.typography.headlineMedium)
     }
 }
