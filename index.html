@@ -27,7 +27,7 @@
     <!-- Header -->
     <header>
       <div>
-        <h1>🚬 Hành Trình Cai Thuốc Lá <span id="appVersion" style="font-size:11px;color:var(--text-dim);font-weight:400;">v1.5.1</span></h1>
+        <h1>🚬 Hành Trình Cai Thuốc Lá <span id="appVersion" style="font-size:11px;color:var(--text-dim);font-weight:400;">v1.5.2</span></h1>
         <div class="header-date" id="dateDisplay"></div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -104,7 +104,7 @@
 
       <!-- Quick stats -->
       <div class="stats-grid">
-        <div class="stat-card green" style="cursor:pointer;" onclick="goToDay(getLowestDay().key)" title="Bấm xem chi tiết">
+        <div class="stat-card green" style="cursor:pointer;" onclick="openLowestDay()" title="Bấm xem chi tiết">
           <div class="stat-number" id="lowestDayCount">-</div>
           <div class="stat-label" id="lowestDayLabel">Ngày ít nhất</div>
         </div>

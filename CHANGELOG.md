@@ -2,6 +2,12 @@
 
 Tất cả thay đổi đáng chú ý của **Thuốc Lá Tracker** sẽ được ghi ở đây.
 
+## v1.5.2 — 2026-11-02
+### 🐛 Fixes
+- **Trang chủ trắng bảng "So sánh" khi chỉ có dữ liệu hôm nay** — chưa có ngày tham chiếu (máy mới, hoặc mới nhập 1 ngày) là bảng bị thay bằng chữ "Chưa có ngày tham chiếu", mất luôn cột **Hôm nay** của chính mình. Giờ cột Hôm nay luôn vẽ đủ từng điếu (giờ + lý do + khoảng cách ± mục tiêu), 2 cột tham chiếu để "—" cho tới khi có ngày thứ 2
+- **Thẻ "Ít nhất" hiện "-" và bấm vào thì lỗi** — `goToDay(getLowestDay().key)` nổ `TypeError: Cannot read properties of null` khi chưa có ngày nào khác. Giờ thẻ hiện chính hôm nay (**Ít nhất • Hôm nay**) và bấm mở được chi tiết ngày
+- **"TB 7 ngày" ra 0.7 khi mới có 1 ngày** — chia cho 7 ngày lịch nên 5 điếu thành 0.7. Giờ chia theo số ngày **có dữ liệu** trong 7 ngày (1 ngày ⇒ 5.0); dữ liệu đủ 7 ngày thì số không đổi
+
 ## v1.5.1 — 2026-09-30
 ### 🔧 Sửa
 - **Chữ version trên app không còn đứng yên ở v1.4.6** — trước đây số version là chữ viết tay trong `index.html` nên mấy tháng không được bump (app vẫn cập nhật tính năng, chỉ số hiển thị sai). Giờ badge đọc từ hằng số `APP_VERSION` trong `app.js` và tự render khi mở app ⇒ chỉ cần bump 1 chỗ (`APP_VERSION` + `CACHE` trong `service-worker.js`) mỗi lần release

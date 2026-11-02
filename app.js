@@ -2,7 +2,7 @@
     const DB_KEY = 'smoking_data';
     const CFG_KEY = 'smoking_config';
     // ⚠️ RELEASE: bump APP_VERSION ở đây + CACHE trong service-worker.js (cùng 1 commit)
-    const APP_VERSION = '1.5.1';
+    const APP_VERSION = '1.5.2';
     const TRIGGERS = ['🍜 Sau ăn','☕ Cà phê','😤 Stress','🍻 Nhậu','😞 Buồn','🌀 Thói quen','🚬 Thèm','🤷 Khác'];
 
     function getToday() {
@@ -138,7 +138,13 @@
           hasData = true;
         }
       }
-      if (!hasData) return null;
+      if (!hasData) {
+        // Ngày đầu dùng app (hoặc mọi ngày khác đều 0 điếu): chưa có ngày nào để so.
+        // Trả về chính HÔM NAY với cờ onlyToday để thẻ "Ít nhất" không trống, bấm vào vẫn
+        // mở được chi tiết hôm nay — và bảng So sánh biết đây không phải ngày tham chiếu.
+        const t = getDayCount(today);
+        return t > 0 ? { key: today, count: t, dayName: '', onlyToday: true } : null;
+      }
       return min;
     }
 
@@ -613,10 +619,12 @@
       const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
       document.getElementById('yesterdayCount').textContent = getDayCount(yKey);
 
-      // 7-day average
+      // 7-day average — chia cho số ngày CÓ dữ liệu, không phải 7 ngày lịch: máy mới chỉ
+      // có hôm nay thì phải ra 5, không phải 5/7 = 0.7 (nhìn như app lỗi).
       const last7 = getLast7Days();
       const total7 = last7.reduce((s, d) => s + d.count, 0);
-      document.getElementById('avg7').textContent = (total7 / 7).toFixed(1);
+      const days7 = last7.filter(d => d.count > 0).length;
+      document.getElementById('avg7').textContent = days7 ? (total7 / days7).toFixed(1) : '0';
 
       // This month
       document.getElementById('thisMonth').textContent = getMonthCount();
@@ -651,12 +659,14 @@
       const todayCountEl = document.getElementById('comparisonTodayCount');
       const lowestCountEl = document.getElementById('comparisonLowestCount');
 
-      // Get lowest day
+      // Get lowest day — onlyToday (ngày đầu dùng app) KHÔNG phải ngày tham chiếu: bảng vẫn
+      // phải vẽ cột "Hôm nay", chỉ 2 cột tham chiếu để "—".
       const lowest = getLowestDay();
+      const hasReference = !!(lowest && lowest.count > 0 && !lowest.onlyToday);
       let lowestRecords = [];
       let lowestCount = 0;
       let lowestLabel = '';
-      if (lowest && lowest.count > 0) {
+      if (hasReference) {
         const data = loadData();
         lowestRecords = (data[lowest.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
         lowestCount = lowestRecords.length;
@@ -700,10 +710,8 @@
         return;
       }
 
-      if (!lowest || lowestCount === 0) {
-        rows.innerHTML = '<div class=\"empty-state\">Chưa có ngày tham chiếu</div>';
-        return;
-      }
+      // Trước đây: chưa có ngày tham chiếu là bỏ luôn cả bảng (mất cột "Hôm nay" của chính
+      // mình — đúng lúc nó là cột duy nhất). Giờ cột Hôm nay luôn vẽ, cột tham chiếu để "—".
 
       let html = '';
 
@@ -759,6 +767,9 @@
             <div class="comp-cell-time lowest">${formatTime(lowestR.time)}${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}</div>
             <div class="comp-cell-gap ${gapClass}">${lgap.str || '—'}</div>
           `;
+        } else if (!hasReference) {
+          // Chưa có ngày tham chiếu: giữ đúng khuôn 2 dòng của cột để hàng không bị lệch.
+          lowestHtml = '<div class="comp-cell-time">—</div><div class="comp-cell-gap">—</div>';
         }
 
         // Trung bình side: giờ TB điếu #i + dòng 2 phút TB từ điếu trước ± mục tiêu
@@ -1258,6 +1269,13 @@
     function goToDay(dateKey) {
       switchTab('stats');
       setTimeout(() => selectDay(dateKey), 100);
+    }
+
+    // Thẻ "Ít nhất" — bấm để mở chi tiết. Chưa có dữ liệu nào thì không làm gì
+    // (trước đây gọi goToDay(getLowestDay().key) với null ⇒ TypeError, thẻ chết).
+    function openLowestDay() {
+      const d = getLowestDay();
+      if (d && d.key) goToDay(d.key);
     }
 
     function setModalTime(date) {
