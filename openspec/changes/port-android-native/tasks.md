@@ -34,9 +34,9 @@
 
 ## 6. history-stats
 
-- [ ] 6.1 Biểu đồ cột số điếu 7 ngày + nút lùi/tiến tuần; trục có nhãn ngày và giá trị. Test: seed 14 ngày → bấm lùi 1 tuần, dữ liệu đổi đúng khoảng.
-- [ ] 6.2 Chi tiết ngày: danh sách điếu theo giờ + khoảng cách + lý do; sửa giờ và gắn/bỏ lý do ngay trong chi tiết.
-- [ ] 6.3 Khối cuối tuần vs ngày thường (TB điếu/ngày, gap TB, số điếu "hút theo" ≤40 phút, giờ điếu đầu/cuối); thiếu ngày cuối tuần ⇒ hiện "—" không hiện 0.
+- [x] 6.1 Biểu đồ cột số điếu 7 ngày + nút lùi/tiến tuần; trục có nhãn ngày và giá trị. Test: seed 14 ngày → bấm lùi 1 tuần, dữ liệu đổi đúng khoảng.
+- [x] 6.2 Chi tiết ngày: danh sách điếu theo giờ + khoảng cách + lý do; sửa giờ và gắn/bỏ lý do ngay trong chi tiết.
+- [x] 6.3 Khối cuối tuần vs ngày thường (TB điếu/ngày, gap TB, số điếu "hút theo" ≤40 phút, giờ điếu đầu/cuối); thiếu ngày cuối tuần ⇒ hiện "—" không hiện 0.
 
 ## 7. settings
 
