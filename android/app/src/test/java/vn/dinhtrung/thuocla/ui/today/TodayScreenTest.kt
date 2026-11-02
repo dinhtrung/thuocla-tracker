@@ -7,9 +7,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
@@ -68,7 +69,11 @@ class TodayScreenTest {
         db.close()
     }
 
+    /** Days the screen asked to open; the "ít nhất" and "Hôm qua" cards write here. */
+    private val openedDays = mutableListOf<String>()
+
     private fun setContentWithViewModel(): TodayViewModel {
+        openedDays.clear()
         val vm = TodayViewModel(
             log = CigaretteLog(repo, clock),
             repository = repo,
@@ -86,6 +91,7 @@ class TodayScreenTest {
                         onDismissTriggerSheet = vm::dismissTriggerSheet,
                         onAddAt = vm::addAt,
                         onEditTime = vm::editTime,
+                        onOpenDay = { openedDays += it },
                     )
                 }
             }
@@ -206,6 +212,11 @@ class TodayScreenTest {
         composeRule.onNodeWithText("5.0", substring = true).assertIsDisplayed()
         composeRule.onNodeWithTag("statLowest").assertIsDisplayed()
         composeRule.onNodeWithText("Ít nhất • Hôm nay", substring = true).assertIsDisplayed()
+
+        // "bấm vào mở được chi tiết ngày hôm nay" — the tap must reach the day detail. On the first day
+        // the fallback is today itself, so the card opens today's key.
+        composeRule.onNodeWithTag("statLowest").performClick()
+        assertEquals(listOf(today), openedDays)
     }
 
     @Test
@@ -221,6 +232,45 @@ class TodayScreenTest {
         composeRule.onNodeWithTag("comparisonRow_5").assertExists()
         composeRule.onNodeWithTag("comparisonTable").assertIsDisplayed()
         composeRule.onNodeWithText("(5)", substring = true).assertIsDisplayed()
+
+        // "hai cột còn lại hiện dấu —": row 5's two reference cells each render time and gap, so the
+        // row must carry exactly 4 dashes. Asserting the dashes (not just the row's existence) is what
+        // catches a regression that prints 0 in a column with no reference day.
+        val dashesInRow5 = composeRule.onAllNodes(
+            hasText("—") and hasAnyAncestor(hasTestTag("comparisonRow_5")),
+            useUnmergedTree = true,
+        ).fetchSemanticsNodes()
+        assertEquals("row 5 has 2 reference columns x 2 lines of dashes", 4, dashesInRow5.size)
+        val zerosInRow5 = composeRule.onAllNodes(
+            hasText("0") and hasAnyAncestor(hasTestTag("comparisonRow_5")),
+            useUnmergedTree = true,
+        ).fetchSemanticsNodes()
+        assertEquals("no reference column may print 0", 0, zerosInRow5.size)
+    }
+
+    /**
+     * Spec `daily-summary`, "Đếm tăng sau mỗi lần ghi": with goal 10 the progress bar reads 10%, 20%,
+     * 30% after 1, 2, 3 cigarettes. The percentages are asserted as values on the rendered screen, not
+     * only as `state.progress`, so a broken label cannot pass.
+     */
+    @Test
+    fun threeCigarettes_progressReadsTenThenTwentyThenThirtyPercent() {
+        setContentWithViewModel()
+
+        composeRule.onNodeWithText("0%", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("addCig").performClick()
+        composeRule.waitUntil(5_000) { counterIs("1 / 10 điếu") }
+        composeRule.onNodeWithText("10%", substring = true).assertIsDisplayed()
+
+        composeRule.runOnIdle { clock.advance(Duration.ofMinutes(60)) }
+        composeRule.onNodeWithTag("addCig").performClick()
+        composeRule.waitUntil(5_000) { counterIs("2 / 10 điếu") }
+        composeRule.onNodeWithText("20%", substring = true).assertIsDisplayed()
+
+        composeRule.runOnIdle { clock.advance(Duration.ofMinutes(60)) }
+        composeRule.onNodeWithTag("addCig").performClick()
+        composeRule.waitUntil(5_000) { counterIs("3 / 10 điếu") }
+        composeRule.onNodeWithText("30%", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -234,6 +284,23 @@ class TodayScreenTest {
         composeRule.onNodeWithText("01:32", substring = true).assertIsDisplayed()
         composeRule.onNodeWithTag("intervalOver").assertIsDisplayed()
         composeRule.onNodeWithText("+32 phút", substring = true).assertIsDisplayed()
+    }
+
+    /** Spec scenario "Chưa tới mục tiêu khoảng cách": the card shows the minutes left to the goal. */
+    @Test
+    fun intervalCard_underGoal_showsNextTimeAndMinutesRemaining() {
+        runBlocking { repo.addRecord(today, 755) } // 12:35
+        composeRule.runOnIdle { clock.advance(Duration.ofMinutes(-77)) } // clock at 12:50
+        setContentWithViewModel()
+        composeRule.waitUntil(5_000) { counterIs("1 / 10 điếu") }
+
+        // Last cigarette 12:35, goal 60, now 12:50 -> next 13:35 and 45 minutes left.
+        composeRule.onNodeWithTag("intervalElapsed").assertIsDisplayed()
+        composeRule.onNodeWithText("00:15", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("intervalNext").assertIsDisplayed()
+        composeRule.onNodeWithText("13:35", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("intervalRemaining").assertIsDisplayed()
+        composeRule.onNodeWithText("còn 45 phút", substring = true).assertIsDisplayed()
     }
 
     // ------------------------------------------------------------------ helpers

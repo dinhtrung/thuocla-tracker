@@ -63,6 +63,16 @@ fun TodayScreen(
     onDismissTriggerSheet: () -> Unit,
     onAddAt: (String, Int, Int) -> Unit,
     onEditTime: (String, Int, Int) -> Unit,
+    /**
+     * Opens the day detail for a quick-stat card (spec `daily-summary`, "Ngày đầu tiên dùng app":
+     * the "ít nhất" card must open today's detail when tapped). The PWA's `openLowestDay()` and
+     * `goToDay()` switch to Thống kê and select the day; the host activity does the same here.
+     *
+     * Defaulted so a host that has no day detail to show (a preview, a slice's own test) can omit it:
+     * #16's `SettingsFlowTest` calls this screen without it, and a required parameter broke the merged
+     * tree even though each branch was green alone. A no-op default keeps the tap harmless instead.
+     */
+    onOpenDay: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showAddAtDialog by remember { mutableStateOf(false) }
@@ -100,7 +110,7 @@ fun TodayScreen(
             items(state.records, key = { "record_${it.minuteOfDay}" }) { record ->
                 RecordRow(record = record, onClick = { editingRecord = record })
             }
-            item { QuickStats(state = state) }
+            item { QuickStats(state = state, onOpenDay = onOpenDay) }
             state.summary?.let { summary ->
                 item {
                     ComparisonTable(
@@ -222,10 +232,18 @@ private fun IntervalCard(state: TodayUiState) {
     }
 }
 
-/** The four quick stats (tasks.md 4.1), in the PWA's order and labels. */
+/**
+ * The four quick stats (tasks.md 4.1), in the PWA's order and labels.
+ *
+ * The "ít nhất" and "Hôm qua" cards are clickable exactly like the PWA's `.stat-card` buttons
+ * (`onclick="openLowestDay()"` / `goToDay(getYesterdayKey())`): the spec's "Ngày đầu tiên dùng app"
+ * scenario requires the "ít nhất" card to open the day detail. "TB 7 ngày" and "Tháng này" are
+ * aggregates over many days rather than one day, so they stay static.
+ */
 @Composable
-private fun QuickStats(state: TodayUiState) {
+private fun QuickStats(state: TodayUiState, onOpenDay: (String) -> Unit) {
     val summary = state.summary
+    val lowest = summary?.lowestDay
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -233,11 +251,12 @@ private fun QuickStats(state: TodayUiState) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         QuickStatCard(
-            value = summary?.lowestDay?.count?.toString() ?: "-",
-            label = lowestDayLabel(summary?.lowestDay),
+            value = lowest?.count?.toString() ?: "-",
+            label = lowestDayLabel(lowest),
             modifier = Modifier
                 .weight(1f)
                 .testTag("statLowest"),
+            onClick = lowest?.takeIf { it.count > 0 }?.let { day -> { onOpenDay(day.dateKey) } },
         )
         QuickStatCard(
             value = summary?.yesterdayCount?.toString() ?: "-",
@@ -245,6 +264,7 @@ private fun QuickStats(state: TodayUiState) {
             modifier = Modifier
                 .weight(1f)
                 .testTag("statYesterday"),
+            onClick = summary?.yesterdayKey?.let { key -> { onOpenDay(key) } },
         )
         QuickStatCard(
             value = summary?.let { formatAverage(it.avg7Days) } ?: "-",
@@ -264,8 +284,13 @@ private fun QuickStats(state: TodayUiState) {
 }
 
 @Composable
-private fun QuickStatCard(value: String, label: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
+private fun QuickStatCard(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    Card(modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

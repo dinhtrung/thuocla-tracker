@@ -135,6 +135,24 @@ class StatsViewModelTest {
         assertNull(cleared.detail[0].record.triggerIdx)
     }
 
+    /**
+     * The "ít nhất" / "Hôm qua" cards call [StatsViewModel.openDay], which must *open* the day even
+     * when it is already selected — unlike a chart bar tap, which toggles. A second tap from the Today
+     * screen means "show me this day again", never "close it".
+     */
+    @Test
+    fun openDay_alwaysOpensTheDay_andNeverTogglesItClosed() = runTest {
+        repository.addRecord(today.toString(), 600)
+
+        viewModel.openDay(today.toString())
+        val opened = awaitState { state -> state.detail.isNotEmpty() }
+        assertEquals(today.toString(), opened.selectedDateKey)
+
+        viewModel.openDay(today.toString())
+        val reopened = awaitState { state -> state.selectedDateKey == today.toString() }
+        assertEquals("a repeated open must not close the detail", today.toString(), reopened.selectedDateKey)
+    }
+
     @Test
     fun moveTime_roundsToFiveMinutesAndRefusesAnOccupiedMinute() = runTest {
         repository.addRecord(today.toString(), 600) // 10:00

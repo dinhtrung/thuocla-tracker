@@ -55,11 +55,26 @@ import vn.dinhtrung.thuocla.domain.roundTo5
 private val TodayBarColor = Color(0xFFFF6B81)
 private val OtherBarColor = Color(0xFFE94560)
 
+/**
+ * Stats tab host. [requestedDay] is a day the Today screen asked to open (the "ít nhất" and "Hôm qua"
+ * quick-stat cards); it is consumed once so switching back to the tab later does not reopen it.
+ */
 @Composable
-fun StatsRoute(container: AppContainer) {
+fun StatsRoute(
+    container: AppContainer,
+    requestedDay: String? = null,
+    onDayConsumed: () -> Unit = {},
+) {
     val factory = remember(container) { StatsViewModelFactory(container.repository, container.clock) }
     val viewModel: StatsViewModel = viewModel(factory = factory)
     val state by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(requestedDay) {
+        if (requestedDay != null) {
+            viewModel.openDay(requestedDay)
+            onDayConsumed()
+        }
+    }
 
     StatsScreen(
         state = state,

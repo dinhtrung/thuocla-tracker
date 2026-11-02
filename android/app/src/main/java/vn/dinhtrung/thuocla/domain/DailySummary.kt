@@ -54,6 +54,8 @@ data class DailySummary(
     val today: String,
     val lowestDay: LowestDay? = null,
     val yesterdayCount: Int = 0,
+    /** "YYYY-MM-DD" of yesterday, the date the "Hôm qua" card opens (PWA `getYesterdayKey()`). */
+    val yesterdayKey: String = "",
     /** "TB 7 ngày": total over the window divided by the number of days that have data. */
     val avg7Days: Float = 0f,
     val monthCount: Int = 0,
@@ -110,6 +112,7 @@ fun buildDailySummary(records: List<CigRecord>, today: String): DailySummary {
     return DailySummary(
         today = today,
         lowestDay = lowestDay(byDay, todayDate),
+        yesterdayKey = todayDate.minusDays(1).toString(),
         yesterdayCount = byDay[todayDate.minusDays(1).toString()]?.size ?: 0,
         avg7Days = avg7,
         monthCount = byDay.filterKeys { it.startsWith(monthKey) }.values.sumOf { it.size },
