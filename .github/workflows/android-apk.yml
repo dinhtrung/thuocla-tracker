@@ -51,11 +51,11 @@ jobs:
 
       # ---- debug path: every PR / push / manual dispatch -------------------------------
       - name: Unit tests + debug build
-        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type != 'tag'
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
       - name: Verify debug APK (must not request INTERNET)
-        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type != 'tag'
         run: |
           AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
           APK=app/build/outputs/apk/debug/app-debug.apk
@@ -66,7 +66,7 @@ jobs:
           fi
 
       - name: Upload debug APK
-        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
           name: thuocla-debug-apk
@@ -75,7 +75,7 @@ jobs:
 
       # ---- release path: tags and manual release dispatch -------------------------------
       - name: Restore keystore from secrets
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.variant == 'release'
+        if: github.ref_type == 'tag' || inputs.variant == 'release'
         env:
           KEYSTORE_BASE64: ${{ secrets.THUOCLA_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.THUOCLA_KEYSTORE_PASSWORD }}
@@ -100,7 +100,7 @@ jobs:
           } >> "$HOME/.gradle/gradle.properties"
 
       - name: Unit tests + signed release build
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.variant == 'release'
+        if: github.ref_type == 'tag' || inputs.variant == 'release'
         run: |
           ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
           AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
@@ -115,13 +115,13 @@ jobs:
           fi
 
       - name: Name APK after the tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type == 'tag'
         run: |
           # android-v1.0.0 -> thuocla-v1.0.0.apk (same naming as the local build)
           cp app/build/outputs/apk/release/app-release.apk "thuocla-${GITHUB_REF_NAME#android-}.apk"
 
       - name: Attach APK to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           files: android/thuocla-*.apk
