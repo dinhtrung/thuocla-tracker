@@ -11,6 +11,14 @@ therefore measures centring and containment on the **adaptive layer PNG** (exact
 rasterisation) and measures only what a screenshot can settle on the screenshot.
 
 Frames: 1080x2340 screencaps from emulator-5554, API 35.
+
+SCOPE CAVEAT — read before reusing this on another launcher:
+Sections 1-3 derive their crop boxes from the largest connected navy blob, so they adapt to a
+different layout. Section 4 does NOT: its per-app grid is hardcoded to this frame's geometry
+(5 columns at 201 px pitch from x=20, rows at 353 px pitch from y=345). Those constants land
+correctly on screen-final.png and were checked against all 24 cells, but they are specific to
+this emulator's 1080x2340 drawer at 5 columns. Reusing section 4 on a different launcher or
+grid size will silently measure the wrong rectangles — re-derive the pitch first.
 """
 import math
 import sys

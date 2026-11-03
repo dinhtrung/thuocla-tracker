@@ -8,6 +8,13 @@ the four full screencaps committed beside it. Run `python3 analyse.py` to regene
 `SCRIPT-OUTPUT.txt` is its captured output. If a figure here cannot be reproduced by that script,
 the figure is wrong and this document should be corrected, not trusted.
 
+**Scope caveat on the script.** Sections 1–3 derive their crop boxes from the largest connected
+navy blob, so they adapt to a different layout. Section 4 does not: its per-app grid is hardcoded
+to this frame's geometry (5 columns at 201 px pitch from x=20, rows at 353 px pitch from y=345).
+Those constants land correctly on `screen-final.png` — all 24 cells were checked — but they are
+specific to this emulator's 1080×2340 drawer. Reusing section 4 on a different launcher or grid
+size would silently measure the wrong rectangles; re-derive the pitch first.
+
 ## Evidence chain (one artifact, not two claims)
 
 `adb install -r` reported `Success` three times while the device kept a **stale pre-icon build**.
