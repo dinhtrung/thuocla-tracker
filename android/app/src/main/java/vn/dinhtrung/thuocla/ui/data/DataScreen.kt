@@ -26,14 +26,16 @@ import androidx.compose.ui.unit.dp
  * before any JSON import touches the store (spec `data-portability`, design decision #5: file access
  * goes through SAF, so no storage permission is requested).
  *
- * The screen only raises intents; [onExportCsv], [onExportJson], [onImportJson], [onImportCsv] are
- * wired to `ActivityResultContracts` in [vn.dinhtrung.thuocla.MainActivity].
+ * The screen only raises intents; [onExportCsv], [onExportJson], [onShareJson], [onImportJson] and
+ * [onImportCsv] are wired to the activity in [vn.dinhtrung.thuocla.MainActivity]. [onShareJson] opens a
+ * chooser over a `content://` copy instead of a document picker, so no storage permission is requested.
  */
 @Composable
 fun DataScreen(
     state: DataUiState,
     onExportCsv: () -> Unit,
     onExportJson: () -> Unit,
+    onShareJson: () -> Unit,
     onImportJson: () -> Unit,
     onImportCsv: () -> Unit,
     onConfirmReplace: () -> Unit,
@@ -83,6 +85,13 @@ fun DataScreen(
                         .fillMaxWidth()
                         .testTag("exportJson"),
                 ) { Text("Xuất bản sao JSON") }
+                Button(
+                    onClick = onShareJson,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("shareJson"),
+                ) { Text("Chia sẻ bản sao JSON") }
             }
         }
 

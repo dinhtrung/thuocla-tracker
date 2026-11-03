@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider roots for the share-out path (issue #34, spec `data-portability` requirement
+    "File bản sao để chia sẻ").
+
+    Only the app's own cache is exposed, under the sub-directory used for share copies. Nothing in
+    `files/`, `databases/` or external storage is reachable through this provider, so a granted
+    `content://` URI can never read the Room database itself — only the JSON backup the app wrote
+    there for sharing.
+-->
+<paths>
+    <cache-path name="backups" path="backups/" />
+</paths>

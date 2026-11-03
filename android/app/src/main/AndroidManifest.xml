@@ -24,6 +24,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--
+            Share-out path (issue #34): the JSON backup copy lives in cacheDir/backups/ and leaves the
+            app only through this provider — content:// + a temporary read grant. Not exported, so no
+            other app can open it without the grant the chooser hands out. See res/xml/file_paths.xml.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

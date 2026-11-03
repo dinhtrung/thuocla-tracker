@@ -23,13 +23,13 @@
 
 ## 3. Chia sẻ bản sao JSON (deliverable: gửi bản sao sang Drive/Zalo/Telegram)
 
-- [ ] 3.1 `res/xml/file_paths.xml`: `<paths><cache-path name="backups" path="backups/" /></paths>`.
-- [ ] 3.2 Khai báo `<provider>` trong `AndroidManifest.xml`: `android:name="androidx.core.content.FileProvider"`, `android:authorities="${applicationId}.fileprovider"`, `android:exported="false"`, `android:grantUriPermissions="true"`, meta-data `android.support.FILE_PROVIDER_PATHS` → `@xml/file_paths`.
-- [ ] 3.3 Trong `DataPortability` (hoặc helper mới cùng package `data`): hàm ghi bản sao chia sẻ vào `cacheDir/backups/` — xoá các file cũ trong thư mục trước khi ghi, tên lấy từ `jsonFileName()`, nội dung lấy từ `exportJson()`, trả `null` khi `exportJson()` trả `null`.
-- [ ] 3.4 `MainActivity`: thêm launcher/khối tạo intent `Intent.ACTION_SEND` — `type = "application/json"`, `putExtra(Intent.EXTRA_STREAM, uri)`, `putExtra(Intent.EXTRA_TITLE, name)`, `clipData = ClipData.newUri(contentResolver, name, uri)`, `addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)`, mở bằng `Intent.createChooser`. Trước khi mở: nếu `intent.resolveActivity(packageManager) == null` → báo lỗi qua slot message hiện có, **không crash**.
-- [ ] 3.5 `DataViewModel` + `DataScreen`: thêm hành động **Chia sẻ bản sao JSON** ngay dưới **Xuất bản sao JSON** (`DataScreen.kt:80`), dùng cùng kiểu nút và cùng slot thông báo; chưa có dữ liệu → cùng cách xử lý với nút xuất (thông báo, không tạo file rỗng).
-- [ ] 3.6 Test (Robolectric, JVM): bấm hành động chia sẻ → `ShadowActivity.getNextStartedActivity()` trả intent có `action == ACTION_SEND`, `type == "application/json"`, `EXTRA_STREAM` có authority `<applicationId>.fileprovider`, và file tương ứng tồn tại trong `cacheDir/backups/` với tên đúng `thuocla_backup_YYYY-MM-DD.json`, nội dung parse được và có khoá `data`. Thêm test: gọi chia sẻ hai lần → thư mục cache chỉ còn 1 file.
-- [ ] 3.7 Bằng chứng sống trên AVD: bấm Chia sẻ, chọn một app nhận có trên AVD (hoặc `adb shell dumpsys activity intents` để chứng minh intent bay ra), chụp màn hình; ghi rõ app nhận đã chọn.
+- [x] 3.1 `res/xml/file_paths.xml`: `<paths><cache-path name="backups" path="backups/" /></paths>`.
+- [x] 3.2 Khai báo `<provider>` trong `AndroidManifest.xml`: `android:name="androidx.core.content.FileProvider"`, `android:authorities="${applicationId}.fileprovider"`, `android:exported="false"`, `android:grantUriPermissions="true"`, meta-data `android.support.FILE_PROVIDER_PATHS` → `@xml/file_paths`.
+- [x] 3.3 Trong `DataPortability` (hoặc helper mới cùng package `data`): hàm ghi bản sao chia sẻ vào `cacheDir/backups/` — xoá các file cũ trong thư mục trước khi ghi, tên lấy từ `jsonFileName()`, nội dung lấy từ `exportJson()`, trả `null` khi `exportJson()` trả `null`.
+- [x] 3.4 `MainActivity`: thêm launcher/khối tạo intent `Intent.ACTION_SEND` — `type = "application/json"`, `putExtra(Intent.EXTRA_STREAM, uri)`, `putExtra(Intent.EXTRA_TITLE, name)`, `clipData = ClipData.newUri(contentResolver, name, uri)`, `addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)`, mở bằng `Intent.createChooser`. Trước khi mở: nếu `intent.resolveActivity(packageManager) == null` → báo lỗi qua slot message hiện có, **không crash**.
+- [x] 3.5 `DataViewModel` + `DataScreen`: thêm hành động **Chia sẻ bản sao JSON** ngay dưới **Xuất bản sao JSON** (`DataScreen.kt:80`), dùng cùng kiểu nút và cùng slot thông báo; chưa có dữ liệu → cùng cách xử lý với nút xuất (thông báo, không tạo file rỗng).
+- [x] 3.6 Test (Robolectric, JVM): bấm hành động chia sẻ → `ShadowActivity.getNextStartedActivity()` trả intent có `action == ACTION_SEND`, `type == "application/json"`, `EXTRA_STREAM` có authority `<applicationId>.fileprovider`, và file tương ứng tồn tại trong `cacheDir/backups/` với tên đúng `thuocla_backup_YYYY-MM-DD.json`, nội dung parse được và có khoá `data`. Thêm test: gọi chia sẻ hai lần → thư mục cache chỉ còn 1 file.
+- [x] 3.7 Bằng chứng sống trên AVD: bấm Chia sẻ, chọn một app nhận có trên AVD (hoặc `adb shell dumpsys activity intents` để chứng minh intent bay ra), chụp màn hình; ghi rõ app nhận đã chọn.
 
 ## 4. Docs (ghế A) + phát hành (orchestrator)
 

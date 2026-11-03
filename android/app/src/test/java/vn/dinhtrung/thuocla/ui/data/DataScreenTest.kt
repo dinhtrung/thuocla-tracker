@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import java.io.File
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -28,6 +29,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import vn.dinhtrung.thuocla.data.BackupSharer
 import vn.dinhtrung.thuocla.data.DataPortability
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
@@ -54,6 +56,8 @@ class DataScreenTest {
     private lateinit var db: AppDatabase
     private lateinit var repo: TrackerRepository
     private lateinit var portability: DataPortability
+    private lateinit var sharer: BackupSharer
+    private lateinit var shareDir: File
 
     private val day = "2026-11-02"
 
@@ -68,6 +72,9 @@ class DataScreenTest {
             repository = repo,
             clock = Clock.fixed(Instant.parse("2026-11-02T07:12:00Z"), ZoneId.of("Asia/Ho_Chi_Minh")),
         )
+        // Share copies go to a throwaway directory so the test never touches the app's real cache.
+        shareDir = File(context.cacheDir, "backups-test")
+        sharer = BackupSharer(portability, shareDir)
     }
 
     @After
@@ -81,11 +88,15 @@ class DataScreenTest {
     fun screen_showsExportAndImportActions() {
         render(DataUiState())
 
+        // Header first: the assertions below scroll the column, which moves the header off-screen.
+        composeRule.onNodeWithText("Dữ liệu").assertIsDisplayed()
         composeRule.onNodeWithTag("exportCsv").assertIsDisplayed()
         composeRule.onNodeWithTag("exportJson").assertIsDisplayed()
-        composeRule.onNodeWithTag("importJson").assertIsDisplayed()
-        composeRule.onNodeWithTag("importCsv").assertIsDisplayed()
-        composeRule.onNodeWithText("Dữ liệu").assertIsDisplayed()
+        composeRule.onNodeWithTag("shareJson").assertIsDisplayed()
+        // The screen scrolls; the share action made the column taller, so the import card now needs a
+        // scroll in the test window. Reachability, not position, is what this test pins.
+        composeRule.onNodeWithTag("importJson").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("importCsv").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -132,7 +143,7 @@ class DataScreenTest {
     @Test
     fun exportCsv_handsTextToTheCallbackAndReportsTheFileName() = runBlocking {
         repo.addRecord(day, 415, triggerIdx = 0)
-        val viewModel = DataViewModel(portability)
+        val viewModel = DataViewModel(portability, sharer)
 
         var exported: String? = null
         viewModel.exportCsv { exported = it }
@@ -145,7 +156,7 @@ class DataScreenTest {
 
     @Test
     fun exportCsv_onAnEmptyStore_reportsNothingToExport() = runBlocking {
-        val viewModel = DataViewModel(portability)
+        val viewModel = DataViewModel(portability, sharer)
 
         var called = false
         viewModel.exportCsv { called = true }
@@ -159,7 +170,7 @@ class DataScreenTest {
     @Test
     fun offerJsonImport_holdsTheTextAndWritesNothingUntilConfirmed() = runBlocking {
         repo.addRecord(day, 415)
-        val viewModel = DataViewModel(portability)
+        val viewModel = DataViewModel(portability, sharer)
 
         viewModel.offerJsonImport(BACKUP_TWO_DAYS)
 
@@ -175,7 +186,7 @@ class DataScreenTest {
     @Test
     fun confirmJsonImport_replace_wipesAndImports() = runBlocking {
         repo.addRecord(day, 415)
-        val viewModel = DataViewModel(portability)
+        val viewModel = DataViewModel(portability, sharer)
 
         viewModel.offerJsonImport(BACKUP_TWO_DAYS)
         viewModel.confirmJsonImport(replace = true)
@@ -190,7 +201,7 @@ class DataScreenTest {
     @Test
     fun confirmJsonImport_merge_keepsExistingRows() = runBlocking {
         repo.addRecord("2026-10-30", 700)
-        val viewModel = DataViewModel(portability)
+        val viewModel = DataViewModel(portability, sharer)
 
         viewModel.offerJsonImport(BACKUP_TWO_DAYS)
         viewModel.confirmJsonImport(replace = false)
@@ -202,7 +213,7 @@ class DataScreenTest {
     @Test
     fun importCsv_reportsTheFirstBadLineAsAnError() = runBlocking {
         repo.addRecord(day, 415)
-        val viewModel = DataViewModel(portability)
+        val viewModel = DataViewModel(portability, sharer)
 
         viewModel.importCsv(CSV_WITH_BAD_TIME)
 
@@ -239,6 +250,7 @@ class DataScreenTest {
                         onExportCsv = {},
                         onExportJson = {},
                         onImportJson = {},
+                        onShareJson = {},
                         onImportCsv = {},
                         onConfirmReplace = onConfirmReplace,
                         onConfirmMerge = onConfirmMerge,

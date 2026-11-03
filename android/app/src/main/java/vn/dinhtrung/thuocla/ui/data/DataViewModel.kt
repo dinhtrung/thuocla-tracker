@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vn.dinhtrung.thuocla.AppContainer
+import vn.dinhtrung.thuocla.data.BackupSharer
 import vn.dinhtrung.thuocla.data.DataPortability
 
 /** What the "Dữ liệu" screen shows after the last operation. */
@@ -29,6 +30,8 @@ data class DataUiState(
  */
 class DataViewModel(
     private val portability: DataPortability,
+    /** Writes the share copy into the provider's cache directory; see [BackupSharer]. */
+    private val sharer: BackupSharer,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DataUiState())
@@ -59,6 +62,37 @@ class DataViewModel(
                 onReady(text)
                 _state.update { it.copy(busy = false, message = "Đã xuất ${portability.jsonFileName()}") }
             }
+        }
+    }
+
+    /**
+     * Writes the share copy of the JSON backup and hands it to [onReady] for the chooser intent.
+     *
+     * Mirrors [exportJson]: an empty store produces [NOTHING_TO_EXPORT] and no file, so sharing can
+     * never send an empty backup. The copy lands in the app's own cache (no permission needed) and the
+     * previous one is deleted first, so the directory holds only the newest file.
+     *
+     * [onReady] returns false when the activity could not open a chooser (no app accepts
+     * `application/json`); in that case the failure message stays as the activity reported it instead of
+     * being overwritten by "Đã chia sẻ …" — otherwise a user with no receiver would read a success
+     * message for a share that never happened.
+     */
+    fun shareJson(onReady: (BackupSharer.ShareCopy) -> Boolean) {
+        _state.update { it.copy(busy = true, message = null, isError = false) }
+        viewModelScope.launch {
+            val copy = sharer.writeShareCopy()
+            if (copy == null) {
+                _state.update { it.copy(busy = false, message = NOTHING_TO_EXPORT, isError = true) }
+            } else if (onReady(copy)) {
+                _state.update { it.copy(busy = false, message = "Đã chia sẻ ${copy.fileName}") }
+            }
+        }
+    }
+
+    /** The activity found no app that accepts `application/json`; report instead of crashing. */
+    fun reportShareUnavailable() {
+        _state.update {
+            it.copy(busy = false, message = SHARE_UNAVAILABLE, isError = true)
         }
     }
 
@@ -129,6 +163,7 @@ class DataViewModel(
         const val NOTHING_TO_EXPORT = "Chưa có dữ liệu để xuất"
         const val WRITE_FAILED = "Không ghi được file — chưa có gì được lưu"
         const val READ_FAILED = "Không đọc được file đã chọn"
+        const val SHARE_UNAVAILABLE = "Không có ứng dụng nào nhận được bản sao JSON"
     }
 }
 
@@ -139,6 +174,6 @@ class DataViewModelFactory(private val container: AppContainer) : ViewModelProvi
             "DataViewModelFactory cannot build ${modelClass.name}"
         }
         @Suppress("UNCHECKED_CAST")
-        return DataViewModel(container.dataPortability) as T
+        return DataViewModel(container.dataPortability, container.backupSharer) as T
     }
 }
