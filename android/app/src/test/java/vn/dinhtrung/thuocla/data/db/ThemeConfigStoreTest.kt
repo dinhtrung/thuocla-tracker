@@ -2,7 +2,6 @@ package vn.dinhtrung.thuocla.data.db
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -133,13 +132,18 @@ class ThemeConfigStoreTest {
         assertEquals(1, SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { it.version })
     }
 
+    /**
+     * Open through the *production* builder, never a local one. `AppDatabase.build` is where
+     * `MIGRATION_1_2` is registered; a test that registers its own copy would keep passing after
+     * the production registration was deleted, which is exactly the bug this class exists to catch.
+     * Hence the database name must be [AppDatabase.NAME], not a test-only name.
+     */
     private fun open() {
-        db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .addMigrations(AppDatabase.MIGRATION_1_2)
-            .build()
+        db = AppDatabase.build(context)
     }
 
     private companion object {
-        const val DB_NAME = "theme-test.db"
+        /** Production's name, so `AppDatabase.build` opens the file this test seeds. */
+        const val DB_NAME = AppDatabase.NAME
     }
 }

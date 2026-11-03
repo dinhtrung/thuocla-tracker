@@ -172,6 +172,39 @@ config` returned `1|DARK` then `1|LIGHT` — so persistence is confirmed at the 
 only in the pixels. The device was returned to `themeMode=SYSTEM` and its seeded records deleted
 afterwards.
 
+## Cold-start flash — measured, and what causes it
+
+The review of this change raised a risk the earlier revision of this record did not settle: with a
+stored mode that differs from the device, the app may paint the wrong scheme for a moment at launch.
+It does, and the cause is narrower than "the app composes the wrong theme".
+
+Method: force-stop the app, start `screenrecord`, launch, then decode every frame. Two runs, one per
+direction. A frame counts as light/dark when the brief's light/dark surface families dominate it; a
+frame also counts as "app UI drawn" when the title band (y 180–268) and the bottom-nav band
+(y 2186–2230) are not a single flat fill — a splash has nothing there.
+
+| run | stored | system | light frames | dark frames | app UI first seen |
+|---|---|---|---|---|---|
+| A | DARK | light | **1.18 s** (24 frames at 25.5 fps) | 1.56 s | dark, immediately |
+| B | LIGHT | dark | 1.80 s | 0.55 s | light, immediately |
+
+In both runs **the first frame that contains app UI already carries the correct scheme** — dark in A,
+light in B. The wrong-coloured frames are flat fills with no UI in them: run A's light band is pure
+`#f2f4fa` across both sampled bands (93.6 % of the whole frame), and run B's dark band is pure
+`#1a1a2e` (93.6 %). Those are the **Android system splash**, which the platform draws before the
+activity's Compose content exists and which is keyed off the *system* setting — `values-night/`, not
+the stored `themeMode`. The app's own `windowBackground` cannot suppress it because the splash is
+drawn by the system process before our window is composited.
+
+So the honest statement is: a stored override disagrees with the device for ~1.2 s of splash, then the
+app renders the chosen scheme and stays there. Frames: `cold-start/splash-light-on-stored-dark.png`,
+`cold-start/splash-dark-on-stored-light.png`, `cold-start/ui-dark-stored-dark.png`.
+
+Two ways to remove the splash mismatch, neither taken here because both change scope:
+(1) call `SplashScreen.setKeepOnScreenCondition` and set the splash background from the stored mode,
+which needs the stored value read before the first frame; or (2) drop the stored-override feature and
+follow the device only. The first is the usual fix for "wrong splash on launch".
+
 ## What the frames cannot settle
 
 - **The picker's own Save semantics** (that choosing a radio does not persist until Save). That is
@@ -179,7 +212,13 @@ afterwards.
   and `SettingsFlowTest.choosingDarkInSettings_persistsIt_andReopeningShowsIt`.
 - **The Room 1→2 migration.** Covered by
   `ThemeConfigStoreTest.migratingAVersionOneDatabase_keepsEveryRecordAndAddsTheDefaultMode`, which
-  seeds a real version-1 database file and asserts every cigarette survives with mode `SYSTEM`.
+  seeds a real version-1 database file and asserts every cigarette survives with mode `SYSTEM`. That
+  test now opens the database through the *production* builder `AppDatabase.build`, so it exercises
+  the production registration of `MIGRATION_1_2` rather than a local copy. Verified by mutation:
+  deleting `.addMigrations(MIGRATION_1_2)` from production `build()` makes that test fail with
+  `IllegalStateException: A migration from 1 to 2 was required but not found` — the same crash a real
+  version-1 install would hit. An earlier revision of this test registered its own migration and kept
+  passing under that mutation, which is why the guard is now stated as a mutation-checked property.
 - **A phone whose system setting changes while the app is running** without a relaunch. Not captured;
   the frames all come from a fresh launch.
 - **Colour accuracy beyond these frames.** Each frame is one instant of one emulator on one API level.
@@ -239,6 +278,16 @@ adb shell am force-stop vn.dinhtrung.thuocla
 adb shell am start -n vn.dinhtrung.thuocla/.MainActivity; sleep 4
 adb exec-out screencap -p > light-mode-on-dark-system.png
 
+
+# cold-start flash: stored mode disagrees with the device, decode every frame of the launch
+adb shell "run-as vn.dinhtrung.thuocla sqlite3 databases/thuocla.db \
+  \"UPDATE config SET themeMode='DARK' WHERE id=1;\""
+adb shell cmd uimode night no; adb shell am force-stop vn.dinhtrung.thuocla
+adb shell "nohup screenrecord --time-limit 6 --bit-rate 12000000 /data/local/tmp/f.mp4 >/dev/null 2>&1 &"
+sleep 1; adb shell am start -n vn.dinhtrung.thuocla/.MainActivity; sleep 7
+adb pull /data/local/tmp/f.mp4 /tmp/f.mp4
+ffmpeg -v error -i /tmp/f.mp4 -vsync 0 /tmp/frames/%04d.png   # classify each frame's surface
+# repeat with themeMode='LIGHT' and uimode night yes for the opposite direction
 # restore: SYSTEM mode, no seeded records
 adb shell "run-as vn.dinhtrung.thuocla sqlite3 databases/thuocla.db \
   \"UPDATE config SET themeMode='SYSTEM' WHERE id=1; DELETE FROM records;\""
