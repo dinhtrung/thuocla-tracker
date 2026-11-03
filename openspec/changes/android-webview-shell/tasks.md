@@ -8,10 +8,10 @@
 
 ## 1. Asset bundle + chống lệch (task S1)
 
-- [ ] 1.1 `scripts/verify-web-assets.sh`: chế độ mặc định so `sha256sum` từng cặp `index.html`, `app.js`, `styles.css`, `manifest.json`, `icon-192.png`, `icon-512.png` giữa repo root và `android/app/src/main/assets/web/`; fail (exit 1) khi thiếu file hoặc lệch, in tên cặp lệch. Chế độ `--copy` copy từ root sang `assets/web/`.
-- [ ] 1.2 Chạy `--copy` để tạo `android/app/src/main/assets/web/` đủ 6 file; chạy lại chế độ verify → xanh.
-- [ ] 1.3 `.github/workflows/android-apk.yml`: thêm bước chạy `bash scripts/verify-web-assets.sh` **trước** bước build (cả nhánh debug và release), để asset lệch làm đỏ CI.
-- [ ] 1.4 Bằng chứng: dán output `sha256sum` 6 cặp + output script xanh; thử cố ý sửa 1 file trong `assets/web/` rồi chạy verify → phải fail (dán output fail đó), sau đó `--copy` lại cho sạch.
+- [x] 1.1 `scripts/verify-web-assets.sh`: chế độ mặc định so `sha256sum` từng cặp `index.html`, `app.js`, `styles.css`, `manifest.json`, `icon-192.png`, `icon-512.png` giữa repo root và `android/app/src/main/assets/web/`; fail (exit 1) khi thiếu file hoặc lệch, in tên cặp lệch. Chế độ `--copy` copy từ root sang `assets/web/`.
+- [x] 1.2 Chạy `--copy` để tạo `android/app/src/main/assets/web/` đủ 6 file; chạy lại chế độ verify → xanh.
+- [x] 1.3 `.github/workflows/android-apk.yml`: thêm bước chạy `bash scripts/verify-web-assets.sh` **trước** bước build (cả nhánh debug và release), để asset lệch làm đỏ CI.
+- [x] 1.4 Bằng chứng: dán output `sha256sum` 6 cặp + output script xanh; thử cố ý sửa 1 file trong `assets/web/` rồi chạy verify → phải fail (dán output fail đó), sau đó `--copy` lại cho sạch.
 
 ## 2. Web shell (task S2)
 

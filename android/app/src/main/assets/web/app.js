@@ -1,0 +1,2165 @@
+    // ========== DATA LAYER ==========
+    const DB_KEY = 'smoking_data';
+    const CFG_KEY = 'smoking_config';
+    // ⚠️ RELEASE: bump APP_VERSION ở đây + CACHE trong service-worker.js (cùng 1 commit)
+    const APP_VERSION = '1.5.2';
+    const TRIGGERS = ['🍜 Sau ăn','☕ Cà phê','😤 Stress','🍻 Nhậu','😞 Buồn','🌀 Thói quen','🚬 Thèm','🤷 Khác'];
+
+    function getToday() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function getWeekBounds() {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      return { start: fmt(monday), end: fmt(sunday) };
+    }
+
+    function getMonthBounds() {
+      const now = new Date();
+      const start = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const end = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(endDate).padStart(2,'0')}`;
+      return { start, end };
+    }
+
+    function loadData() {
+      try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; }
+      catch { return {}; }
+    }
+
+    function saveData(data) {
+      localStorage.setItem(DB_KEY, JSON.stringify(data));
+    }
+
+    function loadConfig() {
+      try {
+        const cfg = JSON.parse(localStorage.getItem(CFG_KEY));
+        return cfg || { goal: 10, intervalGoal: 60, pricePerPack: 25000, cigsPerPack: 20 };
+      } catch { return { goal: 10, intervalGoal: 60, pricePerPack: 25000, cigsPerPack: 20 }; }
+    }
+
+    function saveConfig(cfg) {
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    }
+
+    function getTodayData() {
+      const data = loadData();
+      return (data[getToday()] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+    }
+
+    function setTodayData(records) {
+      const data = loadData();
+      const today = getToday();
+      // Sort by time for consistency
+      records.sort((a, b) => new Date(a.time) - new Date(b.time));
+      data[today] = records;
+      saveData(data);
+    }
+
+    // Key của 1 điếu theo NGÀY + GIỜ + PHÚT (dùng để chống log trùng phút)
+    function timeKey(isoStr) {
+      const d = new Date(isoStr);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}-${d.getMinutes()}`;
+    }
+
+    // true nếu lần addRecord vừa rồi bị chặn vì trùng phút (để caller bỏ qua afterAddCig)
+    let lastAddDup = false;
+
+    function addRecord(isoTime) {
+      const records = getTodayData();
+      let iso = isoTime;
+      if (!iso) {
+        // Round to nearest 5 min (0,5,10...) to match the time picker
+        const now = new Date();
+        now.setMinutes(Math.round(now.getMinutes() / 5) * 5, 0, 0);
+        iso = now.toISOString();
+      }
+      // Chống tap trùng: cùng ngày + cùng phút (gap 0) — tháng 9/2026 đã có 2 lần log trùng
+      if (records.some(r => timeKey(r.time) === timeKey(iso))) {
+        lastAddDup = true;
+        if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+        showCounterWarn(`⚠️ Đã có điếu lúc <b>${formatTime(iso)}</b> rồi — không thêm trùng nhé!`, 'warn-orange', 2500);
+        return records;
+      }
+      lastAddDup = false;
+      records.push({ time: iso });
+      setTodayData(records);
+      return records;
+    }
+
+    function removeLastRecord() {
+      const records = getTodayData();
+      if (records.length === 0) return records;
+      records.pop();
+      setTodayData(records);
+      return records;
+    }
+
+    function getDayCount(dateStr) {
+      const data = loadData();
+      return (data[dateStr] || []).length;
+    }
+
+    function getLast7Days() {
+      return getLastNDays(7);
+    }
+
+    function getLastNDays(n) {
+      const days = [];
+      for (let i = n - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        days.push({ key, dayName: getDayName(d), count: getDayCount(key) });
+      }
+      return days;
+    }
+
+    function getDayName(date) {
+      return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()];
+    }
+
+    function getLowestDay() {
+      const last31 = getLastNDays(31);
+      const today = getToday();
+      let min = { key: '', count: Infinity, dayName: '' };
+      let hasData = false;
+      for (const d of last31) {
+        if (d.key !== today && d.count > 0 && d.count < min.count) {
+          min = d;
+          hasData = true;
+        }
+      }
+      if (!hasData) {
+        // Ngày đầu dùng app (hoặc mọi ngày khác đều 0 điếu): chưa có ngày nào để so.
+        // Trả về chính HÔM NAY với cờ onlyToday để thẻ "Ít nhất" không trống, bấm vào vẫn
+        // mở được chi tiết hôm nay — và bảng So sánh biết đây không phải ngày tham chiếu.
+        const t = getDayCount(today);
+        return t > 0 ? { key: today, count: t, dayName: '', onlyToday: true } : null;
+      }
+      return min;
+    }
+
+    function getYesterdayKey() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // ========== MONEY ==========
+    function calcCost(count) {
+      const cfg = loadConfig();
+      if (!cfg.pricePerPack || !cfg.cigsPerPack) return 0;
+      return (count / cfg.cigsPerPack) * cfg.pricePerPack;
+    }
+
+    function getWeekCount() {
+      const bounds = getWeekBounds();
+      const data = loadData();
+      let total = 0;
+      for (const [key, records] of Object.entries(data)) {
+        if (key >= bounds.start && key <= bounds.end) total += records.length;
+      }
+      return total;
+    }
+
+    function getMonthCount() {
+      const bounds = getMonthBounds();
+      const data = loadData();
+      let total = 0;
+      for (const [key, records] of Object.entries(data)) {
+        if (key >= bounds.start && key <= bounds.end) total += records.length;
+      }
+      return total;
+    }
+
+    function formatMoney(n) {
+      if (n < 1000) return n + '₫';
+      return Math.round(n).toLocaleString('vi-VN') + '₫';
+    }
+
+    // ========== TIMER ==========
+    let timerInterval = null;
+
+    // Badge phiên bản trên header — render từ APP_VERSION (một nguồn duy nhất, khỏi quên bump HTML)
+    function renderAppVersion() {
+      const el = document.getElementById('appVersion');
+      if (el) el.textContent = 'v' + APP_VERSION;
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+      updateTimer();
+      if (!cutReminderInterval) cutReminderInterval = setInterval(renderCutReminder, 60000);
+    }
+
+    function updateTimer() {
+      const records = getTodayData();
+      const cfg = loadConfig();
+      const intervalGoal = cfg.intervalGoal || 0;
+      const el = document.getElementById('timerDisplay');
+      const target = document.getElementById('timerTarget');
+      const rightEl = document.getElementById('timerRight');
+      const rightIcon = document.getElementById('timerRightIcon');
+      const estLabel = document.getElementById('estimateLabel');
+      const estTime = document.getElementById('estimateTime');
+      const estRemain = document.getElementById('estimateRemain');
+
+      // Right side mirrors left layout: icon + label + big value + sub-line
+      function showRight(icon, label, timeText, remainText) {
+        rightEl.style.display = '';
+        rightIcon.textContent = icon;
+        estLabel.textContent = label;
+        estTime.textContent = timeText;
+        estRemain.textContent = remainText || '';
+        estRemain.style.display = remainText ? '' : 'none';
+      }
+      function hideRight() { rightEl.style.display = 'none'; }
+
+      if (records.length === 0) {
+        el.textContent = '--:--';
+        el.className = 'timer-value';
+        target.textContent = intervalGoal > 0 ? `Mục tiêu: ≥${intervalGoal}ph` : '';
+        hideRight();
+        return;
+      }
+
+      const last = new Date(records[records.length - 1].time);
+      const now = new Date();
+      const diffMs = now - last;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const secPart = diffSec % 60;
+
+      // Format as H:MM:SS or MM:SS
+      let display;
+      if (diffMin >= 60) {
+        const h = Math.floor(diffMin / 60);
+        const m = diffMin % 60;
+        display = `${h}:${String(m).padStart(2,'0')}:${String(secPart).padStart(2,'0')}`;
+      } else {
+        display = `${String(diffMin).padStart(2,'0')}:${String(secPart).padStart(2,'0')}`;
+      }
+
+      el.textContent = display;
+
+      // Color coding and estimate based on interval goal
+      if (intervalGoal > 0) {
+        const pct = Math.min(100, (diffMin / intervalGoal) * 100);
+
+        if (diffMin >= intervalGoal) {
+          el.className = 'timer-value good';
+          target.textContent = `Mục tiêu: ≥${intervalGoal}ph ✅ Đạt`;
+          showRight('✅', 'Đạt mục tiêu', `+${diffMin - intervalGoal} phút`, '');
+        } else {
+          const remaining = intervalGoal - diffMin;
+          const nextTime = new Date(last.getTime() + intervalGoal * 60000);
+          const estStr = `${String(nextTime.getHours()).padStart(2,'0')}:${String(nextTime.getMinutes()).padStart(2,'0')}`;
+          target.textContent = `Mục tiêu: ≥${intervalGoal}ph • ${Math.round(pct)}%`;
+          showRight('🎯', 'Dự kiến', estStr, `còn ${remaining} phút`);
+
+          if (diffMin >= intervalGoal * 0.7) {
+            el.className = 'timer-value warn';
+          } else {
+            el.className = 'timer-value bad';
+          }
+        }
+      } else {
+        target.textContent = '';
+        el.className = 'timer-value';
+        hideRight();
+      }
+    }
+
+    // ========== CUT REMINDER ==========
+    const CUT_LOOKBACK = 30, CUT_MAX_GAP = 40, CUT_MAX_KEP = 20;
+    const CUT_CHAIN_THRESHOLD = 0.25, CUT_KEP_THRESHOLD = 0.15;
+    const CUT_MIN_DAYS = 7, CUT_STT_CAP = 20, CUT_MIN_PRESENCE = 0.3;
+    let cutReminderInterval = null;
+    let cutDailyTarget = null;
+
+    function fmtHM(min) {
+      const total = Math.round(min);
+      return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    // Per-STT stats over last 30 days, split weekday/weekend (rule gap>0, same as renderCutWindows)
+    function computeSttStats() {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      const raw = { weekday: [], weekend: [] };
+      const typeCount = { weekday: 0, weekend: 0 };
+      let dayCount = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds > today || !recs.length) continue;
+        dayCount++;
+        const d = new Date(ds + 'T00:00:00');
+        const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        typeCount[dayType]++;
+        const s = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        for (let i = 0; i < s.length && i < CUT_STT_CAP; i++) {
+          const st = raw[dayType][i] || (raw[dayType][i] = { present: 0, tSum: 0, t2Sum: 0, chain: 0, kep: 0 });
+          st.present++;
+          const t = new Date(s[i].time);
+          const min = t.getHours() * 60 + t.getMinutes();
+          st.tSum += min; st.t2Sum += min * min;
+          if (i > 0) {
+            const g = Math.round((new Date(s[i].time) - new Date(s[i-1].time)) / 60000);
+            if (g > 0 && g <= CUT_MAX_GAP) {
+              st.chain++;
+              if (g <= CUT_MAX_KEP) st.kep++;
+            }
+          }
+        }
+      }
+      const result = { weekday: [], weekend: [], dayCount, typeCount };
+      for (const dt of ['weekday', 'weekend']) {
+        const arr = raw[dt];
+        for (let i = 0; i < arr.length; i++) {
+          const st = arr[i];
+          const mean = st.tSum / st.present;
+          const variance = Math.max(0, st.t2Sum / st.present - mean * mean);
+          result[dt].push({
+            stt: i + 1,
+            present: st.present,
+            avgTime: mean,
+            stdevTime: Math.sqrt(variance),
+            chainFreq: st.chain / st.present,
+            kepFreq: st.kep / st.present,
+            chain: st.chain,
+            kep: st.kep
+          });
+        }
+      }
+      return result;
+    }
+
+    // Daily cut target: chain/kep-heavy STT within the daily goal, cached once per day;
+    // rolls to the next candidate when the current one gets smoked; tail-of-day fallback
+    function getDailyTarget(stats, dayType, goal, todayCount) {
+      const today = getToday();
+      if (cutDailyTarget && cutDailyTarget.date === today) {
+        if (todayCount < cutDailyTarget.stt) return cutDailyTarget; // still not smoked — keep it
+        cutDailyTarget = null;                                      // smoked — roll to the next
+      }
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      let arr = stats[dayType] || [];
+      if (goal > 0) arr = arr.filter(st => st.stt <= goal);          // never target beyond the goal
+      if (!arr.length) return null;
+      const typeDays = stats.typeCount[dayType] || 1;
+      const candidates = arr.filter(st => {
+        if (st.stt <= todayCount) return false;                      // never target an already-smoked cig
+        if (st.chainFreq < CUT_CHAIN_THRESHOLD && st.kepFreq < CUT_KEP_THRESHOLD) return false;
+        const presence = st.present / typeDays;                      // per day-TYPE count (weekend vs weekday)
+        if (presence < CUT_MIN_PRESENCE) return false;               // stable pattern only (no 1-off STTs)
+        const anchor = presence >= 0.6 && st.stdevTime <= 45 && st.chainFreq < 0.2;
+        return !anchor;
+      });
+      const upcoming = candidates.filter(st => st.avgTime > nowMin - 15);
+      if (upcoming.length) {
+        upcoming.sort((a, b) => a.avgTime - b.avgTime);
+        cutDailyTarget = Object.assign({ date: today, reason: 'chain' }, upcoming[0]);
+        return cutDailyTarget;
+      }
+      // Tail-of-day fallback: latest upcoming cigarette within the goal limit
+      const tail = arr.filter(st => st.present > 0 && st.stt > todayCount && st.avgTime > nowMin - 15);
+      if (tail.length) {
+        cutDailyTarget = Object.assign({ date: today, reason: 'tail' }, tail[tail.length - 1]);
+        return cutDailyTarget;
+      }
+      return null;
+    }
+
+    // Ideal ("trường hợp lý tưởng"): trung bình số điếu đã hút tới giờ này theo dữ liệu
+    // TỪ HÔM QUA VỀ TRƯỚC (loại hôm nay khỏi trung bình), tách cuối tuần/ngày thường.
+    // user directive 2026-08-15: "Ideal thì là trung bình từ dữ liệu từ hôm qua về trước.
+    // Khen thì so với số thứ tự của ideal" — KHÔNG +1.
+    function getAvgCountByNow(nowMin, dayType) {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      let sum = 0, n = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds >= today || !recs.length) continue; // hôm qua về trước
+        const d = new Date(ds + 'T00:00:00');
+        const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        if (dt !== dayType) continue;
+        let c = 0;
+        for (const r of recs) {
+          const t = new Date(r.time);
+          if (t.getHours() * 60 + t.getMinutes() <= nowMin) c++;
+        }
+        sum += c; n++;
+      }
+      return n ? sum / n : 0;
+    }
+
+    // Giờ điếu cuối trung bình theo loại ngày (hôm qua về trước) — record CUỐI mỗi ngày,
+    // không phải STT slot cuối (slot cuối có thể là ngày hiếm hút 20 điếu → sai giờ).
+    function getAvgLastCigTime(dayType) {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      let sum = 0, n = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds >= today || !recs.length) continue;
+        const d = new Date(ds + 'T00:00:00');
+        const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        if (dt !== dayType) continue;
+        const sorted = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        const t = new Date(sorted[sorted.length - 1].time);
+        sum += t.getHours() * 60 + t.getMinutes();
+        n++;
+      }
+      return n ? sum / n : 0;
+    }
+
+    // 4-state note: GOAL (reached/exceeded) > PRAISE (behind usual pace) > WARN (next chain cig) > TARGET
+    function renderCutReminder() {
+      const el = gid('cutNote');
+      if (!el) return;
+      const stats = computeSttStats();
+
+      // Insufficient data fallback
+      if (stats.dayCount < CUT_MIN_DAYS) {
+        el.style.display = '';
+        el.className = 'cut-note neutral';
+        gid('cutNoteIcon').textContent = '📊';
+        gid('cutNoteText').textContent = 'Cần thêm dữ liệu để tính điếu nên cắt';
+        gid('cutNoteSub').textContent = `Còn ${CUT_MIN_DAYS - stats.dayCount} ngày nữa (tối thiểu ${CUT_MIN_DAYS} ngày trong 30 ngày qua)`;
+        return;
+      }
+
+      const d = new Date();
+      const nowMin = d.getHours() * 60 + d.getMinutes();
+      const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+      const arr = stats[dayType] || [];
+      const todayCount = getTodayData().length;
+      const cfg = loadConfig();
+      const goal = parseInt(cfg.goal, 10) || 0;
+
+      // GOAL state (top priority): reward at exactly goal, stop-warning when over.
+      // Đạt goal SỚM (trước giờ điếu cuối thường lệ) = hút quá nhanh → CẢNH BÁO hết hạn mức,
+      // không khen — user directive 2026-08-15: "mới 17:40 đã hút hết 12 điếu mà vẫn khen à?"
+      if (goal > 0 && todayCount >= goal) {
+        el.style.display = '';
+        if (todayCount === goal) {
+          const lastCigAvg = getAvgLastCigTime(dayType);
+          const endDay = lastCigAvg > 0 ? lastCigAvg - 30 : 22 * 60; // qua giờ điếu cuối TB (hoặc 22:00) mới tính là hết ngày
+          if (nowMin >= endDay) {
+            el.className = 'cut-note praise';
+            gid('cutNoteIcon').textContent = '🎉';
+            gid('cutNoteText').textContent = `Đạt mục tiêu ${goal} điếu — thắng hôm nay rồi!`;
+            gid('cutNoteSub').textContent = 'Đừng hút thêm nữa nhé, giữ đà!';
+          } else {
+            el.className = 'cut-note warn';
+            gid('cutNoteIcon').textContent = '⚠️';
+            gid('cutNoteText').textContent = `Hết hạn mức ${goal} điếu rồi — tối nay đừng hút nữa!`;
+            gid('cutNoteSub').textContent = lastCigAvg > 0
+              ? `Mới ${fmtHM(nowMin)} đã dùng hết quota — thường ngày bạn hút đến ~${fmtHM(lastCigAvg)}. Giữ kỷ luật!`
+              : `Mới ${fmtHM(nowMin)} đã dùng hết quota — từ giờ đến hết ngày đừng hút thêm nữa!`;
+          }
+        } else {
+          el.className = 'cut-note warn';
+          gid('cutNoteIcon').textContent = '⚠️';
+          gid('cutNoteText').textContent = `Vượt mục tiêu ${goal} điếu (đang ${todayCount}) — dừng lại!`;
+          gid('cutNoteSub').textContent = `+${todayCount - goal} điếu ngoài kế hoạch hôm nay`;
+        }
+        return;
+      }
+
+      // 2 CHUẨN SO SÁNH (user directive 2026-08-15):
+      // A) chuẩn thói quen = TB điếu đã hút tới giờ này (hôm qua về trước)
+      // B) chuẩn nhịp mục tiêu = giãn avgSpan/goal phút/điếu để vừa đủ goal cuối ngày
+      const firstAvg = arr.length ? arr[0].avgTime : 0; // giờ điếu đầu TB theo loại ngày
+      const avgCount = getAvgCountByNow(nowMin, dayType); // chuẩn A
+      const lastAvg = getAvgLastCigTime(dayType);         // giờ điếu cuối TB
+      const span = (lastAvg > 0 && firstAvg > 0) ? lastAvg - firstAvg : 0;
+      const minsPerCig = goal > 0 && span > 0 ? span / goal : 0; // phút cần giãn/điếu để về đúng goal
+      const targetCount = (minsPerCig > 0 && nowMin > firstAvg)
+        ? Math.min(goal, Math.ceil((nowMin - firstAvg) / minsPerCig)) // chuẩn B
+        : 0;
+
+      // PRAISE: dưới CẢ 2 chuẩn — hút ít hơn nhịp mục tiêu (STRICT: bằng chuẩn không khen,
+      // user directive 2026-08-16: "thường 2.3, nhịp mục tiêu ~2, bạn mới 2 → không khen;
+      // bạn mới 1 mới khen") VÀ ít hơn thói quen (ưu tiên TRƯỚC cảnh báo)
+      const belowTarget = targetCount === 0 || todayCount < targetCount;
+      if (belowTarget && todayCount < avgCount && nowMin >= firstAvg) {
+        const diff = targetCount > 0 ? targetCount - todayCount : Math.ceil(avgCount) - todayCount;
+        el.style.display = '';
+        el.className = 'cut-note praise';
+        gid('cutNoteIcon').textContent = '✅';
+        gid('cutNoteText').textContent = targetCount > 0
+          ? `Hút ít hơn nhịp mục tiêu ${diff} điếu — giỏi lắm!`
+          : `Hút ít hơn nhịp thường ngày ${diff} điếu — giỏi lắm!`;
+        gid('cutNoteSub').textContent = targetCount > 0
+          ? `Lúc này thường ~${avgCount.toFixed(1)} điếu, nhịp mục tiêu ~${targetCount} — bạn mới ${todayCount}. Cứ đà này!`
+          : `Lúc này thường đã hút ~${avgCount.toFixed(1)} điếu — bạn mới ${todayCount}. Cứ đà này!`;
+        return;
+      }
+
+      // PACE-WARN: trên CẢ 2 chuẩn — hút nhanh hơn thói quen lẫn nhịp mục tiêu → giãn ra
+      if (targetCount > 0 && todayCount > avgCount && todayCount > targetCount) {
+        el.style.display = '';
+        el.className = 'cut-note warn';
+        gid('cutNoteIcon').textContent = '⚠️';
+        gid('cutNoteText').textContent = `Hút nhanh hơn cả thói quen lẫn nhịp mục tiêu — giãn ra!`;
+        gid('cutNoteSub').textContent = `Thường giờ này ~${avgCount.toFixed(1)} điếu, nhịp mục tiêu ~${targetCount} — bạn đã ${todayCount}. Cần giãn ~${Math.round(minsPerCig)}ph/điếu để về đúng ${goal} điếu.`;
+        return;
+      }
+
+      const nextStt = todayCount + 1;
+      const st = arr[nextStt - 1];
+      const slack = st ? Math.max(30, st.stdevTime) : 30;
+
+      // WARN: next cigarette is a "hút theo" (gap<=40) with freq >= 25% and time not yet passed
+      if (st && st.chainFreq >= CUT_CHAIN_THRESHOLD && nowMin < st.avgTime + slack) {
+        el.style.display = '';
+        el.className = 'cut-note warn';
+        gid('cutNoteIcon').textContent = '⚠️';
+        gid('cutNoteText').textContent = `Điếu #${nextStt} ≈ ${fmtHM(st.avgTime)} — đây là điếu hút theo, thử cắt!`;
+        gid('cutNoteSub').textContent = `${st.chain}/${st.present} ngày là "điếu theo" (gap ≤40ph) trong 30 ngày qua`;
+        return;
+      }
+
+      const target = getDailyTarget(stats, dayType, goal, todayCount);
+
+      // TARGET: default state
+      if (target) {
+        el.style.display = '';
+        el.className = 'cut-note target';
+        gid('cutNoteIcon').textContent = '🎯';
+        gid('cutNoteText').textContent = `Hôm nay cắt điếu #${target.stt} ≈ ${fmtHM(target.avgTime)}`;
+        if (target.reason === 'tail') {
+          gid('cutNoteSub').textContent = goal > 0
+            ? `Điếu cuối trong hạn mức ${goal} — bỏ nó để về ${target.stt - 1} điếu!`
+            : 'Điếu cuối ngày — bỏ nó để về sớm hơn!';
+        } else {
+          const freqLabel = target.kepFreq >= CUT_KEP_THRESHOLD
+            ? `kép ${target.kep}/${target.present} ngày`
+            : `hút theo ${target.chain}/${target.present} ngày`;
+          gid('cutNoteSub').textContent = `${freqLabel} trong 30 ngày qua — thử bỏ nó nhé!`;
+        }
+        return;
+      }
+
+      // Fallback: below goal with nothing cuttable upcoming — panel never disappears,
+      // encourage instead of hiding (user-corrected 2026-08-14: panel vanished at 9/10 @ 22:30)
+      if (goal > 0) {
+        const remain = goal - todayCount;
+        el.style.display = '';
+        el.className = 'cut-note target';
+        gid('cutNoteIcon').textContent = '🎯';
+        gid('cutNoteText').textContent = `Còn ${remain} điếu trong hạn mức ${goal} hôm nay — giữ nhịp nhé!`;
+        gid('cutNoteSub').textContent = remain === 1
+          ? 'Điếu cuối — bỏ nó để về dưới mục tiêu!'
+          : 'Không có điếu nào đáng cắt lúc này — đừng hút theo!';
+      } else {
+        el.style.display = '';
+        el.className = 'cut-note neutral';
+        gid('cutNoteIcon').textContent = '💪';
+        gid('cutNoteText').textContent = 'Hôm nay không có điếu nào đáng cắt — khoảng cách hút đang ổn!';
+        gid('cutNoteSub').textContent = 'Giữ nhịp này nhé!';
+      }
+    }
+
+    // ========== UI ==========
+    function formatTime(isoStr) {
+      const d = new Date(isoStr);
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function updateDisplay() {
+      const records = getTodayData();
+      const count = records.length;
+      const cfg = loadConfig();
+
+      // Today number
+      document.getElementById('todayCount').textContent = count;
+
+      // Goal
+      document.getElementById('goalDisplay').textContent = cfg.goal;
+      const pct = Math.min(100, (count / cfg.goal) * 100);
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressText').textContent = `${count} / ${cfg.goal}`;
+
+      // Lowest day in last 7
+      const lowest = getLowestDay();
+      if (lowest && lowest.count > 0) {
+        document.getElementById('lowestDayCount').textContent = lowest.count;
+        const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const lowDate = new Date(lowest.key + 'T00:00:00');
+        const lowLabel = lowest.key === getToday() ? 'Hôm nay' : (dayNamesShort[lowDate.getDay()] || '');
+        document.getElementById('lowestDayLabel').textContent = `Ít nhất • ${lowLabel}`;
+      } else {
+        document.getElementById('lowestDayCount').textContent = '-';
+        document.getElementById('lowestDayLabel').textContent = 'Ít nhất';
+      }
+
+      // Yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+      document.getElementById('yesterdayCount').textContent = getDayCount(yKey);
+
+      // 7-day average — chia cho số ngày CÓ dữ liệu, không phải 7 ngày lịch: máy mới chỉ
+      // có hôm nay thì phải ra 5, không phải 5/7 = 0.7 (nhìn như app lỗi).
+      const last7 = getLast7Days();
+      const total7 = last7.reduce((s, d) => s + d.count, 0);
+      const days7 = last7.filter(d => d.count > 0).length;
+      document.getElementById('avg7').textContent = days7 ? (total7 / days7).toFixed(1) : '0';
+
+      // This month
+      document.getElementById('thisMonth').textContent = getMonthCount();
+
+      // Timeline
+      renderComparisonTimeline();
+
+      // Date
+      const now = new Date();
+      const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      document.getElementById('dateDisplay').textContent = `${dayNames[now.getDay()]}, ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
+
+      // Chart
+      renderChart();
+
+      // Money
+      updateMoneyStats();
+
+      // Timer
+      updateTimer();
+
+      // Cut reminder
+      renderCutReminder();
+    }
+
+    function renderComparisonTimeline() {
+      const todayRecords = getTodayData();
+      const todayCount = todayRecords.length;
+      const cfg = loadConfig();
+      const intervalGoal = cfg.intervalGoal || 0;
+      const rows = document.getElementById('comparisonRows');
+      const todayCountEl = document.getElementById('comparisonTodayCount');
+      const lowestCountEl = document.getElementById('comparisonLowestCount');
+
+      // Get lowest day — onlyToday (ngày đầu dùng app) KHÔNG phải ngày tham chiếu: bảng vẫn
+      // phải vẽ cột "Hôm nay", chỉ 2 cột tham chiếu để "—".
+      const lowest = getLowestDay();
+      const hasReference = !!(lowest && lowest.count > 0 && !lowest.onlyToday);
+      let lowestRecords = [];
+      let lowestCount = 0;
+      let lowestLabel = '';
+      if (hasReference) {
+        const data = loadData();
+        lowestRecords = (data[lowest.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        lowestCount = lowestRecords.length;
+        const dayNamesShort = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        const lowDate = new Date(lowest.key + 'T00:00:00');
+        lowestLabel = `${dayNamesShort[lowDate.getDay()]} ${lowest.key.slice(5)}`;
+      }
+
+      // Average gap helper
+      function calcAvgGap(records) {
+        if (records.length < 2) return null;
+        let total = 0;
+        for (let i = 1; i < records.length; i++) {
+          const prev = new Date(records[i-1].time);
+          const curr = new Date(records[i].time);
+          total += Math.round((curr - prev) / 60000);
+        }
+        return Math.round(total / (records.length - 1));
+      }
+
+      const todayAvg = calcAvgGap(todayRecords);
+      const lowestAvg = calcAvgGap(lowestRecords);
+
+      todayCountEl.textContent = `(${todayCount})`;
+      lowestCountEl.textContent = lowestLabel ? `(${lowestCount} • ${lowestLabel})` : '(-)';
+      document.getElementById('comparisonTodayAvg').textContent = todayAvg !== null ? `TB ${todayAvg}ph` : '—';
+      document.getElementById('comparisonLowestAvg').textContent = lowestAvg !== null ? `TB ${lowestAvg}ph` : '—';
+
+      // Cột Trung bình: series 30 ngày (cùng loại ngày với hôm nay, loại hôm nay khỏi TB)
+      const dayType = (new Date().getDay() === 0 || new Date().getDay() === 6) ? 'weekend' : 'weekday';
+      const avgSeries = computeAvgSeries(dayType);
+      document.getElementById('comparisonAvgCount').textContent = avgSeries.avgCount > 0 ? `(${avgSeries.avgCount.toFixed(1)})` : '(-)';
+      document.getElementById('comparisonAvgSub').textContent = avgSeries.avgCount > 0
+        ? `30 ngày · TB ${avgSeries.avgGapAll !== null ? Math.round(avgSeries.avgGapAll) : '—'}ph`
+        : '30 ngày · —';
+
+      const maxRows = Math.max(todayCount, lowestCount, avgSeries.series.length, 1);
+
+      if (maxRows === 0 || todayCount === 0) {
+        rows.innerHTML = '<div class="empty-state">Chưa hút điếu nào hôm nay</div>';
+        return;
+      }
+
+      // Trước đây: chưa có ngày tham chiếu là bỏ luôn cả bảng (mất cột "Hôm nay" của chính
+      // mình — đúng lúc nó là cột duy nhất). Giờ cột Hôm nay luôn vẽ, cột tham chiếu để "—".
+
+      let html = '';
+
+      function gapInfo(records, i, intervalGoal) {
+        let gapStr = '';
+        let gapBad = false;
+        let gapGood = false;
+        if (i > 0) {
+          const prev = new Date(records[i-1].time);
+          const curr = new Date(records[i].time);
+          const diffMin = Math.round((curr - prev) / 60000);
+          if (diffMin > 0) {
+            gapStr = `${diffMin}ph`;
+            if (intervalGoal > 0) {
+              if (diffMin < intervalGoal) {
+                gapBad = true;
+                const earlyBy = intervalGoal - diffMin;
+                gapStr += ` ⚠️ -${earlyBy}`;
+              } else {
+                gapGood = true;
+                const extra = diffMin - intervalGoal;
+                gapStr += ` ✅ +${extra}`;
+              }
+            }
+          }
+        }
+        return { str: gapStr, bad: gapBad, good: gapGood };
+      }
+
+      for (let i = 0; i < maxRows; i++) {
+        const todayR = todayRecords[i];
+        const lowestR = lowestRecords[i];
+
+        // Today side — layout giống cột Trung bình: giờ (+ icon thói quen) / xuống dòng / phút ± lệch mục tiêu
+        let todayHtml = '';
+        if (todayR) {
+          const tgap = gapInfo(todayRecords, i, intervalGoal);
+          const gapClass = tgap.bad ? 'bad' : tgap.good ? 'good' : '';
+          const tIcon = triggerIcon(todayR.trigger);
+          todayHtml = `
+            <div class="comp-cell-time today">${formatTime(todayR.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
+            <div class="comp-cell-gap ${gapClass}">${tgap.str || '—'}</div>
+          `;
+        }
+
+        // Lowest side — cùng layout 2 dòng, căn giữa
+        let lowestHtml = '';
+        if (lowestR) {
+          const lgap = gapInfo(lowestRecords, i, intervalGoal);
+          const gapClass = lgap.bad ? 'bad' : lgap.good ? 'good' : '';
+          const lIcon = triggerIcon(lowestR.trigger);
+          lowestHtml = `
+            <div class="comp-cell-time lowest">${formatTime(lowestR.time)}${lIcon ? `<span class="cig-trigger">${lIcon}</span>` : ''}</div>
+            <div class="comp-cell-gap ${gapClass}">${lgap.str || '—'}</div>
+          `;
+        } else if (!hasReference) {
+          // Chưa có ngày tham chiếu: giữ đúng khuôn 2 dòng của cột để hàng không bị lệch.
+          lowestHtml = '<div class="comp-cell-time">—</div><div class="comp-cell-gap">—</div>';
+        }
+
+        // Trung bình side: giờ TB điếu #i + dòng 2 phút TB từ điếu trước ± mục tiêu
+        const avgSt = avgSeries.series[i];
+        let avgHtml;
+        if (avgSt) {
+          let gStr = avgSt.avgGap !== null ? `${Math.round(avgSt.avgGap)}ph` : '—';
+          let gClass = '';
+          if (avgSt.avgGap !== null && intervalGoal > 0) {
+            const gR = Math.round(avgSt.avgGap);
+            if (gR < intervalGoal) { gClass = 'bad'; gStr += ` ⚠️ -${intervalGoal - gR}`; }
+            else { gClass = 'good'; gStr += ` ✅ +${gR - intervalGoal}`; }
+          }
+          avgHtml = `<div class="comp-cell-time">${fmtHM(avgSt.avgTime)}</div><div class="comp-cell-gap ${gClass}">${gStr}</div>`;
+        } else {
+          avgHtml = '<div class="comp-cell-time">—</div><div class="comp-cell-gap">—</div>';
+        }
+
+        const clickable = todayR ? 'clickable' : '';
+        const onclick = todayR ? `onclick="openTimeEditor(${i})"` : '';
+
+        html += `
+          <div class="comparison-row ${clickable}" ${onclick}>
+            <div class="comp-today">${todayHtml}</div>
+            <div class="comp-divider"></div>
+            <div class="comp-lowest">${lowestHtml}</div>
+            <div class="comp-divider"></div>
+            <div class="comp-avg">${avgHtml}</div>
+          </div>
+        `;
+      }
+
+      rows.innerHTML = html;
+    }
+
+    // Cột "🟡 Trung bình" (bảng So sánh): series 30 ngày theo STT — ⏰ giờ TB điếu #i
+    // (cùng loại ngày với hôm nay, loại hôm nay khỏi TB) + dòng 2: ⏱️ phút TB từ điếu trước
+    // ± phút mục tiêu (cùng convention gapInfo: ⚠️ -X = sớm hơn mục tiêu, ✅ +X = vượt mục tiêu).
+    // USER FIX 2026-08-21 ("trung bình 17 điếu? series không giống"): ① bỏ record trùng phút
+    // (gap=0 do tap nhầm — 07-24 có 4 bản 21:04); ② MEDIAN thay mean (outlier điếu đầu 1-4h sáng
+    // kéo mean xuống 05:17 trong khi nhịp thật ~06:00); ③ lọc STT hiếm presence < 50% (đuôi
+    // #16-17 chỉ 19% ngày — không phải series thật). Header avgCount vẫn là mean số điếu/ngày.
+    const AVG_MIN_PRESENCE = 0.5;
+    function medArr(a) {
+      if (!a.length) return null;
+      const s = a.slice().sort((x, y) => x - y);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    }
+    function computeAvgSeries(dayType) {
+      const data = loadData();
+      const today = getToday();
+      const from = new Date(); from.setDate(from.getDate() - (CUT_LOOKBACK - 1));
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+      const stt = []; // { times: [], gaps: [], present: 0 }
+      let countSum = 0, countN = 0, gapList = [];
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds >= today || !recs.length) continue; // hôm qua về trước
+        const d = new Date(ds + 'T00:00:00');
+        const dt = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+        if (dt !== dayType) continue;
+        countN++;
+        const s = recs.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+        const clean = [];
+        let prevMin = null;
+        for (const r of s) {
+          const t = new Date(r.time);
+          const min = t.getHours() * 60 + t.getMinutes();
+          if (prevMin !== null && min === prevMin) continue; // bỏ record trùng phút (tap nhầm)
+          clean.push(min);
+          prevMin = min;
+        }
+        countSum += clean.length;
+        for (let i = 0; i < clean.length; i++) {
+          const st = stt[i] || (stt[i] = { times: [], gaps: [], present: 0 });
+          st.present++;
+          st.times.push(clean[i]);
+          if (i > 0) {
+            const g = clean[i] - clean[i - 1];
+            if (g > 0) { st.gaps.push(g); gapList.push(g); }
+          }
+        }
+      }
+      const typeDays = countN || 1;
+      return {
+        series: stt
+          .map(st => ({ avgTime: medArr(st.times), avgGap: st.gaps.length ? medArr(st.gaps) : null }))
+          .filter((st, i) => stt[i].present / typeDays >= AVG_MIN_PRESENCE),
+        avgCount: countN ? countSum / countN : 0,
+        avgGapAll: gapList.length ? medArr(gapList) : null,
+      };
+    }
+
+    let chartPage = 0; // 0 = latest 7 days, 1 = previous week, etc.
+
+    function getPageDays() {
+      const days = [];
+      const startOffset = chartPage * 7;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - startOffset - (6 - i));
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        days.push({ key, dayName: getDayName(d), count: getDayCount(key) });
+      }
+      return days;
+    }
+
+    function shiftChart(delta) {
+      chartPage = Math.max(0, chartPage + delta);
+      // Update the date range label
+      const days = getPageDays();
+      const startLabel = days[0].key.slice(5);
+      const endLabel = days[6].key.slice(5);
+      const label = chartPage === 0 ? '7 ngày qua' : `${startLabel} – ${endLabel}`;
+      document.getElementById('chartDateRange').textContent = label;
+      renderChart();
+    }
+
+    function renderChart() {
+      const days = getPageDays();
+      const maxCount = Math.max(1, ...days.map(d => d.count));
+      const svg = document.getElementById('chartSvg');
+      const today = getToday();
+      const cfg = loadConfig();
+
+      const W = 640, H = 260;
+      const MT = 22, MB = 70, ML = 2, MR = 44;
+      const chartX = ML;
+      const chartY = MT;
+      const chartW = W - ML - MR;
+      const chartH = H - MT - MB;
+      const gap = 6;
+      const slotW = chartW / 7;
+      const barW = Math.max(8, slotW - gap);
+
+      let els = '';
+
+      // Grid lines
+      for (let g = 0; g <= 4; g++) {
+        const gy = chartY + (g / 4) * chartH;
+        els += `<line x1="${chartX}" y1="${gy}" x2="${chartX + chartW}" y2="${gy}" stroke="var(--line-soft)" stroke-width="1"/>`;
+      }
+
+      // Bars
+      days.forEach((d, i) => {
+        const barH = (d.count / maxCount) * chartH;
+        const x = chartX + i * slotW;
+        const y = chartY + chartH - barH;
+        const isToday = d.key === today;
+        const isSel = d.key === selectedDate;
+        const color = isToday ? '#ff6b81' : '#e94560';
+
+        if (barH > 0) {
+          els += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="3" ry="3" fill="${color}" class="chart-svg-bar${isSel ? ' selected' : ''}" data-key="${d.key}" onclick="selectDay('${d.key}')" style="cursor:pointer"/>`;
+        }
+
+        // Count label — larger
+        if (d.count > 0) {
+          els += `<text x="${x + barW/2}" y="${y - 10}" text-anchor="middle" fill="var(--text)" font-size="20" font-weight="800">${d.count}</text>`;
+        }
+
+        // Day name label below
+        els += `<text x="${x + barW/2}" y="${chartY + chartH + 20}" text-anchor="middle" fill="var(--text-dim)" font-size="13" font-weight="600">${d.count > 0 ? d.dayName : d.key.slice(5)}</text>`;
+
+        // Average gap label (only if >= 2 cigarettes)
+        if (d.count >= 2) {
+          const data = loadData();
+          const records = (data[d.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+          let totalGap = 0;
+          for (let gi = 1; gi < records.length; gi++) {
+            totalGap += Math.round((new Date(records[gi].time) - new Date(records[gi-1].time)) / 60000);
+          }
+          const avgGap = Math.round(totalGap / (records.length - 1));
+          els += `<text x="${x + barW/2}" y="${chartY + chartH + 38}" text-anchor="middle" fill="var(--text-dim)" font-size="10" font-weight="600">≃${avgGap}ph</text>`;
+        }
+      });
+
+      // Goal line
+      if (cfg.goal > 0 && maxCount > 0) {
+        const goalRatio = Math.min(1, cfg.goal / maxCount);
+        const goalY = chartY + chartH - goalRatio * chartH;
+        els += `<line x1="${chartX}" y1="${goalY}" x2="${chartX + chartW}" y2="${goalY}" stroke="#f1c40f" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.7"/>`;
+        els += `<text x="${chartX + chartW + 4}" y="${goalY + 4}" fill="#f1c40f" font-size="11" font-weight="700">🎯${cfg.goal}</text>`;
+      }
+
+      svg.innerHTML = els;
+
+      // Update summary stats below chart
+      updateChartGapStats(days);
+    }
+
+    function updateChartGapStats(days) {
+      const data = loadData();
+      const cfg = loadConfig();
+      const today = getToday();
+
+      // Today's average gap
+      const todayRecords = (data[today] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+      let todayGap = null;
+      if (todayRecords.length >= 2) {
+        let total = 0;
+        for (let i = 1; i < todayRecords.length; i++) {
+          total += Math.round((new Date(todayRecords[i].time) - new Date(todayRecords[i-1].time)) / 60000);
+        }
+        todayGap = Math.round(total / (todayRecords.length - 1));
+      }
+      document.getElementById('chartTodayGap').textContent = todayGap !== null ? `≃${todayGap}ph` : '—';
+      document.getElementById('chartTodayGap').parentElement.className = 'stat-card ' + (todayGap !== null ? (todayGap >= cfg.intervalGoal ? 'green' : 'accent') : '');
+
+      // Week average gap (across all days with ≥2 cigs in the visible range)
+      let totalGapAll = 0;
+      let countDays = 0;
+      for (const d of days) {
+        if (d.count >= 2) {
+          const records = (data[d.key] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+          let total = 0;
+          for (let i = 1; i < records.length; i++) {
+            total += Math.round((new Date(records[i].time) - new Date(records[i-1].time)) / 60000);
+          }
+          totalGapAll += Math.round(total / (records.length - 1));
+          countDays++;
+        }
+      }
+      const weekAvg = countDays > 0 ? Math.round(totalGapAll / countDays) : null;
+      document.getElementById('chartWeekGap').textContent = weekAvg !== null ? `≃${weekAvg}ph` : '—';
+    }
+
+
+    // ========== DAY DETAIL (STATS TAB) ==========
+    let selectedDate = '';
+
+    function selectDay(dateKey) {
+      if (selectedDate === dateKey) {
+        closeDayDetail();
+        return;
+      }
+      selectedDate = dateKey;
+      renderDayDetail();
+      renderChart();
+    }
+
+    function closeDayDetail() {
+      selectedDate = '';
+      document.getElementById('dayDetail').classList.remove('active');
+      document.getElementById('dayDetailActions').style.display = 'none';
+      renderChart();
+    }
+
+    function renderDayDetail() {
+      if (!selectedDate) return;
+      const data = loadData();
+      const records = (data[selectedDate] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+      const el = document.getElementById('dayDetail');
+      const title = document.getElementById('dayDetailTitle');
+      const content = document.getElementById('dayDetailContent');
+      const actions = document.getElementById('dayDetailActions');
+
+      const now = new Date();
+      const today = getToday();
+      const parts = selectedDate.split('-');
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      const dayLabel = selectedDate === today ? 'Hôm nay' : `${dayNames[d.getDay()]} ${parts[2]}/${parts[1]}`;
+      title.textContent = `📋 ${dayLabel} (${records.length} điếu)`;
+
+      if (records.length === 0) {
+        content.innerHTML = '<div class="day-detail-empty">Không có điếu nào trong ngày này</div>';
+      } else {
+        const cfg = loadConfig();
+        const intervalGoal = cfg.intervalGoal || 0;
+        let html = '';
+        for (let i = 0; i < records.length; i++) {
+          const r = records[i];
+          let label = `Điếu #${i + 1}`;
+          const tIcon = triggerIcon(r.trigger);
+
+          // Gap since previous
+          let gapStr = '';
+          let gapBad = false;
+          let gapGood = false;
+          if (i > 0) {
+            const prev = new Date(records[i-1].time);
+            const curr = new Date(r.time);
+            const diffMin = Math.round((curr - prev) / 60000);
+            if (diffMin > 0) {
+              gapStr = `${diffMin}ph sau`;
+              if (intervalGoal > 0) {
+                if (diffMin < intervalGoal) {
+                  gapBad = true;
+                  const earlyBy = intervalGoal - diffMin;
+                  gapStr += ` ⚠️ ${earlyBy}ph sớm`;
+                } else {
+                  gapGood = true;
+                  const extra = diffMin - intervalGoal;
+                  gapStr += ` ✅ +${extra}ph`;
+                }
+              }
+            }
+          }
+
+          html += `
+            <div class="timeline-item" data-index="${i}"
+                 ontouchstart="longPressStart(event, '${selectedDate}', ${i})"
+                 ontouchend="longPressEnd(event)"
+                 ontouchmove="longPressEnd(event)"
+                 oncontextmenu="event.preventDefault();confirmDelete('${selectedDate}', ${i})">
+              <div class="timeline-time">${formatTime(r.time)}${tIcon ? `<span class="cig-trigger">${tIcon}</span>` : ''}</div>
+              <div class="timeline-dot"></div>
+              <div class="timeline-label">
+                ${label}
+                ${gapStr ? `<span class="timeline-gap ${gapBad ? 'bad' : gapGood ? 'good' : ''}"> — ${gapStr}</span>` : ''}
+                ${tIcon ? '' : `<button class="reason-chip" onclick="event.stopPropagation();openReasonPicker('${selectedDate}', ${i})" title="Chưa có lý do — bấm để chọn">❓</button>`}
+              </div>
+              <div class="delete-hint">✕</div>
+            </div>
+          `;
+        }
+        content.innerHTML = html;
+      }
+
+      // Wire action buttons
+      const timeBtn = document.getElementById('dayDetailTimeBtn');
+
+      timeBtn.onclick = () => openPastTimePicker(selectedDate, records);
+
+      actions.style.display = 'flex';
+      actions.style.flexDirection = 'column';
+
+      el.classList.add('active');
+    }
+
+    // Long-press to delete cigarette
+    let longPressTimer = null;
+
+    function longPressStart(e, dateStr, index) {
+      longPressTimer = setTimeout(() => {
+        const el = e.currentTarget;
+        el.classList.add('long-pressing');
+        navigator.vibrate?.(20);
+        if (confirm('Xoá điếu này?')) {
+          deleteCigaretteFromDay(dateStr, index);
+        }
+        el.classList.remove('long-pressing');
+        longPressTimer = null;
+      }, 500);
+    }
+
+    function longPressEnd(e) {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      e.currentTarget?.classList.remove('long-pressing');
+    }
+
+    function confirmDelete(dateStr, index) {
+      if (confirm('Xoá điếu này?')) {
+        deleteCigaretteFromDay(dateStr, index);
+      }
+    }
+
+    function updateMoneyStats() {
+      const cfg = loadConfig();
+      const todayCount = getTodayData().length;
+      const weekCount = getWeekCount();
+      const monthCount = getMonthCount();
+
+      document.getElementById('moneyToday').textContent = formatMoney(calcCost(todayCount));
+      document.getElementById('moneyWeek').textContent = formatMoney(calcCost(weekCount));
+      document.getElementById('moneyMonth').textContent = formatMoney(calcCost(monthCount));
+
+      const actualCost = calcCost(monthCount);
+      const goalCost = calcCost(loadConfig().goal * 30);
+      document.getElementById('moneySaved').textContent = formatMoney(Math.max(0, goalCost - actualCost));
+    }
+
+    // ========== ACTIONS ==========
+    function addCig() {
+      const records = addRecord();
+      updateDisplay();
+      const el = document.getElementById('todayCount');
+      el.classList.remove('pop');
+      void el.offsetWidth;
+      el.classList.add('pop');
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    function undoLast() {
+      const records = removeLastRecord();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    // ========== PAST DAY ACTIONS (STATS TAB) ==========
+    function getDayData(dateStr) {
+      const data = loadData();
+      return (data[dateStr] || []).slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+    }
+
+    function setDayData(dateStr, records) {
+      const data = loadData();
+      data[dateStr] = records;
+      saveData(data);
+    }
+
+    function addToDay(dateStr) {
+      const records = getDayData(dateStr);
+      const time = records.length > 0
+        ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
+        : new Date(dateStr + 'T12:00:00');
+      records.push({ time: time.toISOString() });
+      records.sort((a, b) => new Date(a.time) - new Date(b.time));
+      setDayData(dateStr, records);
+      afterDayEdit();
+    }
+
+    function undoFromDay(dateStr) {
+      const records = getDayData(dateStr);
+      if (records.length === 0) return;
+      records.pop();
+      setDayData(dateStr, records);
+      afterDayEdit();
+    }
+
+    function afterDayEdit() {
+      renderDayDetail();
+      renderChart();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function deleteCigaretteFromDay(dateStr, index) {
+      const records = getDayData(dateStr);
+      if (index < 0 || index >= records.length) return;
+      records.splice(index, 1);
+      setDayData(dateStr, records);
+      afterDayEdit();
+    }
+
+    function openPastTimePicker(dateStr, records) {
+      modalMode = 'past-add';
+      window._pastDate = dateStr;
+      modalTrigger = -1;
+      document.getElementById('modalTitle').textContent = '⏪ Thêm cho ' + dateStr.slice(5);
+      document.getElementById('modalDesc').textContent = 'Chọn giờ đã hút nhưng chưa note';
+      document.getElementById('modalDeleteRow').style.display = 'none';
+      document.getElementById('modalConfirmBtn').textContent = '➕ Thêm';
+
+      const defaultTime = records.length > 0
+        ? new Date(new Date(records[records.length - 1].time).getTime() + 3600000)
+        : new Date(dateStr + 'T12:00:00');
+      setModalTime(defaultTime);
+      document.getElementById('modalTriggerName').textContent = '';
+      renderModalTriggers();
+      document.getElementById('timePickerModal').classList.add('active');
+    }
+
+    // ========== TIME PICKER MODAL ==========
+    let modalMode = 'add'; // 'add' or 'edit'
+    let editingIndex = -1;
+
+    function openTimePicker() {
+      modalMode = 'add';
+      editingIndex = -1;
+      modalTrigger = -1;
+      document.getElementById('modalTitle').textContent = '⏪ Thêm điếu quên note';
+      document.getElementById('modalDesc').textContent = 'Chọn giờ đã hút nhưng chưa note';
+      document.getElementById('modalDeleteRow').style.display = 'none';
+      document.getElementById('modalConfirmBtn').textContent = '➕ Thêm';
+      setModalTime(new Date());
+      document.getElementById('modalTriggerName').textContent = '';
+      renderModalTriggers();
+      document.getElementById('timePickerModal').classList.add('active');
+    }
+
+    function openTimeEditor(index) {
+      const records = getTodayData();
+      if (!records[index]) return;
+      modalMode = 'edit';
+      editingIndex = index;
+      modalTrigger = records[index].trigger !== undefined ? records[index].trigger : -1;
+      document.getElementById('modalTitle').textContent = '✏️ Sửa giờ điếu thuốc';
+      document.getElementById('modalDesc').textContent = `Điếu #${index + 1}`;
+      document.getElementById('modalDeleteRow').style.display = 'block';
+      document.getElementById('modalConfirmBtn').textContent = '💾 Lưu';
+      setModalTime(new Date(records[index].time));
+      document.getElementById('modalTriggerName').textContent = modalTrigger >= 0 ? TRIGGERS[modalTrigger] : '';
+      renderModalTriggers();
+      document.getElementById('timePickerModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('timePickerModal').classList.remove('active');
+    }
+
+    function goToDay(dateKey) {
+      switchTab('stats');
+      setTimeout(() => selectDay(dateKey), 100);
+    }
+
+    // Thẻ "Ít nhất" — bấm để mở chi tiết. Chưa có dữ liệu nào thì không làm gì
+    // (trước đây gọi goToDay(getLowestDay().key) với null ⇒ TypeError, thẻ chết).
+    function openLowestDay() {
+      const d = getLowestDay();
+      if (d && d.key) goToDay(d.key);
+    }
+
+    function setModalTime(date) {
+      document.getElementById('modalHour').value = date.getHours();
+      // Round to nearest 5 min
+      const min = Math.round(date.getMinutes() / 5) * 5;
+      document.getElementById('modalMinute').value = Math.min(55, min);
+    }
+
+    function confirmModal() {
+      const h = parseInt(document.getElementById('modalHour').value);
+      const m = parseInt(document.getElementById('modalMinute').value);
+
+      if (modalMode === 'past-add') {
+        const dateStr = window._pastDate;
+        const parts = dateStr.split('-');
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), h, m, 0);
+        const iso = d.toISOString();
+        const records = getDayData(dateStr);
+        if (records.some(r => timeKey(r.time) === timeKey(iso))) {
+          alert(`⚠️ Ngày này đã có điếu lúc ${formatTime(iso)} rồi!`); // chống log trùng phút
+          return;
+        }
+        const rec = { time: iso };
+        if (modalTrigger >= 0) rec.trigger = modalTrigger;
+        records.push(rec);
+        records.sort((a, b) => new Date(a.time) - new Date(b.time));
+        setDayData(dateStr, records);
+        closeModal();
+        afterDayEdit();
+      } else {
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        const iso = d.toISOString();
+        const records = getTodayData();
+        if (modalMode === 'add') {
+          if (records.some(r => timeKey(r.time) === timeKey(iso))) {
+            alert(`⚠️ Hôm nay đã có điếu lúc ${formatTime(iso)} rồi!`); // chống log trùng phút
+            return;
+          }
+          const rec = { time: iso };
+          if (modalTrigger >= 0) rec.trigger = modalTrigger;
+          records.push(rec);
+        } else if (modalMode === 'edit' && editingIndex >= 0) {
+          records[editingIndex].time = iso;
+          if (modalTrigger >= 0) records[editingIndex].trigger = modalTrigger;
+          else delete records[editingIndex].trigger;
+        }
+        records.sort((a, b) => new Date(a.time) - new Date(b.time));
+        setTodayData(records);
+        closeModal();
+        updateDisplay();
+        if (navigator.vibrate) navigator.vibrate(10);
+      }
+    }
+
+    function deleteModalItem() {
+      if (editingIndex < 0) return;
+      if (!confirm('Xoá điếu này?')) return;
+      const records = getTodayData();
+      records.splice(editingIndex, 1);
+      setTodayData(records);
+      closeModal();
+      updateDisplay();
+    }
+
+    // ========== SETTINGS ==========
+    function loadSettingsUI() {
+      const cfg = loadConfig();
+      document.getElementById('dailyGoalInput').value = cfg.goal || 10;
+      document.getElementById('intervalGoalInput').value = cfg.intervalGoal || 0;
+      document.getElementById('pricePerPack').value = cfg.pricePerPack || 25000;
+      document.getElementById('cigsPerPack').value = cfg.cigsPerPack || 20;
+      updateThemeToggleUI();
+    }
+
+    // ========== THEME (light/dark) ==========
+    const THEME_SUN = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>';
+    const THEME_MOON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+    function getTheme() {
+      try { return localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch (e) { return 'dark'; }
+    }
+    function setTheme(theme) {
+      const t = theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('theme', t); } catch (e) {}
+      const m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', t === 'light' ? '#f2f4fa' : '#1a1a2e');
+      updateThemeToggleUI();
+    }
+    function updateThemeToggleUI() {
+      const btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      const light = getTheme() === 'light';
+      btn.innerHTML = light ? THEME_MOON : THEME_SUN;
+      btn.title = light ? 'Chuyển sang theme tối' : 'Chuyển sang theme sáng';
+      const desc = document.getElementById('themeDesc');
+      if (desc) desc.textContent = light ? 'Đang dùng theme sáng' : 'Đang dùng theme tối';
+    }
+    window.getTheme = getTheme;
+    window.setTheme = setTheme;
+
+    function saveSettings() {
+      const goal = parseInt(document.getElementById('dailyGoalInput').value) || 10;
+      const intervalGoal = parseInt(document.getElementById('intervalGoalInput').value) || 0;
+      const pricePerPack = parseInt(document.getElementById('pricePerPack').value) || 25000;
+      const cigsPerPack = parseInt(document.getElementById('cigsPerPack').value) || 20;
+      saveConfig({ goal, intervalGoal, pricePerPack, cigsPerPack });
+      updateDisplay();
+      const btn = document.querySelector('.btn-save');
+      const orig = btn.textContent;
+      btn.textContent = '✅ Đã lưu!';
+      btn.style.background = 'var(--green)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 1500);
+    }
+
+    function exportCSV() {
+      const data = loadData();
+      const cfg = loadConfig();
+      const dates = Object.keys(data).sort();
+
+      if (dates.length === 0) {
+        alert('Chưa có dữ liệu để xuất!');
+        return;
+      }
+
+      // Build CSV rows
+      let rows = [
+        ['Ngày', 'Giờ', 'Lý do', 'Ghi chú', 'Khoảng cách (phút)', 'STT trong ngày']
+      ];
+
+      for (const dateKey of dates) {
+        const records = data[dateKey] || [];
+        records.sort((a, b) => new Date(a.time) - new Date(b.time));
+        for (let i = 0; i < records.length; i++) {
+          const r = records[i];
+          const d = new Date(r.time);
+          const timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          const note = r.note || '';
+          const reason = triggerName(r.trigger);
+
+          // Gap from previous cigarette
+          let gap = '';
+          if (i > 0) {
+            const prev = new Date(records[i-1].time);
+            const curr = new Date(r.time);
+            gap = Math.round((curr - prev) / 60000);
+          }
+
+          rows.push(`"${dateKey}","${timeStr}","${reason}","${note}","${gap}","${i + 1}"`);
+        }
+      }
+
+      const csv = rows.join('\n');
+
+      // Download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const filename = `thuocla_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.csv`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Feedback
+      if (navigator.vibrate) navigator.vibrate(15);
+      const btn = document.querySelector('[onclick="exportCSV()"]');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Đã xuất!';
+        btn.style.background = 'var(--green)';
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.style.background = '';
+        }, 2000);
+      }
+
+      // Show success with record count
+      const totalRecords = rows.length - 1; // minus header
+      if (totalRecords > 1) {
+        // Brief notification
+        const notification = document.createElement('div');
+        notification.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:9999;animation:fadeIn 0.3s ease;';
+        notification.textContent = `📥 Đã xuất ${totalRecords} dòng → ${filename}`;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          notification.style.transition = 'opacity 0.3s';
+          setTimeout(() => document.body.removeChild(notification), 300);
+        }, 3000);
+      }
+    }
+
+    // ========== BACKUP / RESTORE (v1.5.0) ==========
+    // Dữ liệu nằm trong localStorage của điện thoại — mất máy / xoá cache là mất hết.
+    // JSON backup giữ cả data (kèm lý do) + cài đặt, để phục hồi được.
+    function backupPayload() {
+      return JSON.stringify({
+        app: 'thuocla-tracker',
+        format: 1,
+        exportedAt: new Date().toISOString(),
+        config: loadConfig(),
+        data: loadData()
+      }, null, 1);
+    }
+
+    function exportBackup() {
+      const data = loadData();
+      const days = Object.keys(data).length;
+      if (!days) { alert('Chưa có dữ liệu để sao lưu!'); return; }
+      let recs = 0; for (const v of Object.values(data)) recs += (v || []).length;
+      const blob = new Blob([backupPayload()], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      a.download = `thuocla_backup_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (navigator.vibrate) navigator.vibrate(15);
+      alert(`✅ Đã sao lưu ${days} ngày / ${recs} điếu — file JSON nằm trong Downloads.`);
+    }
+
+    // Gộp 2 mảng record theo ngày, bỏ điếu trùng phút (giữ bản đầu tiên)
+    function mergeDayRecords(a, b) {
+      const seen = new Set(), out = [];
+      for (const r of [...a, ...b]) {
+        const k = timeKey(r.time);
+        if (seen.has(k)) continue;
+        seen.add(k); out.push(r);
+      }
+      return out.sort((x, y) => new Date(x.time) - new Date(y.time));
+    }
+
+    // Đọc + làm sạch payload backup; trả null nếu file không có dữ liệu thuốc lá
+    function normalizeBackup(obj) {
+      if (!obj || typeof obj !== 'object') return null;
+      const raw = obj.data;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+      const clean = {};
+      for (const key of Object.keys(raw)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Array.isArray(raw[key])) continue;
+        const recs = [];
+        for (const r of raw[key]) {
+          if (!r || typeof r.time !== 'string') continue;
+          const d = new Date(r.time);
+          if (isNaN(d.getTime())) continue;
+          const out = { time: d.toISOString() };
+          if (typeof r.trigger === 'number' && r.trigger >= 0 && r.trigger < TRIGGERS.length) out.trigger = r.trigger;
+          if (typeof r.note === 'string' && r.note) out.note = r.note;
+          recs.push(out);
+        }
+        if (recs.length) clean[key] = mergeDayRecords([], recs);
+      }
+      if (!Object.keys(clean).length) return null;
+      return { data: clean, config: (obj.config && typeof obj.config === 'object') ? obj.config : null };
+    }
+
+    function pickRestoreFile() {
+      const el = document.getElementById('restoreFile');
+      if (el) { el.value = ''; el.click(); }
+    }
+
+    function restoreFromFile(ev) {
+      const f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let obj = null;
+        try { obj = JSON.parse(String(reader.result)); }
+        catch (e) { alert('❌ File không phải JSON hợp lệ'); return; }
+        const norm = normalizeBackup(obj);
+        if (!norm) { alert('❌ File này không có dữ liệu thuốc lá (thiếu "data")'); return; }
+        const days = Object.keys(norm.data).length;
+        let recs = 0; for (const v of Object.values(norm.data)) recs += v.length;
+        const replace = confirm(`📥 Phục hồi ${days} ngày / ${recs} điếu.\n\nOK = THAY THẾ toàn bộ dữ liệu đang có\nCancel = GỘP thêm (bỏ điếu trùng phút)`);
+        let out;
+        if (replace) {
+          out = norm.data;
+        } else {
+          out = loadData();
+          for (const key of Object.keys(norm.data)) out[key] = mergeDayRecords(out[key] || [], norm.data[key]);
+        }
+        saveData(out);
+        if (norm.config) saveConfig(Object.assign({}, loadConfig(), norm.config));
+        loadSettingsUI();
+        updateDisplay();
+        if (selectedDate) afterDayEdit();
+        let total = 0; for (const v of Object.values(out)) total += (v || []).length;
+        alert(`✅ Đã phục hồi (${replace ? 'thay thế' : 'gộp'}): ${Object.keys(out).length} ngày / ${total} điếu`);
+      };
+      reader.onerror = () => alert('❌ Không đọc được file');
+      reader.readAsText(f, 'utf-8');
+    }
+
+    function clearAllData() {
+      if (confirm('Xoá toàn bộ lịch sử hút thuốc?')) {
+        localStorage.removeItem(DB_KEY);
+        updateDisplay();
+      }
+    }
+
+    // ========== TABS ==========
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('active');
+      if (name === 'main' || name === 'stats' || name === 'settings') updateDisplay();
+      if (name === 'settings') loadSettingsUI();
+      if (name === 'insights') renderInsights();
+      if (name === 'stats') renderWeekend();
+    }
+
+    // Close modal on overlay click
+    document.getElementById('timePickerModal')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('timePickerModal')) closeModal();
+    });
+
+    // ========== CLEANUP ==========
+    function cleanupOldData() {
+      const data = loadData();
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 31);
+      const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
+      let changed = false;
+      for (const key of Object.keys(data)) {
+        if (key < cutoffStr) {
+          delete data[key];
+          changed = true;
+        }
+      }
+      if (changed) saveData(data);
+    }
+
+    // ========== INIT ==========
+    // Check URL hash for tab
+    const hash = window.location.hash.slice(1);
+    if (['stats', 'settings', 'insights'].includes(hash)) switchTab(hash);
+    cleanupOldData();
+    updateDisplay();
+    loadSettingsUI();
+    startTimer();
+    renderAppVersion();
+
+    // Auto-refresh every 30s, timer every 1s
+    setInterval(() => { updateDisplay(); loadSettingsUI(); }, 30000);
+
+    // ========== FEATURES: Chain-Smoke Alert ==========
+    function checkChainSmoke() {
+      const records = getTodayData();
+      if (records.length < 2) return null;
+      const prev = new Date(records[records.length - 2].time);
+      const curr = new Date(records[records.length - 1].time);
+      const gapMin = Math.round((curr - prev) / 60000);
+      if (gapMin > 0 && gapMin <= 30) return gapMin;
+      return null;
+    }
+
+    // ========== FEATURES: Inline Counter Warnings ==========
+    // Cảnh báo render NGAY TRONG counter-card (chỗ số điếu) thay vì toast nổi
+    // fixed — trước đây toast che mất bottom-sheet chọn lý do hiện 2s sau +1.
+    let counterWarnTimer = null;
+    function showCounterWarn(html, variant, ms) {
+      const w = document.getElementById('counterWarn');
+      if (!w) return;
+      if (counterWarnTimer) { clearTimeout(counterWarnTimer); counterWarnTimer = null; }
+      w.className = 'counter-warn ' + variant;
+      w.innerHTML = html;
+      w.style.display = 'block'; // display:none→block restart animation fadeIn
+      counterWarnTimer = setTimeout(() => {
+        w.style.opacity = '0'; w.style.transition = 'opacity 0.3s';
+        setTimeout(() => { w.style.display = 'none'; w.style.opacity = ''; w.style.transition = ''; }, 300);
+      }, ms);
+    }
+
+    function showChainAlert(gapMin) {
+      const el = document.getElementById('todayCount');
+      el.style.transition = 'background 0.2s';
+      el.style.background = 'rgba(233,69,96,0.3)';
+      setTimeout(() => { el.style.background = ''; }, 1500);
+      if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
+      showCounterWarn(`🔥 <b>Chain-Smoke!</b> Chỉ cách điếu trước ${gapMin}ph — chờ thêm ${Math.max(1,30-gapMin)}ph nữa nhé.`, 'warn-danger', 3000);
+    }
+
+    // ========== FEATURES: Peak Hours Warning ==========
+    function checkPeakHour() {
+      const h = new Date().getHours();
+      if (h >= 6 && h < 12) {
+        showCounterWarn(`🌅 <b>Khung giờ đỉnh!</b> Sáng nay đã hút ${getTodayData().length} điếu — 36% tổng số rơi vào khung này, cố gắng giảm nhé!`, 'warn-yellow', 3000);
+      }
+    }
+
+    // ========== FEATURES: Slow-Down Alert ==========
+    function checkSlowDown() {
+      const records = getTodayData();
+      if (records.length < 3) return;
+      const now = new Date();
+      const recent = records.filter(r => new Date(r.time) >= new Date(now-7200000));
+      if (recent.length >= 3) {
+        showCounterWarn(`🐌 <b>Chậm lại!</b> ${recent.length} điếu trong 2h — uống nước & thư giãn 15ph!`, 'warn-orange', 3500);
+      }
+    }
+
+    // ========== FEATURES: Trigger Notes ==========
+
+    // Trigger icon helpers (used by timeline + modal)
+    let modalTrigger = -1; // -1 = not set
+
+    function triggerIcon(idx) {
+      if (idx === undefined || idx === null || idx < 0 || idx >= TRIGGERS.length) return '';
+      return TRIGGERS[idx].split(' ')[0];
+    }
+
+    // Reason label without the emoji prefix (used by the CSV export)
+    function triggerName(idx) {
+      if (idx === undefined || idx === null || idx < 0 || idx >= TRIGGERS.length) return '';
+      return TRIGGERS[idx].split(' ').slice(1).join(' ');
+    }
+
+    function renderModalTriggers() {
+      const grid = document.getElementById('modalTriggerGrid');
+      if (!grid) return;
+      let h = '';
+      TRIGGERS.forEach((t, i) => {
+        const emoji = t.split(' ')[0];
+        const sel = modalTrigger === i ? ' selected' : '';
+        h += `<button type="button" class="trigger-chip${sel}" data-idx="${i}" onclick="selectModalTrigger(${i})" title="${t}">${emoji}</button>`;
+      });
+      grid.innerHTML = h;
+    }
+
+    function selectModalTrigger(idx) {
+      modalTrigger = (modalTrigger === idx) ? -1 : idx; // tap again to unset
+      renderModalTriggers();
+      const nameEl = document.getElementById('modalTriggerName');
+      if (nameEl) nameEl.textContent = modalTrigger >= 0 ? TRIGGERS[modalTrigger] : '';
+    }
+
+    let triggerPickerTarget = null; // ISO time của điếu đang hỏi lý do (chống gán lệch khi +1 liên tiếp)
+
+    function showTriggerPicker(targetTime) {
+      if (targetTime) triggerPickerTarget = targetTime;
+      const old = document.getElementById('triggerPicker'); if (old) old.remove(); // không xếp 2 sheet cùng lúc
+      const c = document.createElement('div'); c.id='triggerPicker';
+      c.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 20px;z-index:9998;box-shadow:0 -4px 30px rgba(0,0,0,0.5);animation:fadeIn 0.25s ease;';
+      let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:14px;font-weight:700;">☕ Lý do hút?</span><button onclick="dismissTriggerPicker()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;">✕</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
+      TRIGGERS.forEach((t,i) => { h += `<button class="preset-btn" onclick="setTrigger(${i})" style="font-size:14px;padding:10px 16px;">${t}</button>`; });
+      h += '</div>'; c.innerHTML = h; document.body.appendChild(c);
+    }
+    function dismissTriggerPicker() { const e=document.getElementById('triggerPicker'); if(e){e.style.opacity='0'; e.style.transition='opacity 0.2s'; setTimeout(()=>e.remove(),200);} }
+
+    // ===== Gắn/sửa lý do cho 1 điếu cụ thể trong chi tiết ngày (v1.5.0) =====
+    let reasonPickerCtx = null; // { dateStr, index }
+
+    function openReasonPicker(dateStr, index) {
+      const records = getDayData(dateStr);
+      if (!records[index]) return;
+      reasonPickerCtx = { dateStr: dateStr, index: index };
+      const old = document.getElementById('reasonPicker'); if (old) old.remove();
+      const cur = records[index].trigger;
+      const c = document.createElement('div'); c.id = 'reasonPicker';
+      c.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding:16px 20px;z-index:9998;box-shadow:0 -4px 30px rgba(0,0,0,0.5);animation:fadeIn 0.25s ease;';
+      let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:14px;font-weight:700;">☕ Lý do hút — #${index + 1} lúc ${formatTime(records[index].time)}</span>
+        <button onclick="dismissReasonPicker()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;">✕</button>
+      </div><div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+      TRIGGERS.forEach((t, i) => {
+        const sel = cur === i ? 'border:1.5px solid var(--accent);font-weight:800;' : '';
+        h += `<button class="preset-btn" onclick="setRecordTrigger(${i})" style="font-size:14px;padding:10px 16px;${sel}">${t}</button>`;
+      });
+      h += '</div>';
+      c.innerHTML = h;
+      document.body.appendChild(c);
+    }
+
+    function dismissReasonPicker() {
+      const e = document.getElementById('reasonPicker');
+      if (e) { e.style.opacity='0'; e.style.transition='opacity 0.2s'; setTimeout(()=>e.remove(),200); }
+      reasonPickerCtx = null;
+    }
+
+    function setRecordTrigger(idx) {
+      const ctx = reasonPickerCtx;
+      if (!ctx) return dismissReasonPicker();
+      const records = getDayData(ctx.dateStr);
+      const rec = records[ctx.index];
+      if (rec) {
+        if (rec.trigger === idx) delete rec.trigger; // bấm lại = bỏ lý do
+        else rec.trigger = idx;
+        setDayData(ctx.dateStr, records);
+      }
+      dismissReasonPicker();
+      renderDayDetail();
+      updateDisplay();
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+    function setTrigger(idx) {
+      const r = getTodayData();
+      // Gán vào ĐÚNG điếu đã mở picker (bugfix v1.5.0: trước đây luôn ghi vào điếu cuối → lệch khi +1 liên tiếp)
+      let rec = triggerPickerTarget ? r.find(x => x.time === triggerPickerTarget) : null;
+      if (!rec && r.length > 0) rec = r[r.length - 1]; // fallback: điếu cuối cùng
+      if (rec) { rec.trigger = idx; setTodayData(r); }
+      triggerPickerTarget = null;
+      dismissTriggerPicker();
+      updateDisplay(); // re-render so the trigger icon appears immediately (bugfix: was stale until refresh)
+    }
+
+    // ========== FEATURES: Insights Rendering ==========
+    function renderCutWindows() {
+      const data = loadData(), cfg = loadConfig();
+      const MAX_GAP = 40, MAX_KEP = 20;
+      const today = getToday();
+      // Last 30 days window
+      const from = new Date(); from.setDate(from.getDate() - 29);
+      const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const fromKey = fmt(from);
+
+      const hourCnt = new Array(24).fill(0);   // cuttable cigs (gap<=40) by hour
+      const hourKep = new Array(24).fill(0);   // double cigs (gap<=20) by hour
+      let totalCut = 0, totalKep = 0, dayCount = 0;
+      for (const [ds, recs] of Object.entries(data)) {
+        if (ds < fromKey || ds > today || !recs.length) continue;
+        dayCount++;
+        const s = recs.slice().sort((a,b) => new Date(a.time) - new Date(b.time));
+        for (let i = 1; i < s.length; i++) {
+          const g = Math.round((new Date(s[i].time) - new Date(s[i-1].time)) / 60000);
+          if (g > 0 && g <= MAX_GAP) {
+            const h = new Date(s[i].time).getHours();
+            hourCnt[h]++; totalCut++;
+            if (g <= MAX_KEP) { hourKep[h]++; totalKep++; }
+          }
+        }
+      }
+
+      // ---- SVG bar chart (24 hours) ----
+      const svg = document.getElementById('cutWindowSvg');
+      if (!svg) return;
+      const W = 640, H = 200;
+      const MT = 20, MB = 30, ML = 2, MR = 2;
+      const chartY = MT, chartH = H - MT - MB;
+      const slotW = (W - ML - MR) / 24;
+      const barW = Math.max(8, slotW - 4);
+      const maxV = Math.max(1, ...hourCnt);
+      // top 3 hours (>=1) to highlight
+      const top3 = hourCnt.map((c,i)=>({c,i})).sort((a,b)=>b.c-a.c).slice(0,3).filter(x=>x.c>0);
+      const hot = new Set(top3.map(x=>x.i));
+
+      let els = '';
+      for (let g = 0; g <= 4; g++) {
+        const gy = chartY + (g/4) * chartH;
+        els += `<line x1="${ML}" y1="${gy}" x2="${W-MR}" y2="${gy}" stroke="var(--line-soft)" stroke-width="1"/>`;
+      }
+      for (let h = 0; h < 24; h++) {
+        const c = hourCnt[h];
+        const x = ML + h * slotW;
+        if (c > 0) {
+          const barH = (c / maxV) * chartH;
+          const y = chartY + chartH - barH;
+          const color = hot.has(h) ? '#ff6b81' : '#e94560';
+          const op = hot.has(h) ? 1 : 0.45;
+          els += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(1,barH)}" rx="2" ry="2" fill="${color}" opacity="${op}" class="chart-svg-bar"><title>${h}h: ${c} điếu hút theo${hourKep[h]?` (${hourKep[h]} kép ≤20ph)`:''}</title></rect>`;
+          els += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" fill="${hot.has(h) ? 'var(--accent-light)' : 'var(--text-dim)'}" font-size="10" font-weight="700">${c}</text>`;
+        }
+        // hour label every 3h
+        if (h % 3 === 0) {
+          els += `<text x="${x + barW/2}" y="${chartY + chartH + 16}" text-anchor="middle" fill="var(--text-dim)" font-size="10">${h}h</text>`;
+        }
+      }
+      svg.innerHTML = els;
+
+      // ---- Stat cards ----
+      const avgDay = dayCount > 0 ? (totalCut / dayCount) : 0;
+      gid('cutAvgDay').textContent = dayCount > 0 ? `${avgDay.toFixed(1)} đ` : '—';
+      gid('cutDouble').textContent = totalKep > 0 ? `${totalKep} đ` : '0';
+      const hotHour = top3.length ? top3[0].i : -1;
+      gid('cutHotHour').textContent = hotHour >= 0 ? `${hotHour}h` : '—';
+      // money saved if cutting all cuttable (price per cig)
+      const ppc = cfg.pricePerPack && cfg.cigsPerPack ? cfg.pricePerPack / cfg.cigsPerPack : 0;
+      const perMonth = avgDay * 30 * ppc;
+      gid('cutMoney').textContent = perMonth > 0 ? `${Math.round(perMonth/1000)}k` : '—';
+    }
+
+    // Debug: hiển thị 2 chuẩn (thói quen 30 ngày + nhịp mục tiêu) đang dùng cho note chính,
+    // cùng số liệu trung gian — khớp logic renderCutReminder (user request 2026-08-15).
+    function renderDualBenchmark() {
+      const el = gid('dbgHabitCount');
+      if (!el) return;
+      const stats = computeSttStats();
+      const d = new Date();
+      const nowMin = d.getHours() * 60 + d.getMinutes();
+      const dayType = (d.getDay() === 0 || d.getDay() === 6) ? 'weekend' : 'weekday';
+      const arr = stats[dayType] || [];
+      const todayCount = getTodayData().length;
+      const cfg = loadConfig();
+      const goal = parseInt(cfg.goal, 10) || 0;
+      const firstAvg = arr.length ? arr[0].avgTime : 0;
+      const avgCount = getAvgCountByNow(nowMin, dayType);
+      const lastAvg = getAvgLastCigTime(dayType);
+      const span = (lastAvg > 0 && firstAvg > 0) ? lastAvg - firstAvg : 0;
+      const minsPerCig = goal > 0 && span > 0 ? span / goal : 0;
+      const targetCount = (minsPerCig > 0 && nowMin > firstAvg)
+        ? Math.min(goal, Math.ceil((nowMin - firstAvg) / minsPerCig))
+        : 0;
+      const belowTarget = targetCount === 0 || todayCount < targetCount;
+      let verdict = '—';
+      if (stats.dayCount < CUT_MIN_DAYS) verdict = '📊 Cần thêm dữ liệu';
+      else if (goal > 0 && todayCount >= goal) verdict = todayCount === goal
+        ? (nowMin >= (lastAvg > 0 ? lastAvg - 30 : 22 * 60) ? '🎉 Đạt mục tiêu (hết ngày)' : '⚠️ Hết hạn mức sớm')
+        : '⚠️ Vượt mục tiêu';
+      else if (belowTarget && todayCount < avgCount && nowMin >= firstAvg) verdict = '✅ Dưới cả 2 chuẩn → khen';
+      else if (targetCount > 0 && todayCount > avgCount && todayCount > targetCount) verdict = '⚠️ Trên cả 2 chuẩn → giãn ra';
+      else verdict = '⚖️ Giữa 2 chuẩn → note cắt';
+      gid('dbgHabitCount').textContent = avgCount ? avgCount.toFixed(1) : '0';
+      gid('dbgTargetCount').textContent = targetCount || '0';
+      gid('dbgMinsPerCig').textContent = minsPerCig ? Math.round(minsPerCig) + 'ph' : '—';
+      gid('dbgFirst').textContent = firstAvg ? fmtHM(firstAvg) : '—';
+      gid('dbgLast').textContent = lastAvg ? fmtHM(lastAvg) : '—';
+      gid('dbgSpan').textContent = span ? fmtHM(span) : '—';
+      gid('dbgToday').textContent = todayCount;
+      gid('dbgGoal').textContent = goal;
+      gid('dbgVerdict').textContent = verdict;
+    }
+
+    function renderInsights() {
+      const data = loadData(), cfg = loadConfig(), today = getToday();
+      renderCutWindows();
+      renderDualBenchmark();
+      const MAX_CHAIN = 30;
+      let chainToday = 0, chainWeek = 0;
+      const sortedDays = Object.keys(data).sort();
+      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+      let bestStreak=0, curStreak=0;
+      for (const ds of sortedDays) {
+        const recs = (data[ds]||[]).slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+        let dc=0;
+        for(let i=1;i<recs.length;i++) { const g=Math.round((new Date(recs[i].time)-new Date(recs[i-1].time))/60000); if(g>0&&g<=MAX_CHAIN) dc++; }
+        if(ds===today) chainToday=dc;
+        if(new Date(ds)>=weekAgo) chainWeek+=dc;
+        if(dc===0){curStreak++;if(curStreak>bestStreak)bestStreak=curStreak;}else curStreak=0;
+      }
+      gid('chainToday').textContent=chainToday;
+      gid('chainWeek').textContent=chainWeek;
+      gid('chainBest').textContent=bestStreak+' ngày';
+      gid('chainStreak').textContent=curStreak;
+
+      // Week comparison
+      const now=new Date(), dow=now.getDay();
+      const monOff=dow===0?-6:1-dow;
+      function getWeek(off) {
+        const s=new Date(now); s.setDate(s.getDate()+monOff+off*7);
+        const e=new Date(s); e.setDate(e.getDate()+6);
+        const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const ss=fmt(s), ee=fmt(e);
+        let tot=0, tg=0, cg=0, dd=0;
+        for(const[k,v]of Object.entries(data)){if(k>=ss&&k<=ee){dd++;tot+=v.length;for(let i=1;i<v.length;i++){const g=Math.round((new Date(v[i].time)-new Date(v[i-1].time))/60000);if(g>0){tg+=g;cg++;}}}}
+        return {tot, avg:cg>0?Math.round(tg/cg):null, dd};
+      }
+      const tw=getWeek(0), lw=getWeek(-1);
+      const m=new Date(now); m.setDate(m.getDate()+monOff);
+      const su=new Date(m); su.setDate(m.getDate()+6);
+      const fs=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+      gid('weekCompareLabel').textContent=`(${fs(m)}-${fs(su)})`;
+      gid('wcThisWeek').textContent=`${tw.tot} đ (${tw.dd} ngày)`;
+      gid('wcLastWeek').textContent=`${lw.tot} đ (${lw.dd} ngày)`;
+      const diff=tw.tot-lw.tot;
+      const dcEl=gid('wcDiff'), dcCard=gid('wcDiffCard');
+      if(diff<0){dcEl.textContent=`${diff} ✅`;dcCard.className='stat-card green';}else if(diff>0){dcEl.textContent=`+${diff}`;dcCard.className='stat-card accent';}else{dcEl.textContent='0';dcCard.className='stat-card';}
+      gid('wcGap').textContent=tw.avg?`${tw.avg}ph`:'—';
+      gid('wcGapCard').className='stat-card '+(tw.avg&&tw.avg>=cfg.intervalGoal?'green':'accent');
+
+      // Sleep analysis
+      let allF=[], allL=[], ear=1440;
+      for(const[ds,recs]of Object.entries(data)){if(!recs.length)continue;
+        const s=recs.slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+        const f=new Date(s[0].time), l=new Date(s[s.length-1].time);
+        const fm=f.getHours()*60+f.getMinutes(), lm=l.getHours()*60+l.getMinutes();
+        allF.push(fm); allL.push(lm); if(fm<ear) ear=fm;
+      }
+      if(allF.length){
+        const af=Math.round(allF.reduce((a,b)=>a+b,0)/allF.length);
+        const al=Math.round(allL.reduce((a,b)=>a+b,0)/allL.length);
+        gid('sleepFirst').textContent=`${String(Math.floor(af/60)).padStart(2,'0')}h${String(af%60).padStart(2,'0')}`;
+        gid('sleepLast').textContent=`${String(Math.floor(al/60)).padStart(2,'0')}h${String(al%60).padStart(2,'0')}`;
+        gid('sleepEarliest').textContent=`${String(Math.floor(ear/60)).padStart(2,'0')}h${String(ear%60).padStart(2,'0')}`;
+        const slp=(1440-al)+af; gid('sleepSpan').textContent=`${Math.floor(slp/60)}h${String(slp%60).padStart(2,'0')}`;
+      }
+
+      // Challenges
+      const tc=getTodayData().length, allC=sortedDays.map(ds=>(data[ds]||[]).length);
+      const avgC=allC.length?Math.round(allC.reduce((a,b)=>a+b,0)/allC.length):0;
+      let gapOk=true;
+      if(tc>=2&&cfg.intervalGoal>0){for(let i=1;i<tc;i++){const g=Math.round((new Date(getTodayData()[i].time)-new Date(getTodayData()[i-1].time))/60000);if(g>0&&g<cfg.intervalGoal){gapOk=false;break;}}}
+      const chals=[
+        {ic:chainToday===0?'✅':'⏳',lb:'Không chain hôm nay',ok:chainToday===0},
+        {ic:tc<=avgC?'✅':'⏳',lb:`Hút ≤ TB (${avgC} đ/ngày)`,ok:tc<=avgC},
+        {ic:curStreak>=3?'✅':'⏳',lb:`Chuỗi ${curStreak} ngày không chain`,ok:curStreak>=3},
+        {ic:gapOk?'✅':'⏳',lb:`Giữ gap ≥${cfg.intervalGoal}ph`,ok:gapOk},
+        {ic:tc<=cfg.goal?'✅':'⏳',lb:`Dưới mục tiêu (≤${cfg.goal} đ)`,ok:tc<=cfg.goal},
+      ];
+      gid('challengeContainer').innerHTML=chals.map(c=>`<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:10px;padding:10px 14px;margin-bottom:6px;"><span style="font-size:18px;">${c.ic}</span><span style="font-size:13px;color:${c.ok?'var(--green)':'var(--text-dim)'};">${c.lb}</span></div>`).join('');
+
+      // Trigger stats
+      const tcArr=new Array(TRIGGERS.length).fill(0); let totalT=0;
+      for(const[,recs]of Object.entries(data)){for(const r of recs){if(r.trigger!==undefined&&r.trigger<TRIGGERS.length){tcArr[r.trigger]++;totalT++;}}}
+      const te=gid('triggerStats');
+      if(totalT>0){
+        const maxTc=Math.max(...tcArr);
+        te.innerHTML=tcArr.map((c,i)=>c>0?`<div style="grid-column:span 2;background:var(--surface);border-radius:8px;padding:8px 12px;"><div style="display:flex;justify-content:space-between;font-size:12px;"><span>${TRIGGERS[i]}</span><span style="color:var(--text-dim);">${c} (${Math.round(c/totalT*100)}%)</span></div><div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px;"><div style="height:100%;width:${Math.round(c/maxTc*100)}%;background:var(--accent);border-radius:2px;"></div></div></div>`:'').join('');
+      } else te.innerHTML='<div class="empty-state">Chưa ghi nhận trigger. Khi +1 chọn lý do hút nhé!</div>';
+    }
+    function gid(id){return document.getElementById(id);}
+
+    // ========== WEEKEND TAB ==========
+    // Thuật toán: tách ngày cuối tuần (T7, CN) vs ngày thường (T2-T6) trong 30 ngày qua,
+    // tính TB điếu, gap, chuỗi hút theo; tìm giờ nóng cuối tuần; đề xuất lịch riêng.
+    function renderWeekend() {
+      const data = loadData(), cfg = loadConfig();
+      const days = Object.keys(data).filter(k => (data[k]||[]).length > 0).sort();
+      const last30 = days.slice(-30);
+      const isWeekend = (ds) => { const d = new Date(ds); const dow = d.getDay(); return dow === 0 || dow === 6; }; // CN=0, T7=6
+      let weN=0, weTot=0, wdN=0, wdTot=0, weGapSum=0, weGapCnt=0, weChain=0, wdChain=0;
+      const weHours = new Array(24).fill(0); // giờ nóng cuối tuần
+      let weFirst=[], weLast=[];
+      for (const ds of last30) {
+        const recs = (data[ds]||[]).slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+        if (!recs.length) continue;
+        const w = isWeekend(ds);
+        if (w) { weN++; weTot += recs.length; } else { wdN++; wdTot += recs.length; }
+        for (let i=0;i<recs.length;i++) {
+          const t = new Date(recs[i].time);
+          if (w) weHours[t.getHours()]++;
+          if (i>0) {
+            const g = Math.round((t - new Date(recs[i-1].time))/60000);
+            if (g>0) { if (w) { weGapSum+=g; weGapCnt++; } if (g<=40) { if(w) weChain++; else wdChain++; } }
+          }
+        }
+        if (w) { weFirst.push(new Date(recs[0].time).getHours()*60+new Date(recs[0].time).getMinutes()); weLast.push(new Date(recs[recs.length-1].time).getHours()*60+new Date(recs[recs.length-1].time).getMinutes()); }
+      }
+      const weAvg = weN ? Math.round(weTot/weN) : 0;
+      const wdAvg = wdN ? Math.round(wdTot/wdN) : 0;
+      const weGap = weGapCnt ? Math.round(weGapSum/weGapCnt) : 0;
+      const weChainPerDay = weN ? (weChain/weN).toFixed(1) : '—';
+      gid('weWeekendAvg').textContent = weAvg ? weAvg+' đ' : '—';
+      gid('weWeekdayAvg').textContent = wdAvg ? wdAvg+' đ' : '—';
+      gid('weGap').textContent = weGap ? weGap+'ph' : '—';
+      gid('weChain').textContent = weChainPerDay;
+
+      // Chart giờ nóng cuối tuần (24h)
+      const W=640,H=200,MT=18,MB=26,ML=6,MR=40;
+      const cw=W-ML-MR, ch=H-MT-MB;
+      const maxH=Math.max(1,...weHours);
+      const slot=cw/24;
+      let els='';
+      for(let g=0;g<=4;g++){const gy=MT+g/4*ch;els+=`<line x1="${ML}" y1="${gy}" x2="${ML+cw}" y2="${gy}" stroke="var(--soft)"/>`;}
+      // top 3 giờ nóng
+      const ranked=[...weHours.keys()].sort((a,b)=>weHours[b]-weHours[a]).slice(0,3);
+      for(let h=0;h<24;h++){
+        const n=weHours[h]; if(!n) continue;
+        const bh=Math.max(2,n/maxH*ch);
+        const x=ML+h*slot+2, w=slot-4, y=MT+ch-bh;
+        const hot=ranked.includes(h);
+        els+=`<rect x="${x}" y="${y}" width="${w}" height="${bh}" rx="3" fill="${hot?'#ff6b81':'#e94560'}" opacity="${hot?1:0.45}"><title>${h}h: ${n} điếu cuối tuần</title></rect>`;
+        if(h%3===0) els+=`<text x="${x+w/2}" y="${MT+ch+16}" text-anchor="middle" fill="var(--text-dim)" font-size="11">${h}h</text>`;
+      }
+      gid('weekendHotSvg').innerHTML=els;
+
+      // Thuật toán đề xuất lịch cuối tuần
+      const plan=[];
+      if (weN>=2 && weAvg>0) {
+        const firstMin = weFirst.length ? Math.round(weFirst.reduce((a,b)=>a+b,0)/weFirst.length) : 7*60;
+        const lastMin = weLast.length ? Math.round(weLast.reduce((a,b)=>a+b,0)/weLast.length) : 22*60;
+        const targetGap = Math.max(90, (weGap||60)+20); // kéo gap cuối tuần lên ≥90ph
+        const targetCount = Math.max(cfg.goal||13, Math.round(weAvg*0.85)); // mục tiêu cuối tuần: 85% TB hiện tại
+        const delayFirst = Math.min(firstMin + 60, 10*60); // trì hoãn điếu đầu +1h (tối đa 10h)
+        const hh = m => `${String(Math.floor(m/60)).padStart(2,'0')}h${String(m%60).padStart(2,'0')}`;
+        const hotLabel = ranked.filter(h=>weHours[h]>0).map(h=>`${h}h`).join(', ');
+        plan.push(
+          `<div class="stats-grid" style="margin-bottom:10px;">
+            <div class="stat-card green"><div class="stat-number">${targetCount} đ</div><div class="stat-label">Mục tiêu cuối tuần</div></div>
+            <div class="stat-card accent"><div class="stat-number">≥${targetGap}ph</div><div class="stat-label">Gap mục tiêu</div></div>
+            <div class="stat-card yellow"><div class="stat-number">${hh(delayFirst)}</div><div class="stat-label">Điếu đầu đề xuất</div></div>
+            <div class="stat-card orange"><div class="stat-number">${hh(lastMin)}</div><div class="stat-label">Điếu cuối đề xuất</div></div>
+          </div>`
+        );
+        plan.push(`<div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:6px;">🧠 Thuật toán (từ ${weN} ngày cuối tuần của bạn)</div>
+          <div style="font-size:12.5px;color:var(--text-dim);line-height:1.6;">
+            • Cuối tuần bạn hút TB <b style="color:var(--accent)">${weAvg} đ/ngày</b> (ngày thường ${wdAvg} đ) — gap chỉ ${weGap}ph, hút theo ≤40ph: ${weChainPerDay} lần/ngày<br>
+            • Giờ nóng: <b style="color:#ff6b81">${hotLabel}</b> — tránh rảnh tay ở các khung này<br>
+            • Đề xuất: trì hoãn điếu đầu đến <b>${hh(delayFirst)}</b>, giãn gap ≥${targetGap}ph, dừng sau <b>${hh(lastMin)}</b><br>
+            • Mục tiêu: <b style="color:var(--green)">${targetCount} đ/ngày cuối tuần</b> (giảm ${Math.max(0,weAvg-targetCount)} đ so với hiện tại)
+          </div>
+        </div>`);
+        // Lịch khung giờ
+        const blocks = [
+          ['Trước '+hh(delayFirst), 'Chưa hút — ăn sáng, cà phê, vận động nhẹ', '🌅'],
+          [hh(delayFirst)+' → 12h', 'Giữ gap ≥'+targetGap+'ph · làm việc nhà / ra ngoài', '🏠'],
+          ['12h → 14h', 'Cơm trưa + nghỉ — tránh khung 13h nóng', '🍚'],
+          ['14h → 17h', 'Đạp xe / đi bộ / gập bụng (lấp giờ nóng)', '🚴'],
+          ['17h → 20h', 'Tối: giới hạn 1 điếu/90ph, không hút theo', '🌆'],
+          ['Sau '+hh(lastMin), 'Ngừng hút — chuẩn bị ngủ', '🌙'],
+        ];
+        plan.push(`<div style="background:var(--surface);border-radius:12px;padding:12px 14px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:6px;">🗓 Lịch cuối tuần đề xuất</div>
+          ${blocks.map(b=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12.5px;"><span style="font-size:16px;flex-shrink:0;">${b[2]}</span><div><div style="font-weight:700;">${b[0]}</div><div style="color:var(--text-dim);">${b[1]}</div></div></div>`).join('')}
+        </div>`);
+      } else {
+        plan.push('<div class="empty-state">Cần ít nhất 2 ngày cuối tuần dữ liệu để chạy thuật toán. Ghi chép đều nhé!</div>');
+      }
+      gid('weekendPlan').innerHTML = plan.join('');
+
+      // Trạng thái hôm nay
+      const now=new Date(), todayIsWeekend=isWeekend(getToday());
+      const tc=(data[getToday()]||[]).length;
+      const todayEl=gid('weekendToday');
+      if (todayIsWeekend) {
+        const goal=Math.max(cfg.goal||13, Math.round(weAvg*0.85)||13);
+        const left=Math.max(0,goal-tc);
+        const emoji=tc<=goal?'✅':'⚠️';
+        todayEl.innerHTML=`<div style="font-size:14px;font-weight:700;">${emoji} Hôm nay là CUỐI TUẦN</div>
+          <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Đã hút <b style="color:var(--accent)">${tc} đ</b> / mục tiêu cuối tuần <b style="color:var(--green)">${goal} đ</b>${left>0?` — còn được ${left} đ`:', đạt rồi, cố giữ!'}</div>
+          <div style="height:6px;background:var(--track);border-radius:3px;margin-top:8px;"><div style="height:100%;width:${Math.min(100,Math.round(tc/goal*100))}%;background:${tc<=goal?'var(--green)':'var(--accent)'};border-radius:3px;"></div></div>`;
+      } else {
+        todayEl.innerHTML=`<div style="font-size:14px;font-weight:700;">💼 Hôm nay là ngày thường</div>
+          <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Đã hút <b style="color:var(--accent)">${tc} đ</b> — giữ nhịp như thường lệ nhé!</div>`;
+      }
+    }
+
+    // ========== FEATURES: After-Add Hooks ==========
+    function afterAddCig() {
+      // Nhớ ĐÚNG điếu vừa thêm để picker lý do không gán lệch khi bấm +1 liên tiếp
+      const arr = getTodayData();
+      const addedTime = arr.length ? arr[arr.length - 1].time : null;
+      const cg=checkChainSmoke(); if(cg) setTimeout(()=>showChainAlert(cg),600);
+      if(getTodayData().length<=3) setTimeout(checkPeakHour,1200);
+      setTimeout(checkSlowDown,1800);
+      setTimeout(()=>showTriggerPicker(addedTime),2000);
+    }
+
+    // Patch addCig
+    const _origAddCig = window.addCig || function(){};
+    window.addCig = function() {
+      const records = addRecord(); updateDisplay();
+      const el = document.getElementById('todayCount');
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+      if (navigator.vibrate) navigator.vibrate(15);
+      // Trùng phút → không mở picker lý do (điếu cũ đã có lý do rồi)
+      if (!lastAddDup) afterAddCig();
+    };
+
+    // Patch switchTab
+    const _origSwitchTab = window.switchTab;
+    window.switchTab = function(name) {
+      document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      document.getElementById('tab-'+name).classList.add('active');
+      document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('active');
+      if(name==='main'||name==='stats'||name==='settings') updateDisplay();
+      if(name==='settings') loadSettingsUI();
+      if(name==='insights') renderInsights();
+      if(name==='stats') renderWeekend();
+    };
+
+    // ========== SERVICE WORKER (v1.3.1): register + auto-reload on update ==========
+    // Previously the SW was never registered, so cache bumps never reached the phone.
+    if ('serviceWorker' in navigator) {
+      let swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // New SW took control (skipWaiting + clients.claim) → reload once to serve new assets
+        if (swReloaded) return;
+        swReloaded = true;
+        window.location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      });
+    }

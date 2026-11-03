@@ -49,6 +49,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Runs for BOTH paths (debug and release/tag): a drifted asset copy must red the job.
+      # The job defaults to working-directory: android, but the script lives at the repo root,
+      # so this step overrides it back to '.'.
+      - name: Verify web assets match the web build at repo root
+        working-directory: .
+        run: bash scripts/verify-web-assets.sh
+
       # ---- debug path: every PR / push / manual dispatch -------------------------------
       - name: Unit tests + debug build
         if: github.ref_type != 'tag'
