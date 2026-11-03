@@ -95,9 +95,12 @@ App có **ba** đường sao lưu, không đường nào thay thế đường n�
 
 1. **Tự động của hệ điều hành** (bật từ bản 1.1.0). Manifest khai báo
    `android:allowBackup="true"`, `android:fullBackupContent="@xml/backup_rules"` (API 26–30) và
-   `android:dataExtractionRules="@xml/data_extraction_rules"` (API 31+). Hai file luật include
-   domain `database` + `file` và exclude `cache` + `no_backup`, cho cả `cloud-backup` lẫn
-   `device-transfer`. App **không** xin quyền nào cho việc này: hệ điều hành tự chạy.
+   `android:dataExtractionRules="@xml/data_extraction_rules"` (API 31+). Hai file luật **chỉ include**
+   domain `database` + `file`, cho cả `cloud-backup` lẫn `device-transfer`, và **không có `<exclude>`**:
+   `cache` và `no_backup` không phải domain hợp lệ của hai file này (AGP `lintVitalRelease` sẽ đỏ build
+   release), mà hệ điều hành vốn đã tự loại `getCacheDir()`/`getNoBackupFilesDir()` khỏi bản sao lưu.
+   Đừng thêm lại `<exclude domain="cache">`/`<exclude domain="no_backup">`. App **không** xin quyền nào
+   cho việc này: hệ điều hành tự chạy.
 2. **Chia sẻ bản sao JSON** — gửi file `thuocla_backup_YYYY-MM-DD.json` sang Drive/Zalo/Telegram
    qua `ACTION_SEND` + `FileProvider`. File nằm trong cache của app nên chỉ là bản nháp để gửi đi,
    không phải kho lưu.
