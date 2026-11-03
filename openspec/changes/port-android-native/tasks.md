@@ -53,6 +53,6 @@
 
 ## 9. Build, đóng gói, verify với người dùng
 
-- [ ] 9.1 Keystore release tạo local (`~/keystores/thuocla-release.jks`, KHÔNG commit), `./gradlew :app:assembleRelease`, copy APK sang `~/thuocla-apk/thuocla-vX.Y.Z.apk`. Bằng chứng: `ls -l` + `apksigner verify --print-certs`.
+- [x] 9.1 Keystore release tạo local (`~/keystores/thuocla-release.jks`, KHÔNG commit), `./gradlew :app:assembleRelease`, copy APK sang `~/thuocla-apk/thuocla-vX.Y.Z.apk`. Bằng chứng: `ls -l` + `apksigner verify --print-certs`.
 - [ ] 9.2 Cài trên điện thoại của Trung, Phục hồi từ `thuocla_backup_*.json` (THAY THẾ), rồi đối chiếu 5 con số với PWA cùng lúc: số điếu hôm nay, tổng tháng, TB 7 ngày, số điếu ngày ít nhất, giờ điếu đầu trong chi tiết ngày. Ghi 5 cặp số vào PR — bước này KHÔNG tự đánh dấu xong, cần Trung xác nhận.
-- [ ] 9.3 `README-android.md` trong `android/`: cách build, cách cài, cách nhập bản sao, và ghi chú PWA đóng băng tính năng ở v1.5.2.
+- [x] 9.3 `README-android.md` trong `android/`: cách build, cách cài, cách nhập bản sao, và ghi chú PWA đóng băng tính năng ở v1.5.2.

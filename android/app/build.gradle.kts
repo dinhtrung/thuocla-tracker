@@ -4,6 +4,27 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/*
+ * Release signing comes from machine-local Gradle properties — never from this repo:
+ *
+ *   thuoclaStoreFile=/home/dinhtrung/keystores/thuocla-release.jks
+ *   thuoclaStorePassword=…
+ *   thuoclaKeyAlias=thuocla
+ *   thuoclaKeyPassword=…
+ *
+ * They live in ~/.gradle/gradle.properties (outside git) so neither the keystore nor a password can
+ * be committed. When any of them is missing the release build still configures — it just produces an
+ * unsigned APK — so a fresh clone and CI keep building without secrets (task 9.1).
+ */
+val thuoclaStoreFile: String? = providers.gradleProperty("thuoclaStoreFile").orNull
+val thuoclaStorePassword: String? = providers.gradleProperty("thuoclaStorePassword").orNull
+val thuoclaKeyAlias: String? = providers.gradleProperty("thuoclaKeyAlias").orNull
+val thuoclaKeyPassword: String? = providers.gradleProperty("thuoclaKeyPassword").orNull
+val hasReleaseSigning = !thuoclaStoreFile.isNullOrBlank() &&
+    !thuoclaStorePassword.isNullOrBlank() &&
+    !thuoclaKeyAlias.isNullOrBlank() &&
+    !thuoclaKeyPassword.isNullOrBlank()
+
 android {
     namespace = "vn.dinhtrung.thuocla"
     compileSdk = 35
@@ -17,10 +38,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(thuoclaStoreFile!!)
+                storePassword = thuoclaStorePassword
+                keyAlias = thuoclaKeyAlias
+                keyPassword = thuoclaKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Absent properties => no signingConfig, so the APK is unsigned instead of the build failing.
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
