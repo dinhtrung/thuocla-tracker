@@ -6,10 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -32,6 +32,8 @@ import vn.dinhtrung.thuocla.ui.settings.SettingsScreen
 import vn.dinhtrung.thuocla.ui.settings.SettingsViewModel
 import vn.dinhtrung.thuocla.ui.settings.SettingsViewModelFactory
 import vn.dinhtrung.thuocla.ui.stats.StatsRoute
+import vn.dinhtrung.thuocla.domain.TrackerConfig
+import vn.dinhtrung.thuocla.ui.theme.ThuoclaTheme
 import vn.dinhtrung.thuocla.ui.today.TodayScreen
 import vn.dinhtrung.thuocla.ui.today.TodayViewModel
 import vn.dinhtrung.thuocla.ui.today.TodayViewModelFactory
@@ -92,7 +94,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme {
+            // The theme sits above the Scaffold so the bottom bar and every screen share one scheme.
+            // themeMode comes from the store (SYSTEM by default); isSystemInDarkTheme() is only
+            // consulted when the user has left the choice to the device.
+            val config by container.repository.configFlow()
+                .collectAsState(initial = TrackerConfig.DEFAULT)
+            ThuoclaTheme(isDark = config.themeMode.resolveIsDark(isSystemInDarkTheme())) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     RootScreen(container)
                 }
@@ -269,6 +276,7 @@ private fun SettingsRoute(container: AppContainer) {
         onIntervalGoalChange = vm::onIntervalGoalChange,
         onPriceChange = vm::onPricePerPackChange,
         onCigsPerPackChange = vm::onCigsPerPackChange,
+        onThemeModeChange = vm::onThemeModeChange,
         onSave = vm::save,
     )
 }

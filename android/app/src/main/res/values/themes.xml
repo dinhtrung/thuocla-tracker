@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The platform theme applied before Compose draws (values/ = light devices).
+
+    The parent names Light explicitly so the status-bar and window chrome are light-correct on a light
+    device; values-night/themes.xml swaps in the dark parent and values-night/colors.xml swaps the
+    background, which is what removes the white border around a dark-mode phone.
+-->
+<resources>
+    <style name="Theme.Thuocla" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>

@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +48,7 @@ import vn.dinhtrung.thuocla.domain.lowestDayLabel
 import vn.dinhtrung.thuocla.domain.CigRecord
 import vn.dinhtrung.thuocla.domain.Triggers
 import vn.dinhtrung.thuocla.domain.formatHhMm
+import vn.dinhtrung.thuocla.ui.theme.ScrimBlack
 
 /**
  * Screen "Hôm nay" for the cigarette-log slice: counter + goal progress, the big +1 button, the undo
@@ -595,7 +595,7 @@ private fun AddCigButton(onClick: () -> Unit) {
             text = "+1",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onPrimary,
         )
     }
 }
@@ -640,7 +640,7 @@ private fun TriggerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(Color.Black.copy(alpha = 0.32f))
+                .background(ScrimBlack.copy(alpha = 0.32f))
                 .clickable(onClick = onDismiss),
         )
         Surface(
