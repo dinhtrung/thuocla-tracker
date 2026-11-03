@@ -8,14 +8,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,6 +18,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -30,12 +26,12 @@ import org.robolectric.annotation.Config
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
 import vn.dinhtrung.thuocla.domain.formatHhMm
+import vn.dinhtrung.thuocla.testutil.MainDispatcherRule
 
 /**
  * tasks.md 6.1 ("seed 14 ngày → bấm lùi 1 tuần, dữ liệu đổi đúng khoảng") and 6.2 (edit time /
  * attach reason from the day detail), exercised through the real Room store.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class StatsViewModelTest {
@@ -52,9 +48,11 @@ class StatsViewModelTest {
     )
     private val today: LocalDate = LocalDate.of(2026, 11, 2)
 
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Before
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -66,7 +64,6 @@ class StatsViewModelTest {
     fun tearDown() {
         viewModel.viewModelScope.cancel()
         db.close()
-        Dispatchers.resetMain()
     }
 
     private suspend fun awaitState(predicate: (StatsUiState) -> Boolean): StatsUiState =
