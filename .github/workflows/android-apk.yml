@@ -1,0 +1,127 @@
+name: Android APK
+
+# Builds the native app in android/ on a GitHub runner.
+#
+# - push/PR touching android/** -> unit tests + debug APK artifact (no secrets needed)
+# - push a tag (v*)            -> signed release APK attached to the GitHub Release
+#
+# Signing reuses the four Gradle properties the local build already reads
+# (thuoclaStoreFile / thuoclaStorePassword / thuoclaKeyAlias / thuoclaKeyPassword), fed from repo
+# secrets, so the keystore never enters git. If a secret is missing the tag job fails loudly —
+# an unsigned APK cannot be sideloaded over the app already installed on the phone.
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "debug hoặc release"
+        type: choice
+        options: [debug, release]
+        default: debug
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: ["android/**", ".github/workflows/android-apk.yml"]
+
+permissions:
+  contents: write
+
+env:
+  # The runner image ships the SDK here; be explicit so aapt2/apksigner always resolve.
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+jobs:
+  apk:
+    # Pin 24.04 on purpose: ubuntu-latest moved to 26.04 (Oct–Nov 2026) and its DEFAULT JDK is 25,
+    # which AGP 8.7.3 rejects. setup-java below still forces 17.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # ---- debug path: every PR / push / manual dispatch -------------------------------
+      - name: Unit tests + debug build
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Verify debug APK (must not request INTERNET)
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        run: |
+          AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$AAPT2" dump badging "$APK" | grep -E '^(package|application:|application-icon|sdkVersion|targetSdkVersion)'
+          "$AAPT2" dump permissions "$APK"
+          if "$AAPT2" dump permissions "$APK" | grep -q 'android.permission.INTERNET'; then
+            echo "::error::APK xin quyền INTERNET — app này phải offline hoàn toàn"; exit 1
+          fi
+
+      - name: Upload debug APK
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: thuocla-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # ---- release path: tags and manual release dispatch -------------------------------
+      - name: Restore keystore from secrets
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.variant == 'release'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.THUOCLA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.THUOCLA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.THUOCLA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.THUOCLA_KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ]   || missing="$missing THUOCLA_KEYSTORE_BASE64"
+          [ -n "$KEYSTORE_PASSWORD" ] || missing="$missing THUOCLA_KEYSTORE_PASSWORD"
+          [ -n "$KEY_ALIAS" ]         || missing="$missing THUOCLA_KEY_ALIAS"
+          [ -n "$KEY_PASSWORD" ]      || missing="$missing THUOCLA_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Thiếu secret:$missing — release phải ký bằng đúng khoá của bản đang cài trên máy."; exit 1
+          fi
+          mkdir -p "$HOME/keystores"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$HOME/keystores/thuocla-release.jks"
+          {
+            echo "thuoclaStoreFile=$HOME/keystores/thuocla-release.jks"
+            echo "thuoclaStorePassword=$KEYSTORE_PASSWORD"
+            echo "thuoclaKeyAlias=$KEY_ALIAS"
+            echo "thuoclaKeyPassword=$KEY_PASSWORD"
+          } >> "$HOME/.gradle/gradle.properties"
+
+      - name: Unit tests + signed release build
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.variant == 'release'
+        run: |
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+          AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "::error::Không có $APK — Gradle chỉ tạo bản unsigned (thiếu khoá ký)"; ls -l app/build/outputs/apk/release/; exit 1
+          fi
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
+          "$AAPT2" dump badging "$APK" | grep -E '^(package|application:)'
+          if "$AAPT2" dump permissions "$APK" | grep -q 'android.permission.INTERNET'; then
+            echo "::error::APK release xin quyền INTERNET"; exit 1
+          fi
+
+      - name: Name APK after the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cp app/build/outputs/apk/release/app-release.apk "thuocla-${GITHUB_REF_NAME}.apk"
+
+      - name: Attach APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/thuocla-*.apk
+          fail_on_unmatched_files: true
+          generate_release_notes: true
