@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Auto Backup scope for API 31+ (android:dataExtractionRules).
+
+    Both branches are declared: cloud-backup (Google account) and
+    device-transfer (cable migration). Device transfer must keep the database
+    or changing phones loses months of records. Cache and no_backup stay out of
+    both. API 26-30 uses res/xml/backup_rules.xml. See openspec design.md D2.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="." />
+        <include domain="file" path="." />
+        <exclude domain="cache" path="." />
+        <exclude domain="no_backup" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="." />
+        <include domain="file" path="." />
+        <exclude domain="cache" path="." />
+        <exclude domain="no_backup" path="." />
+    </device-transfer>
+</data-extraction-rules>

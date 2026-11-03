@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Auto Backup scope for API 26-30 (android:fullBackupContent).
+
+    Include the Room database (cigarettes + settings) and app files; exclude
+    cache and no_backup so transient artifacts never reach the cloud copy.
+    API 31+ uses res/xml/data_extraction_rules.xml instead; both files are
+    required because minSdk is 26. See openspec design.md D2.
+-->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="." />
+    <exclude domain="cache" path="." />
+    <exclude domain="no_backup" path="." />
+</full-backup-content>
