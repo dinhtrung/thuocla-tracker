@@ -2,64 +2,64 @@
 SHIPPED BUILD — brief tokens present, no Material3 default above 1%
 
   stats-dark.png  1080x2340
-    #1a1a2e    1381815 px   54.7%
+    #1a1a2e    1381612 px   54.7%
     #232a42    1014452 px   40.1%
     #a8b3c9      29400 px    1.2%
     #f1c40f      19948 px    0.8%
     #ff6b81      16643 px    0.7%
     expected token -> observed:
-      surface              #1a1a2e    1381815 px  PRESENT
+      surface              #1a1a2e    1381612 px  PRESENT
       surface_variant      #232a42    1014452 px  PRESENT
       on_surface_variant   #a8b3c9      29400 px  PRESENT
     Material3 defaults above 1%: none
 
   stats-light.png  1080x2340
-    #f2f4fa    1381905 px   54.7%
+    #f2f4fa    1381698 px   54.7%
     #e6eaf3    1014502 px   40.1%
     #4a5568      29400 px    1.2%
     #8a6100      19948 px    0.8%
     #b3122e      16643 px    0.7%
     expected token -> observed:
-      surface              #f2f4fa    1381905 px  PRESENT
+      surface              #f2f4fa    1381698 px  PRESENT
       surface_variant      #e6eaf3    1014502 px  PRESENT
       on_surface_variant   #4a5568      29400 px  PRESENT
     Material3 defaults above 1%: none
 
   today-dark.png  1080x2340
-    #1a1a2e    1406787 px   55.7%
-    #232a42     909680 px   36.0%
+    #1a1a2e    1406584 px   55.7%
+    #232a42     909527 px   36.0%
     #7d1128      24832 px    1.0%
-    #a8b3c9      24013 px    1.0%
-    #ff6b81      17893 px    0.7%
+    #a8b3c9      24453 px    1.0%
+    #ff6b81      17622 px    0.7%
     expected token -> observed:
-      surface              #1a1a2e    1406787 px  PRESENT
-      surface_variant      #232a42     909680 px  PRESENT
-      primary              #ff6b81      17893 px  PRESENT
+      surface              #1a1a2e    1406584 px  PRESENT
+      surface_variant      #232a42     909527 px  PRESENT
+      primary              #ff6b81      17622 px  PRESENT
     Material3 defaults above 1%: none
 
   today-light.png  1080x2340
-    #f2f4fa    1406877 px   55.7%
-    #e6eaf3     909776 px   36.0%
+    #f2f4fa    1406670 px   55.7%
+    #e6eaf3     909623 px   36.0%
     #ffdad9      24840 px    1.0%
-    #4a5568      24013 px    1.0%
-    #b3122e      17893 px    0.7%
+    #4a5568      24453 px    1.0%
+    #b3122e      17622 px    0.7%
     expected token -> observed:
-      surface              #f2f4fa    1406877 px  PRESENT
-      surface_variant      #e6eaf3     909776 px  PRESENT
-      on_surface_variant   #4a5568      24013 px  PRESENT
+      surface              #f2f4fa    1406670 px  PRESENT
+      surface_variant      #e6eaf3     909623 px  PRESENT
+      on_surface_variant   #4a5568      24453 px  PRESENT
     Material3 defaults above 1%: none
 
 ==============================================================================
 WHITE BORDER CHECK — full-width near-white bands in the dark frames
-  today-dark.png   full-width near-white rows=0  #ffffff=4807 px (0.19%)  widest white row=10.2% of width
-  stats-dark.png   full-width near-white rows=0  #ffffff=3932 px (0.16%)  widest white row=10.2% of width
+  today-dark.png   full-width near-white rows=0  #ffffff=4997 px (0.20%)  widest white row=9.3% of width
+  stats-dark.png   full-width near-white rows=0  #ffffff=4122 px (0.16%)  widest white row=9.3% of width
 
 ==============================================================================
 DARK-TEXT CHECK — ink on navy must be light, not dark
 
   today-dark.png
     onSurface #e6eaf3              16338 px (0.65%)  PRESENT
-    onSurfaceVariant #a8b3c9       24013 px (0.95%)  PRESENT
+    onSurfaceVariant #a8b3c9       24453 px (0.97%)  PRESENT
     dark pixels that are not the surface: none
 
   stats-dark.png

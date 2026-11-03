@@ -1,7 +1,7 @@
 # #19 theme — device verification record
 
 Device: `emulator-5554`, API 35 (Android 15), 1080×2340.
-Artifact under test: `app-debug.apk`, md5 **0819900c49887619bb84e25230514bd6**.
+Artifact under test: `app-debug.apk`, md5 **4976848fb63d7784970afb01680e2834**.
 
 Every figure below is produced by `analyse.py` in this directory from the committed screencaps.
 Run `python3 analyse.py` to regenerate all of it; `SCRIPT-OUTPUT.txt` is its captured output, exit
@@ -14,13 +14,24 @@ document, not the script.
 real once the device copy hashes to the same bytes as the artifact:
 
 ```
-local   android/app/build/outputs/apk/debug/app-debug.apk   md5 0819900c49887619bb84e25230514bd6
-device  .../vn.dinhtrung.thuocla-U-tudQ_2BPRdpGT3KdZZ4Q==/base.apk   md5 0819900c49887619bb84e25230514bd6
+local   android/app/build/outputs/apk/debug/app-debug.apk   md5 4976848fb63d7784970afb01680e2834
+device  .../vn.dinhtrung.thuocla-2BGPU6Ej8c6Jmkrhj89XGw==/base.apk   md5 4976848fb63d7784970afb01680e2834
 ```
 
-That md5 reproduces from `./gradlew --offline :app:clean :app:assembleDebug` on this branch, and it
-is unchanged between the build that captured the frames and the build that ran the final gate. So
-the frames and the test run describe the same binary.
+That md5 reproduces from `./gradlew --offline --no-build-cache :app:clean :app:assembleDebug` on this
+branch, and it is unchanged between the build that captured the frames and the build that ran the
+final gate. So the frames and the test run describe the same binary. Two consecutive
+`--no-build-cache` clean builds produced the same hash, and so did a build of this commit in a
+pristine clone — the build is deterministic for this source, which is why the hash is a usable
+identity for the artifact.
+
+An earlier revision of this document recorded md5 `0819900c…`, taken from a binary that had been
+installed from a worktree whose build was not the one this branch produces (it carried an older
+Kotlin enum-`entries` desugaring in `classes7.dex` and differed nowhere else). The frames captured
+from it were 99.7 % pixel-identical to frames from the reproducible build — only the status-bar clock
+changed — so the pixel claims carried over. The frames were nonetheless recaptured from the
+reproducible artifact and all figures re-measured, so that the hash in this record names the exact
+binary the screenshots came from. The old binary's frames are no longer referenced.
 
 `aapt dump badging` on the packaged APK:
 
@@ -43,8 +54,8 @@ The only `uses-permission` is the app's own auto-added receiver permission: **no
 | surface | `#1a1a2e` | `#1a1a2e` | 55.7 % (Today) / 54.7 % (Stats) |
 | surfaceVariant | `#232a42` | `#232a42` | 36.0 % / 40.1 % |
 | onSurface | `#e6eaf3` | `#e6eaf3` | 0.65 % / 0.31 % |
-| onSurfaceVariant | `#a8b3c9` | `#a8b3c9` | 0.95 % / 1.16 % |
-| primary | `#ff6b81` | `#ff6b81` | 0.71 % / 0.66 % |
+| onSurfaceVariant | `#a8b3c9` | `#a8b3c9` | 0.97 % / 1.16 % |
+| primary | `#ff6b81` | `#ff6b81` | 0.70 % / 0.66 % |
 
 The two large fills are the brief's navy surface and its container shade — what the screens and the
 bottom navigation bar are painted with.
@@ -55,8 +66,8 @@ Two independent measurements, because "no white border" is easy to claim loosely
 
 **No white band.** A window strip would be a row spanning the full width in near-white. Counting
 rows where near-white pixels exceed 95 % of the width: **0 rows in both dark frames**.
-`#ffffff` totals 0.19 % (Today) and 0.16 % (Stats) of the frame, and the widest single row of pure
-white reaches 10.2 % of the width — glyphs, not a band.
+`#ffffff` totals 0.20 % (Today) and 0.16 % (Stats) of the frame, and the widest single row of pure
+white reaches 9.3 % of the width — glyphs, not a band.
 
 **No dark text on navy.** Ink on the navy surface must be light. Measured per dark frame: `#e6eaf3`
 and `#a8b3c9` both present as above; and dark pixels (luminance < 40) that are **not** the navy
@@ -181,8 +192,8 @@ afterwards.
 ```
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 export ANDROID_HOME=/home/dinhtrung/Android/Sdk
-cd android && ./gradlew --offline :app:clean :app:assembleDebug
-md5sum app/build/outputs/apk/debug/app-debug.apk   # expect 0819900c49887619bb84e25230514bd6
+cd android && ./gradlew --offline --no-build-cache :app:clean :app:assembleDebug
+md5sum app/build/outputs/apk/debug/app-debug.apk   # expect 4976848fb63d7784970afb01680e2834
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell pm path vn.dinhtrung.thuocla              # hash base.apk, must match
 
@@ -201,6 +212,37 @@ for m in no yes; do
   adb shell input tap 401 2208; sleep 2
   adb exec-out screencap -p > stats-$([ $m = no ] && echo light || echo dark).png
 done
+
+# stored-mode override, both directions (taps are Settings radio rows + Lưu)
+adb shell cmd uimode night no; adb shell am force-stop vn.dinhtrung.thuocla
+adb shell am start -n vn.dinhtrung.thuocla/.MainActivity; sleep 3
+adb shell input tap 952 2208; sleep 2                      # bottom-nav "Cài đặt"
+adb exec-out screencap -p > settings-picker-system.png     # stored SYSTEM, system light
+adb shell input tap 133 1426; sleep 1                      # radio "Tối"
+adb shell input tap 143 1569; sleep 3                      # "Lưu"
+adb shell "run-as vn.dinhtrung.thuocla sqlite3 databases/thuocla.db \
+  'select id,themeMode from config'"                       # expect 1|DARK
+adb exec-out screencap -p > settings-saved-dark-on-light-system.png
+adb shell am force-stop vn.dinhtrung.thuocla
+adb shell am start -n vn.dinhtrung.thuocla/.MainActivity; sleep 4
+adb exec-out screencap -p > dark-mode-on-light-system.png
+
+adb shell cmd uimode night yes; adb shell am force-stop vn.dinhtrung.thuocla
+adb shell am start -n vn.dinhtrung.thuocla/.MainActivity; sleep 4
+adb shell input tap 952 2208; sleep 2
+adb shell input tap 133 1337; sleep 1                      # radio "Sáng"
+adb shell input tap 143 1569; sleep 3                      # "Lưu"
+adb shell "run-as vn.dinhtrung.thuocla sqlite3 databases/thuocla.db \
+  'select id,themeMode from config'"                       # expect 1|LIGHT
+adb exec-out screencap -p > settings-saved-light-on-dark-system.png
+adb shell am force-stop vn.dinhtrung.thuocla
+adb shell am start -n vn.dinhtrung.thuocla/.MainActivity; sleep 4
+adb exec-out screencap -p > light-mode-on-dark-system.png
+
+# restore: SYSTEM mode, no seeded records
+adb shell "run-as vn.dinhtrung.thuocla sqlite3 databases/thuocla.db \
+  \"UPDATE config SET themeMode='SYSTEM' WHERE id=1; DELETE FROM records;\""
+adb shell cmd uimode night no
 
 cd openspec/changes/port-android-native/evidence && python3 analyse.py
 ```
