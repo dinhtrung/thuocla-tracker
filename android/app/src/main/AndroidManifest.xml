@@ -2,6 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
+        Package visibility (API 30+): without this declaration PackageManager filters ACTION_SEND queries,
+        so MainActivity's `send.resolveActivity(...)` guard would see null even when a receiver exists —
+        and would then refuse to share and show "no app accepts JSON". Declaring the intent we query keeps
+        that guard honest. It grants no permission and enables no network; it only makes already-installed
+        receivers visible to the query. The startActivity call is additionally guarded by a try/catch, so a
+        race or a still-filtered result degrades to the same message instead of crashing.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="application/json" />
+        </intent>
+    </queries>
+
+    <!--
         Offline by construction: no android.permission.INTERNET is declared, and the
         app must never add it. Everything lives in the app's own Room database.
     -->

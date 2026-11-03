@@ -195,6 +195,9 @@ class ShareBackupTest {
         composeRule.onNodeWithTag("shareJson").performScrollTo().performClick()
 
         composeRule.waitUntil(TIMEOUT_MS) {
+            // viewModelScope resumes on Dispatchers.Main, and Robolectric's looper is paused: idle it so
+            // the coroutine reaches its message update and the recomposition is observable.
+            shadowOf(Looper.getMainLooper()).idle()
             composeRule.onAllNodes(
                 androidx.compose.ui.test.hasText("Chưa có dữ liệu để xuất", substring = true),
             ).fetchSemanticsNodes().isNotEmpty()
@@ -242,7 +245,48 @@ class ShareBackupTest {
         )
     }
 
+    /**
+     * Robolectric's PackageManager does not implement API 30+ package-visibility filtering, so the
+     * "receiver is invisible without <queries>" failure cannot be exercised behaviourally in a JVM test.
+     * It was measured on device instead: with the declaration removed and the only JSON receiver a
+     * user-installed app, the share was refused with "Không có ứng dụng nào nhận được bản sao JSON";
+     * with the declaration present, the same build delivered ACTION_SEND to that receiver.
+     *
+     * This asserts the declaration itself, because losing it is silent in every other test and the
+     * consequence is a user who cannot share at all.
+     */
+    @Test
+    fun manifest_declaresTheSendQueryThatMakesTheReceiverGuardHonest() {
+        // Gradle runs unit tests with the module as working directory, so this is android/app.
+        val manifest = File("src/main/AndroidManifest.xml")
+        assertTrue("source manifest not found at ${manifest.absolutePath}", manifest.exists())
+
+        val text = manifest.readText()
+        val queries = Regex("<queries>.*?</queries>", RegexOption.DOT_MATCHES_ALL)
+            .find(text)?.value
+        assertNotNull(
+            "<queries> is missing: on API 30+ resolveActivity returns null for installed receivers, " +
+                "so the share would be refused for a user whose only receiver is a third-party app",
+            queries,
+        )
+
+        val block = queries!!
+        assertTrue(
+            "<queries> must declare ACTION_SEND, found: $block",
+            block.contains("android.intent.action.SEND"),
+        )
+        assertTrue(
+            "<queries> must declare the application/json data type, found: $block",
+            block.contains("application/json"),
+        )
+    }
+
     private companion object {
-        const val TIMEOUT_MS = 10_000L
+        /**
+         * Generous on purpose: these are wall-clock waits on a shared box, and the fleet runs many Gradle
+         * daemons at once (one full-gate run took 29 minutes under load 200+). A tight budget here fails
+         * on contention rather than on behaviour, which is a false signal.
+         */
+        const val TIMEOUT_MS = 60_000L
     }
 }

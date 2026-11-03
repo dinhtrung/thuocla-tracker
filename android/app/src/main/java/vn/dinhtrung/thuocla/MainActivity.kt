@@ -1,5 +1,6 @@
 package vn.dinhtrung.thuocla
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
@@ -253,13 +254,23 @@ class MainActivity : ComponentActivity() {
         // even when no app accepts the type, so testing the chooser would never catch "no receiver"
         // (spec scenario "Không có ứng dụng nào nhận"). This is also what resolveActivity can answer in
         // Robolectric, where the chooser activity itself is absent.
+        //
+        // On API 30+ resolveActivity is filtered by package visibility; the manifest's <queries> element
+        // declares ACTION_SEND + application/json so this guard sees installed receivers. The try/catch is
+        // the documented belt-and-braces: a receiver vanishing between the check and the start, or a query
+        // still filtered on some device, reports the same message instead of crashing.
         if (send.resolveActivity(packageManager) == null) {
-            // No app accepts application/json: report through the screen's message slot, do not crash.
             dataViewModel.reportShareUnavailable()
             return false
         }
-        startActivity(Intent.createChooser(send, "Chia sẻ bản sao JSON").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-        return true
+        return try {
+            startActivity(Intent.createChooser(send, "Chia sẻ bản sao JSON").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            true
+        } catch (_: ActivityNotFoundException) {
+            // Nothing accepted the intent after all: same message slot, no crash.
+            dataViewModel.reportShareUnavailable()
+            false
+        }
     }
 
     /** Reads the chosen file and routes it to the import the user asked for. */
