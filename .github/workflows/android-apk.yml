@@ -18,7 +18,7 @@ on:
         options: [debug, release]
         default: debug
   push:
-    tags: ["v*"]
+    tags: ["v*", "android-v*"]
   pull_request:
     paths: ["android/**", ".github/workflows/android-apk.yml"]
 
@@ -116,7 +116,9 @@ jobs:
 
       - name: Name APK after the tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: cp app/build/outputs/apk/release/app-release.apk "thuocla-${GITHUB_REF_NAME}.apk"
+        run: |
+          # android-v1.0.0 -> thuocla-v1.0.0.apk (same naming as the local build)
+          cp app/build/outputs/apk/release/app-release.apk "thuocla-${GITHUB_REF_NAME#android-}.apk"
 
       - name: Attach APK to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
