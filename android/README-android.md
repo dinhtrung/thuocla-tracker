@@ -20,8 +20,8 @@ APK debug ra ở `android/app/build/outputs/apk/debug/app-debug.apk`. Build lầ
 mới sẽ lâu hơn (Gradle daemon + tải dependency) — cứ để chạy.
 
 Lần build đầu cần mạng để Gradle tải AGP/dependency vào Gradle home. Sau đó `--offline` chạy được
-với cache sẵn có; Gradle home rỗng thì build hỏng ngay ở bước plugin (`com.android.application`
-8.7.3 không phân giải được), kể cả khi không liên quan gì đến chữ ký.
+với cache sẵn có. Nếu **không có mạng** và Gradle home rỗng thì build hỏng ngay ở bước plugin
+(`com.android.application` 8.7.3 không phân giải được) — lỗi này không liên quan đến chữ ký.
 
 Kiểm thử: `./gradlew :app:testDebugUnitTest`.
 
@@ -31,7 +31,7 @@ Keystore nằm **ngoài repo**, không bao giờ được commit:
 
 ```bash
 mkdir -p ~/keystores
-keytool -genkeypair -v -keystore ~/keystores/thuocla-release.jks \
+keytool -genkeypair -v -keystore "$HOME/keystores/thuocla-release.jks" \
   -alias thuocla -keyalg RSA -keysize 4096 -validity 10000
 ```
 
@@ -39,7 +39,8 @@ keytool -genkeypair -v -keystore ~/keystores/thuocla-release.jks \
 repo), đúng bốn khoá sau:
 
 ```properties
-# Thay /home/<bạn> bằng thư mục home thật; gradle properties không tự mở rộng dấu ~.
+# Thay /home/<bạn> bằng thư mục home thật (cùng chỗ với lệnh keytool ở trên);
+# gradle properties không tự mở rộng dấu ~.
 thuoclaStoreFile=/home/<bạn>/keystores/thuocla-release.jks
 thuoclaStorePassword=<mật khẩu store>
 thuoclaKeyAlias=thuocla
