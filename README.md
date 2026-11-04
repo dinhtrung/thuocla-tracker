@@ -34,6 +34,27 @@ Mở [thuocla-tracker.vercel.app](https://thuocla-tracker.vercel.app)
 - iOS: Safari → Share → **Add to Home Screen**
 - Android: Chrome → **⋮ → Install app / Add to Home Screen**
 
+## 📱 Bản Android (APK)
+
+Cài trực tiếp, không cần Google Play, **chạy 100% offline** — APK không xin quyền `INTERNET`.
+
+1. Tải APK: [**Releases → `thuocla-v1.2.0.apk`**](https://github.com/dinhtrung/thuocla-tracker/releases/latest)
+2. Mở file vừa tải trên máy, cho phép *Cài từ nguồn không xác định* khi Android hỏi
+3. Cài đè lên bản cũ được luôn — **dữ liệu còn nguyên** (cùng `applicationId`, cùng khoá ký)
+
+| | Bản web (PWA) | Bản Android (APK) |
+|---|---|---|
+| Cài đặt | Add to Home Screen | Sideload file APK |
+| Offline | Service worker | Toàn bộ UI nhúng sẵn trong APK |
+| Dữ liệu | `localStorage` của trình duyệt | Room/SQLite của app + auto-backup của Android |
+| Xuất CSV / xuất-nhập bản sao JSON | ✅ | ✅ (từ 1.2.0) |
+| Chia sẻ bản sao JSON | ❌ | Chỉ bản 1.1.0; **1.2.0 bỏ** — xem [android/README-android.md](android/README-android.md) |
+| Quyền xin cấp | — | Không có quyền mạng nào |
+
+Yêu cầu: Android 8.0+ (API 26). APK release do CI build và **ký bằng khoá của bản đang cài** khi
+push tag `android-v*`; đổi UI app thì phải sửa bản web rồi sync asset (xem
+[android/README-android.md](android/README-android.md)).
+
 ## 🛠 Dev
 
 ```bash
