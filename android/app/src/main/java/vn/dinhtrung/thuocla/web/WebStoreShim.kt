@@ -151,14 +151,28 @@ internal object WebStoreShim {
   };
 
   if (files) {
-    window.exportCSV = function () { safe(function () { files.exportCsv(); }); };
-    window.exportBackup = function () { safe(function () { files.exportBackup(); }); };
-    // The page's own picker is an <input type=file>; native opens the same SAF dialog instead, then
-    // performs the import after the user answers THAY THẾ/GỘP.
-    window.pickRestoreFile = function () { safe(function () { files.pickRestoreFile(); }); };
-    // No control in the web UI calls this (the page has no share button); exposed so the native half
-    // exists and the spec's share scenario can be exercised deliberately.
-    window.shareBackup = function () { safe(function () { files.shareBackup(); }); };
+    // `app.js` is a classic script whose functions are *declarations* (`function exportCSV() {…}`),
+    // and a top-level function declaration in a classic script overwrites the matching `window`
+    // property. Assigning here alone is therefore not enough — measured: the page's Blob handler took
+    // the name back and the native path never ran. The overrides are applied once now (for anything
+    // that reads before the page loads) and again after the page's script has run.
+    var applyFileOverrides = function () {
+      window.exportCSV = function () { safe(function () { files.exportCsv(); }); };
+      window.exportBackup = function () { safe(function () { files.exportBackup(); }); };
+      // The page's own picker is an <input type=file>; native opens the same SAF dialog instead, then
+      // performs the import after the user answers THAY THẾ/GỘP.
+      window.pickRestoreFile = function () { safe(function () { files.pickRestoreFile(); }); };
+      // No control in the web UI calls this (the page has no share button); exposed so the native half
+      // exists and the spec's share scenario can be exercised deliberately.
+      window.shareBackup = function () { safe(function () { files.shareBackup(); }); };
+    };
+
+    applyFileOverrides();
+    // `DOMContentLoaded` fires after `app.js` has been parsed and executed, so the declarations have
+    // already claimed the names by the time this runs. The listener is what makes the override stick.
+    if (window.document && window.document.addEventListener) {
+      window.document.addEventListener('DOMContentLoaded', applyFileOverrides);
+    }
   }
 })();
 """

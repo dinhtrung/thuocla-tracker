@@ -68,9 +68,19 @@ class WebShellActivity : ComponentActivity() {
             }
         }
 
-    private val createDocumentLauncher =
+    /**
+     * One launcher per content type, because `CreateDocument` fixes the MIME at registration and the
+     * dialog derives the extension from it: with `text/plain` a save of `thuocla_2026-11-04.csv`
+     * landed as `thuocla_2026-11-04.csv.txt` (measured). `text/csv` and `application/json` keep the
+     * name the page produced.
+     */
+    private val createCsvLauncher = createDocumentLauncher(CSV_MIME)
+
+    private val createJsonLauncher = createDocumentLauncher(JSON_MIME)
+
+    private fun createDocumentLauncher(mimeType: String) =
         registerForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain"),
+            androidx.activity.result.contract.ActivityResultContracts.CreateDocument(mimeType),
         ) { uri ->
             val pending = pendingExport
             pendingExport = null
@@ -187,7 +197,7 @@ class WebShellActivity : ComponentActivity() {
         pendingExport = PendingExport(text, fileName)
         runOnUiThread {
             try {
-                createDocumentLauncher.launch(fileName)
+                (if (fileName.endsWith(".csv")) createCsvLauncher else createJsonLauncher).launch(fileName)
             } catch (e: android.content.ActivityNotFoundException) {
                 pendingExport = null
                 Log.e(TAG, "no document picker available", e)
@@ -349,13 +359,21 @@ class WebShellActivity : ComponentActivity() {
         const val UNKNOWN_MIME = "application/octet-stream"
 
         /**
+         * The MIME types the exports are written as. These decide the file extension the SAF dialog
+         * offers: saving `thuocla_2026-11-04.csv` under `text/plain` produced `…csv.txt` (measured), so
+         * each export gets its real type.
+         */
+        const val CSV_MIME = "text/csv"
+        const val JSON_MIME = "application/json"
+
+        /**
          * The extensions the web app's `accept` attributes use, mapped to the MIME type the system
          * picker filters on. The page's restore input accepts `.json,application/json`
          * (`index.html:348`); S4 adds nothing to this list, because both of its pickers are opened by
          * native with a fixed type rather than from an `accept` value.
          */
         val EXTENSION_MIME = mapOf(
-            ".json" to "application/json",
+            ".json" to JSON_MIME,
         )
     }
 }
