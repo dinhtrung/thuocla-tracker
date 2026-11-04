@@ -55,8 +55,20 @@ internal object WebStoreShim {
 
   var originalSetItem = proto.setItem;
   var originalRemoveItem = proto.removeItem;
-  // What the page last told us each day holds, so one +1 does not re-send the whole history.
+
+  // What Room is currently believed to hold, per day, so a whole-map rewrite is diffed instead of
+  // re-sent, and so a day Room has that the new payload lacks can be cleared.
+  //
+  // Seeded from the same snapshot that was written above, which matters for THAY THẾ: `app.js`'s
+  // restore writes the file's days over this map, so without the starting values a Room day absent
+  // from the restored file would be unknown here and would survive the replacement.
   var forwarded = {};
+  safe(function () {
+    var initial = seed.data || {};
+    Object.keys(initial).forEach(function (day) {
+      forwarded[day] = JSON.stringify(initial[day]);
+    });
+  });
 
   function forward(key, value) {
     if (!bridge) return;
@@ -101,7 +113,16 @@ internal object WebStoreShim {
     var result = originalRemoveItem.call(this, key);
     // `clearAllData()` removes the log; `clear()` is the same intent from the shell.
     if (key === DB_KEY && bridge) {
-      try { bridge.clearRecords(); } catch (e) { console.warn('thuocla: clear failed', e); }
+      try {
+        bridge.clearRecords();
+        // The cache must go with it. `clearAllData()` removes only the key — the page's own in-memory
+        // records survive — so a cigarette re-added at a minute that was already recorded arrives as a
+        // payload identical to the one the cache holds, gets suppressed as "unchanged", and the page
+        // shows a cigarette Room does not have. Resetting makes the next write unconditional.
+        forwarded = {};
+      } catch (e) {
+        console.warn('thuocla: clear failed', e);
+      }
     }
     return result;
   };
