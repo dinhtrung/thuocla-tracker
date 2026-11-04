@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch (e) {}
+      document.documentElement.dataset.theme = t;
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', t === 'light' ? '#f2f4fa' : '#1a1a2e');
+    })();
+  </script>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Thuốc Lá Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <div>
+        <h1>🚬 Hành Trình Cai Thuốc Lá <span id="appVersion" style="font-size:11px;color:var(--text-dim);font-weight:400;">v1.5.2</span></h1>
+        <div class="header-date" id="dateDisplay"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="preset-btn" onclick="switchTab('stats')" style="padding:6px 12px;">📊</button>
+        <button class="preset-btn" onclick="switchTab('settings')" style="padding:6px 12px;">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('main')" data-tab="main">Hôm nay</div>
+      <div class="tab" onclick="switchTab('stats')" data-tab="stats">Thống kê</div>
+      <div class="tab" onclick="switchTab('insights')" data-tab="insights">📊 Insights</div>
+      <div class="tab" onclick="switchTab('settings')" data-tab="settings">Cài đặt</div>
+    </div>
+
+    <!-- ========== MAIN TAB ========== -->
+    <div id="tab-main" class="tab-content active">
+
+      <!-- Timer from last cigarette -->
+      <div class="timer-card" id="timerCard">
+        <div class="timer-left">
+          <div class="timer-icon">⏱️</div>
+          <div class="timer-info">
+            <div class="timer-label">Từ điếu cuối</div>
+            <div class="timer-value good" id="timerDisplay">--:--</div>
+            <div class="timer-target" id="timerTarget"></div>
+          </div>
+        </div>
+        <div class="timer-right" id="timerRight">
+          <div class="timer-info">
+            <div class="timer-label" id="estimateLabel">Dự kiến</div>
+            <div class="timer-value good" id="estimateTime">--:--</div>
+            <div class="timer-target" id="estimateRemain"></div>
+          </div>
+          <div class="timer-icon" id="timerRightIcon">🎯</div>
+        </div>
+      </div>
+
+      <!-- Counter -->
+      <div class="counter-card">
+        <div class="counter-label">Hôm nay đã hút</div>
+        <div class="counter-number" id="todayCount">0</div>
+        <div class="counter-goal">Mục tiêu: <span id="goalDisplay">10</span> điếu/ngày</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">0 / 10</div>
+        <!-- Cảnh báo nội tuyến (thay toast nổi che khung chọn lý do) -->
+        <div class="counter-warn" id="counterWarn"></div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="btn-row">
+        <button class="btn btn-reset" onclick="undoLast()" title="Xoá điếu cuối">⟲</button>
+        <button class="btn btn-add" onclick="addCig()">🚬</button>
+        <button class="btn-add-back" onclick="openTimePicker()" title="Thêm điếu quên note">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9.5"/>
+            <path d="M12 7v5l3.2 2"/>
+            <path d="M18.5 3.5v5M16 6h5"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Cut reminder note -->
+      <div class="cut-note" id="cutNote" style="display:none;">
+        <div class="cut-note-icon" id="cutNoteIcon">🎯</div>
+        <div class="cut-note-body">
+          <div class="cut-note-text" id="cutNoteText"></div>
+          <div class="cut-note-sub" id="cutNoteSub"></div>
+        </div>
+      </div>
+
+      <!-- Quick stats -->
+      <div class="stats-grid">
+        <div class="stat-card green" style="cursor:pointer;" onclick="openLowestDay()" title="Bấm xem chi tiết">
+          <div class="stat-number" id="lowestDayCount">-</div>
+          <div class="stat-label" id="lowestDayLabel">Ngày ít nhất</div>
+        </div>
+        <div class="stat-card green" style="cursor:pointer;" onclick="goToDay(getYesterdayKey())" title="Bấm xem chi tiết">
+          <div class="stat-number" id="yesterdayCount">-</div>
+          <div class="stat-label">Hôm qua</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-number" id="avg7">-</div>
+          <div class="stat-label">TB 7 ngày</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-number" id="thisMonth">-</div>
+          <div class="stat-label">Tháng này</div>
+        </div>
+      </div>
+
+      <!-- Comparison: Today vs Lowest day -->
+      <div class="section-title">📋 So sánh — chạm giờ hôm nay để sửa</div>
+      <div class="comparison-card" id="comparisonCard">
+        <div class="comparison-header" id="comparisonHeader">
+          <div style="flex:1;min-width:0;">
+            <span class="hdr-today">🔴 Hôm nay <span id="comparisonTodayCount">(0)</span></span>
+            <div class="hdr-avg" id="comparisonTodayAvg">—</div>
+          </div>
+          <div style="flex:1;min-width:0;text-align:center;padding:0 4px;">
+            <span class="hdr-lowest">🟢 Ngày ít nhất <span id="comparisonLowestCount">(-)</span></span>
+            <div class="hdr-avg" id="comparisonLowestAvg">—</div>
+          </div>
+          <div style="flex:1;min-width:0;text-align:right;">
+            <span class="hdr-average">🟡 Trung bình <span id="comparisonAvgCount">(-)</span></span>
+            <div class="hdr-avg" id="comparisonAvgSub">—</div>
+          </div>
+        </div>
+        <div id="comparisonRows">
+          <div class="empty-state">Chưa có dữ liệu</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== STATS TAB ========== -->
+    <div id="tab-stats" class="tab-content">
+      <div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;">
+        <button class="preset-btn" onclick="shiftChart(1)" style="padding:4px 10px;font-size:16px;">‹</button>
+        <div style="flex:1;font-size:15px;font-weight:700;text-align:center;">
+          📊 <span id="chartDateRange">7 ngày qua</span>
+        </div>
+        <button class="preset-btn" onclick="shiftChart(-1)" style="padding:4px 10px;font-size:16px;">›</button>
+      </div>
+      <div class="chart-container">
+        <svg id="chartSvg" class="chart-svg" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+
+      <!-- Chart summary stats -->
+      <div class="stats-grid" style="margin-top:-8px;">
+        <div class="stat-card green">
+          <div class="stat-number" id="chartTodayGap" style="font-size:20px;">—</div>
+          <div class="stat-label">TB hôm nay</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-number" id="chartWeekGap" style="font-size:20px;">—</div>
+          <div class="stat-label">TB 7 ngày qua</div>
+        </div>
+      </div>
+
+      <!-- Day detail panel -->
+      <div class="day-detail" id="dayDetail">
+        <div class="day-detail-header">
+          <h4 id="dayDetailTitle">📋 </h4>
+          <button class="day-detail-close" onclick="closeDayDetail()">✕</button>
+        </div>
+        <div id="dayDetailContent"></div>
+        <div id="dayDetailActions" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+          <button class="btn-add-back" id="dayDetailTimeBtn" style="flex:none;width:100%;" title="Thêm điếu với giờ cụ thể">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5"/>
+              <path d="M12 7v5l3.2 2"/>
+              <path d="M18.5 3.5v5M16 6h5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:18px;">🌆 Cuối tuần vs Ngày thường <span>30 ngày qua</span></div>
+      <div class="stats-grid" id="weekendCompare">
+        <div class="stat-card accent"><div class="stat-number" id="weWeekendAvg">-</div><div class="stat-label">TB cuối tuần</div></div>
+        <div class="stat-card green"><div class="stat-number" id="weWeekdayAvg">-</div><div class="stat-label">TB ngày thường</div></div>
+        <div class="stat-card yellow"><div class="stat-number" id="weGap">-</div><div class="stat-label">Gap cuối tuần</div></div>
+        <div class="stat-card orange"><div class="stat-number" id="weChain">-</div><div class="stat-label">Hút theo ≤40ph</div></div>
+      </div>
+
+      <div class="section-title">🔥 Giờ nóng cuối tuần <span>nơi dễ lan man nhất</span></div>
+      <div class="chart-container" style="padding:8px 4px;">
+        <svg id="weekendHotSvg" class="chart-svg" viewBox="0 0 640 200" preserveAspectRatio="xMidYMid meet" style="height:200px;"></svg>
+      </div>
+
+      <div class="section-title">📋 Thuật toán lịch cuối tuần <span>tự đề xuất từ dữ liệu của bạn</span></div>
+      <div id="weekendPlan"></div>
+
+      <div class="section-title">🎯 Trạng thái hôm nay</div>
+      <div id="weekendToday" class="card" style="background:var(--card);border-radius:14px;padding:14px;"></div>
+    </div>
+
+    <!-- ========== INSIGHTS TAB ========== -->
+    <div id="tab-insights" class="tab-content">
+      <div class="section-title">🔥 Chain-Smoke & Cảnh báo</div>
+      <div class="stats-grid" id="chainAlertStats">
+        <div class="stat-card accent"><div class="stat-number" id="chainToday">0</div><div class="stat-label">Chain hôm nay</div></div>
+        <div class="stat-card yellow"><div class="stat-number" id="chainWeek">0</div><div class="stat-label">Chain tuần này</div></div>
+        <div class="stat-card orange"><div class="stat-number" id="chainBest">-</div><div class="stat-label">Chuỗi ngày không chain</div></div>
+        <div class="stat-card green"><div class="stat-number" id="chainStreak">0</div><div class="stat-label">Ngày liên tiếp tốt 🔥</div></div>
+      </div>
+
+      <div class="section-title">🧮 2 chuẩn khen/cảnh báo <span>debug note chính</span></div>
+      <div style="background:var(--surface);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.8;color:var(--text-dim);">
+        <div>① Chuẩn thói quen (30 ngày, hôm qua về trước): giờ này TB <b id="dbgHabitCount" style="color:var(--green)">-</b> điếu</div>
+        <div>② Nhịp mục tiêu (biên độ ÷ goal): tới giờ này nên ≤ <b id="dbgTargetCount" style="color:var(--accent)">-</b> điếu · giãn <b id="dbgMinsPerCig">-</b> ph/điếu</div>
+        <div>Điếu đầu TB <b id="dbgFirst">-</b> · điếu cuối TB <b id="dbgLast">-</b> · biên độ <b id="dbgSpan">-</b></div>
+        <div>Hôm nay: <b id="dbgToday" style="color:var(--text)">-</b>/<b id="dbgGoal">-</b> điếu → <b id="dbgVerdict">-</b></div>
+      </div>
+
+      <div class="section-title">✂️ Cửa sổ cắt <span>điếu hút theo ≤40ph, 30 ngày qua</span></div>
+      <div class="chart-container" style="padding:8px 4px;">
+        <svg id="cutWindowSvg" class="chart-svg" viewBox="0 0 640 200" preserveAspectRatio="xMidYMid meet" style="height:200px;"></svg>
+      </div>
+      <div class="stats-grid" style="margin-top:-8px;">
+        <div class="stat-card accent"><div class="stat-number" id="cutAvgDay">-</div><div class="stat-label">Cắt được TB/ngày</div></div>
+        <div class="stat-card orange"><div class="stat-number" id="cutDouble">-</div><div class="stat-label">Điếu kép ≤20ph</div></div>
+        <div class="stat-card yellow"><div class="stat-number" id="cutHotHour">-</div><div class="stat-label">Vùng nóng</div></div>
+        <div class="stat-card green"><div class="stat-number" id="cutMoney">-</div><div class="stat-label">Tiết kiệm nếu cắt /tháng</div></div>
+      </div>
+
+      <div class="section-title">⏱ So sánh tuần <span id="weekCompareLabel"></span></div>
+      <div class="stats-grid" id="weekCompareGrid">
+        <div class="stat-card green"><div class="stat-number" id="wcThisWeek">-</div><div class="stat-label">Tuần này</div></div>
+        <div class="stat-card accent"><div class="stat-number" id="wcLastWeek">-</div><div class="stat-label">Tuần trước</div></div>
+        <div class="stat-card" id="wcDiffCard"><div class="stat-number" id="wcDiff">-</div><div class="stat-label">Chênh lệch</div></div>
+        <div class="stat-card" id="wcGapCard"><div class="stat-number" id="wcGap">-</div><div class="stat-label">TB gap (ph)</div></div>
+      </div>
+
+      <div class="section-title">🌙 Phân tích giấc ngủ</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-number" id="sleepFirst">-</div><div class="stat-label">Điếu đầu TB</div></div>
+        <div class="stat-card"><div class="stat-number" id="sleepLast">-</div><div class="stat-label">Điếu cuối TB</div></div>
+        <div class="stat-card green"><div class="stat-number" id="sleepSpan">-</div><div class="stat-label">Khung giờ hút</div></div>
+        <div class="stat-card orange"><div class="stat-number" id="sleepEarliest">-</div><div class="stat-label">Sớm nhất</div></div>
+      </div>
+
+      <div class="section-title">🏆 Thành tích & Challenge</div>
+      <div id="challengeContainer">
+        <div class="empty-state">Đang tính toán...</div>
+      </div>
+
+      <div class="section-title">☕ Trigger gần đây</div>
+      <div id="triggerStats" class="stats-grid"></div>
+    </div>
+
+    <!-- ========== SETTINGS TAB ========== -->
+    <div id="tab-settings" class="tab-content">
+      <div class="settings-card">
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>🌓 Giao diện</label>
+            <span class="setting-desc" id="themeDesc">Đang dùng theme tối</span>
+          </div>
+          <button class="btn-add-back" id="themeToggle" onclick="setTheme(getTheme()==='light'?'dark':'light')" style="flex:0 0 46px;height:46px;padding:0;border-radius:14px;" title="Chuyển sang theme sáng">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          </button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>🎯 Mục tiêu mỗi ngày</label>
+          </div>
+          <input type="number" id="dailyGoalInput" min="1" max="99" value="10">
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>⏱️ Khoảng cách tối thiểu giữa 2 điếu</label>
+            <span class="setting-desc">Cảnh báo nếu hút gần nhau quá</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" id="intervalGoalInput" min="0" max="999" value="60" style="width:60px;">
+            <span style="font-size:12px;color:var(--text-dim);">phút</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>💰 Giá mỗi bao (VND)</label>
+          </div>
+          <input type="number" id="pricePerPack" min="0" step="5000" value="25000">
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <label>📦 Số điếu / bao</label>
+          </div>
+          <input type="number" id="cigsPerPack" min="1" max="40" value="20">
+        </div>
+        <button class="btn-save" onclick="saveSettings()">💾 Lưu cài đặt</button>
+      </div>
+
+      <div class="section-title">💸 Tính nhanh</div>
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-number" id="moneyToday">0₫</div>
+          <div class="stat-label">Hôm nay</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-number" id="moneyWeek">0₫</div>
+          <div class="stat-label">Tuần này</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-number" id="moneyMonth">0₫</div>
+          <div class="stat-label">Tháng này</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-number" id="moneySaved">0₫</div>
+          <div class="stat-label">Tiết kiệm so với mục tiêu</div>
+        </div>
+      </div>
+
+      <!-- Export CSV -->
+      <div class="settings-card" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:14px;font-weight:600;">📤 Xuất CSV</div>
+            <div style="font-size:12px;color:var(--text-dim);">Tải toàn bộ lịch sử làm báo cáo</div>
+          </div>
+          <button class="btn-save" style="width:auto;padding:8px 16px;background:var(--green);" onclick="exportCSV()">📥 Tải CSV</button>
+        </div>
+      </div>
+
+      <div class="settings-card" style="margin-top:12px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">💾 Sao lưu / Phục hồi</div>
+          <div style="font-size:12px;color:var(--text-dim);">File JSON giữ cả lý do + cài đặt — dùng khi đổi máy hoặc lỡ xoá cache</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn-add-back" style="flex:1;" onclick="exportBackup()">💾 Sao lưu</button>
+          <button class="btn-add-back" style="flex:1;" onclick="pickRestoreFile()">♻️ Phục hồi</button>
+        </div>
+        <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restoreFromFile(event)">
+      </div>
+
+      <div class="settings-card" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:14px;font-weight:600;">🗑️ Xoá dữ liệu</div>
+            <div style="font-size:12px;color:var(--text-dim);">Xoá toàn bộ lịch sử</div>
+          </div>
+          <button class="btn-save" style="width:auto;padding:8px 16px;background:var(--accent);" onclick="clearAllData()">Xoá</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL ========== -->
+  <div class="modal-overlay" id="timePickerModal">
+    <div class="modal">
+      <h3 id="modalTitle">⏰ Sửa giờ</h3>
+      <div class="modal-desc" id="modalDesc">Chọn giờ cho điếu này</div>
+      <div class="time-input-row">
+        <select id="modalHour">
+          <option value="0">00</option><option value="1">01</option><option value="2">02</option>
+          <option value="3">03</option><option value="4">04</option><option value="5">05</option>
+          <option value="6">06</option><option value="7">07</option><option value="8">08</option>
+          <option value="9">09</option><option value="10">10</option><option value="11">11</option>
+          <option value="12">12</option><option value="13">13</option><option value="14">14</option>
+          <option value="15">15</option><option value="16">16</option><option value="17">17</option>
+          <option value="18">18</option><option value="19">19</option><option value="20">20</option>
+          <option value="21">21</option><option value="22">22</option><option value="23">23</option>
+        </select>
+        <span class="time-sep">:</span>
+        <select id="modalMinute">
+          <option value="0">00</option><option value="5">05</option><option value="10">10</option>
+          <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+          <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+          <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+        </select>
+      </div>
+      <div class="modal-trigger-row">
+        <div class="modal-trigger-label">💡 Lý do hút <span id="modalTriggerName" style="color:var(--accent);font-weight:700;"></span></div>
+        <div class="modal-trigger-grid" id="modalTriggerGrid"></div>
+      </div>
+      <div class="modal-btn-row">
+        <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Huỷ</button>
+        <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn" onclick="confirmModal()">Xác nhận</button>
+      </div>
+      <div style="margin-top:10px;text-align:center;" id="modalDeleteRow">
+        <button class="modal-btn modal-btn-danger" style="width:100%;" onclick="deleteModalItem()">🗑️ Xoá điếu này</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
