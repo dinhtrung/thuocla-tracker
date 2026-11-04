@@ -30,15 +30,25 @@
         android:label="Thuốc lá"
         android:supportsRtl="false"
         android:theme="@style/Theme.Thuocla">
+        <!--
+            Launcher: the web UI served from assets/web/ (issue #37). The Compose activity below keeps
+            all of its code and stays reachable by explicit intent while the shell is being accepted;
+            it just no longer owns MAIN/LAUNCHER, so there is exactly one entry point.
+        -->
         <activity
-            android:name=".MainActivity"
+            android:name=".web.WebShellActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:theme="@style/Theme.Thuocla">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Thuocla" />
         <!--
             Share-out path (issue #34): the JSON backup copy lives in cacheDir/backups/ and leaves the
             app only through this provider — content:// + a temporary read grant. Not exported, so no
