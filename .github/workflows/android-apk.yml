@@ -57,6 +57,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Robolectric downloads `android-all-instrumented` jars (~350 MB) from Maven Central at test
+      # time, through its own HTTP client — not through Gradle, so setup-gradle's cache does not
+      # cover it and `--offline` does not stop it. When that fetch fails the run reports 100+
+      # test failures with `MavenArtifactFetcher`/`HttpURLConnection` and no test body ran (issue
+      # #58: 102/164 on PR #56, 162 on main 86fad58). Caching the directory removes the steady-state
+      # download; the key carries the Robolectric version so a bump invalidates it automatically.
+      - name: Cache Robolectric android-all jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-android-all-${{ runner.os }}-${{ hashFiles('android/gradle/libs.versions.toml') }}
+          restore-keys: |
+            robolectric-android-all-${{ runner.os }}-
+
       # Runs for BOTH paths (debug and release/tag): a drifted asset copy must red the job.
       # The job defaults to working-directory: android, but the script lives at the repo root,
       # so this step overrides it back to '.'.
@@ -67,7 +81,17 @@ jobs:
       # ---- debug path: every PR / push / manual dispatch -------------------------------
       - name: Unit tests + debug build
         if: github.ref_type != 'tag'
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: |
+          set +e
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+          status=$?
+          # Both resolvers mean the same thing: the android-all jar was not available. MavenArtifactFetcher
+          # is the download path CI hits; LocalDependencyResolver is the same failure when a dependency
+          # dir is configured. Either way no test body ran (issue #58).
+          if [ "$status" -ne 0 ] && grep -rqsE 'MavenArtifactFetcher|LocalDependencyResolver|Could not (resolve|fetch) android-all' app/build/test-results/testDebugUnitTest/; then
+            echo "::error::Robolectric could not download its android-all jars — this is an infrastructure failure, NOT a test failure. Every failing test above failed before its body ran. Fix: re-run the job; the ~/.m2/repository/org/robolectric cache makes it a no-op once warm. See issue #58."
+          fi
+          exit "$status"
 
       - name: Verify debug APK (must not request INTERNET)
         if: github.ref_type != 'tag'
@@ -117,7 +141,17 @@ jobs:
       - name: Unit tests + signed release build
         if: github.ref_type == 'tag' || inputs.variant == 'release'
         run: |
+          set +e
           ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+          status=$?
+          # Both resolvers mean the same thing: the android-all jar was not available. MavenArtifactFetcher
+          # is the download path CI hits; LocalDependencyResolver is the same failure when a dependency
+          # dir is configured. Either way no test body ran (issue #58).
+          if [ "$status" -ne 0 ] && grep -rqsE 'MavenArtifactFetcher|LocalDependencyResolver|Could not (resolve|fetch) android-all' app/build/test-results/testDebugUnitTest/; then
+            echo "::error::Robolectric could not download its android-all jars — infrastructure failure, NOT a test failure. Re-run the job; see issue #58."
+            exit "$status"
+          fi
+          [ "$status" -eq 0 ] || exit "$status"
           AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
           APK=app/build/outputs/apk/release/app-release.apk
           if [ ! -f "$APK" ]; then
