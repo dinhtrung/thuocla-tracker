@@ -7,8 +7,8 @@
 
 ## 1. Manifest + luật sao lưu (deliverable: bản sao lưu tự động của OS)
 
-- [x] 1.1 Thêm `android/app/src/main/res/xml/backup_rules.xml` (dùng cho `android:fullBackupContent`, API 26–30): `<full-backup-content>` với `<include domain="database" path="."/>`, `<include domain="file" path="."/>`, `<exclude domain="cache" path="."/>`, `<exclude domain="no_backup" path="."/>`.
-- [x] 1.2 Thêm `android/app/src/main/res/xml/data_extraction_rules.xml` (API 31+) với **hai** nhánh `cloud-backup` và `device-transfer`, mỗi nhánh include `database` + `file` và exclude `cache` + `no_backup`.
+- [x] 1.1 Thêm `android/app/src/main/res/xml/backup_rules.xml` (API 26–30): `<full-backup-content>` với `<include domain="database" path="."/>`, `<include domain="file" path="."/>`. **Đã sửa so với bản giao việc:** không có `<exclude>` — `cache`/`no_backup` không phải domain hợp lệ và làm `lintVitalRelease` fail (reviewer REJECT `8a8b3255` → fix `26425b7`).
+- [x] 1.2 Thêm `android/app/src/main/res/xml/data_extraction_rules.xml` (API 31+) với **hai** nhánh `cloud-backup` và `device-transfer`, mỗi nhánh include `database` + `file`; không `<exclude>` (cùng lý do 1.1).
 - [x] 1.3 Sửa `android/app/src/main/AndroidManifest.xml`: `android:allowBackup="true"`, `android:fullBackupContent="@xml/backup_rules"`, `android:dataExtractionRules="@xml/data_extraction_rules"`. Không thêm `uses-permission` nào.
 - [x] 1.4 Bằng chứng tĩnh: `aapt2 dump xmltree app/build/outputs/apk/debug/app-debug.apk --file AndroidManifest.xml | grep -iE "allowBackup|fullBackupContent|dataExtractionRules"` in ra `allowBackup=true` (và hai thuộc tính trỏ đúng file xml); `aapt2 dump permissions` không có INTERNET. Dán cả hai output vào PR.
 
@@ -19,7 +19,7 @@
 - [x] 2.3 `adb shell bmgr backupnow vn.dinhtrung.thuocla` → output phải chứa `Package vn.dinhtrung.thuocla with result: Success`. Dán nguyên dòng output.
 - [x] 2.4 `adb shell pm clear vn.dinhtrung.thuocla`, mở app → phải trống (0 điếu, mục tiêu về default). Đây là bước chứng minh dữ liệu đã thực sự rời app.
 - [x] 2.5 `adb shell bmgr restore <token-của-dataset>` (token lấy từ `adb shell dumpsys backup | grep -i "Current:"` hoặc `bmgr list sets`), mở app → đúng 3 điếu và mục tiêu 8. Ghi cặp số "trước/sau" vào PR.
-- [ ] 2.6 Nếu bước 2.1 hoặc 2.5 không chạy được trên AVD này: **dừng, không tự đánh dấu xong**, dán output lỗi + ảnh `bmgr list transports` vào PR body và ghi rõ phần nào chưa chứng minh được.
+- [x] 2.6 **Không áp dụng** — transport local chạy được, 2.1 và 2.5 đều đạt. (Điều kiện dừng: nếu bước 2.1 hoặc 2.5 không chạy được trên AVD này: **dừng, không tự đánh dấu xong**, dán output lỗi + ảnh `bmgr list transports` vào PR body và ghi rõ phần nào chưa chứng minh được.
 
 ## 3. Chia sẻ bản sao JSON (deliverable: gửi bản sao sang Drive/Zalo/Telegram)
 
@@ -34,6 +34,6 @@
 ## 4. Docs (ghế A) + phát hành (orchestrator)
 
 - [x] 4.1 [A] `android/README-android.md`: thêm mục **Sao lưu** nêu đủ ba đường (tự động của OS, Chia sẻ file, Xuất file qua SAF) + giới hạn thật: bản sao tự động chỉ về khi **cài mới/đổi máy** và máy có bật sao lưu; "Xoá dữ liệu" trên cùng máy thì chỉ `bmgr restore` mới cứu được; chia sẻ dùng chung cache nên không dùng làm kho lưu. Chỉ **một** ghế sửa file này (ghế A); ghế B không đụng README.
-- [ ] 4.2 [mỗi ghế] Tick đúng các mục mình làm trong `openspec/changes/android-backup-and-share/tasks.md`, không tick mục của ghế kia, và ghi `openspec validate --changes android-backup-and-share --strict` xanh vào PR body.
+- [x] 4.2 [mỗi ghế] Tick đúng các mục mình làm trong `openspec/changes/android-backup-and-share/tasks.md`, không tick mục của ghế kia, và ghi `openspec validate --changes android-backup-and-share --strict` xanh vào PR body.
 - [ ] 4.3 [orchestrator, SAU khi cả hai PR merge] `android/app/build.gradle.kts`: `versionName = "1.1.0"`, `versionCode = 2` — cố ý để sau cùng, vì hai nhánh cùng sửa một dòng này là conflict chắc chắn.
 - [ ] 4.4 [orchestrator, sau 4.3] tag `android-v1.1.0` → CI ký bằng keystore hiện có và đính `thuocla-v1.1.0.apk` vào GitHub Release; cài đè lên bản 1.0.0 trên máy Trung, dữ liệu phải còn nguyên.

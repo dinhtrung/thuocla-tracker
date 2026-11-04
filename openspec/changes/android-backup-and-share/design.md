@@ -22,7 +22,7 @@ Hệ quả phải chấp nhận: bản sao nằm trong hạ tầng của Google,
 
 ### D2. Cần CẢ `fullBackupContent` và `dataExtractionRules`
 
-`minSdk 26` mà `dataExtractionRules` chỉ được đọc từ API 31. Thiếu `fullBackupContent` là API 26–30 rơi về luật mặc định (sa lưu mọi thứ, kể cả cache). Thiếu `dataExtractionRules` là API 31+ cũng rơi về mặc định. Nên có cả hai, nội dung đồng bộ: include `database` + `file`, exclude `cache` + `no_backup`, và `device-transfer` cũng include `database` (chuyển máy bằng cáp không được mất dữ liệu).
+`minSdk 26` mà `dataExtractionRules` chỉ được đọc từ API 31. Thiếu `fullBackupContent` là API 26–30 rơi về luật mặc định (sa lưu mọi thứ, kể cả cache). Thiếu `dataExtractionRules` là API 31+ cũng rơi về mặc định. Nên có cả hai, nội dung đồng bộ: include `database` + `file`, và `device-transfer` cũng include `database` (chuyển máy bằng cáp không được mất dữ liệu). **Không có `<exclude>`:** `cache` và `no_backup` không nằm trong danh sách domain hợp lệ (`file`, `database`, `sharedpref`, `external`, `root`, `device_*`), nên khai báo chúng làm `:app:lintVitalRelease` fail và release build đỏ — bản đầu của task 1.1/1.2 mắc đúng lỗi này và bị reviewer REJECT ở head `8a8b3255`. Nền tảng vốn đã tự loại `getCacheDir()`/`getNoBackupFilesDir()` khỏi backup, nên exclude vừa sai vừa thừa.
 
 ### D3. Chia sẻ qua `FileProvider` + cache riêng, không ghi ra thư mục công khai
 

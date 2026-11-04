@@ -8,12 +8,17 @@ Dữ liệu nhiều tháng của người dùng phải sống sót qua các sự
 
 ### Requirement: Bản sao lưu tự động của hệ điều hành
 
-App SHALL tham gia cơ chế sao lưu của hệ điều hành: manifest SHALL khai báo `android:allowBackup="true"`, `android:fullBackupContent` (áp cho API 26–30) và `android:dataExtractionRules` (áp cho API 31 trở lên). Hai file luật SHALL **include** domain `database` (toàn bộ Room DB: bản ghi điếu và cấu hình) và domain `file`, đồng thời **exclude** `cache` và `no_backup` khỏi cả `cloud-backup` lẫn `device-transfer`.
+App SHALL tham gia cơ chế sao lưu của hệ điều hành: manifest SHALL khai báo `android:allowBackup="true"`, `android:fullBackupContent` (API 26–30) và `android:dataExtractionRules` (API 31 trở lên). Hai file luật SHALL **include** domain `database` (toàn bộ Room DB: bản ghi điếu và cấu hình) và domain `file`. Hai file SHALL NOT khai báo `<exclude>` cho `cache`/`no_backup`: đó không phải domain hợp lệ, và nền tảng đã tự loại hai thư mục đó khỏi bản sao lưu.
 
 #### Scenario: Cài lại app và dữ liệu về lại
 
 - **WHEN** máy đã có bản sao lưu của app, người dùng gỡ app rồi cài lại (cùng tài khoản Google, hoặc chuyển máy trực tiếp bằng cáp)
 - **THEN** app mở ra với đúng số ngày và số điếu đã có trong bản sao lưu, và bốn giá trị cấu hình (mục tiêu ngày, khoảng cách, giá bao, điếu/bao) cũng về đúng
+
+#### Scenario: Domain không hợp lệ làm đỏ release build
+
+- **WHEN** file luật sao lưu khai báo `<exclude domain="cache">` hoặc `<exclude domain="no_backup">`
+- **THEN** `:app:lintVitalRelease` fail và `:app:assembleRelease` đỏ, nên bản phát hành không ra được — đây là lý do hai file luật chỉ include, không exclude
 
 #### Scenario: Bản sao lưu chứa dữ liệu mới nhất
 
