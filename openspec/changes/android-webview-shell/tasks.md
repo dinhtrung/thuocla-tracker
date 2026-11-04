@@ -38,8 +38,8 @@
 
 ## 5. Nghiệm thu offline + dọn Compose (task S5, có cổng)
 
-- [ ] 5.1 Bằng chứng offline (bắt buộc): bật máy bay **trước** khi cài → cài APK → mở app (đủ tab, 0 điếu) → +1 → `am force-stop` → mở lại (còn 1 điếu); dán output `adb shell settings get global airplane_mode_on`, `logcat -d | grep -c "appassets"`, và xác nhận không có request mạng nào.
-- [ ] 5.2 Đo cold start (3 lần) và RAM: ghi số thật vào PR, so với bản Compose nếu còn cài được.
-- [ ] 5.3 `android/README-android.md`: giải thích kiến trúc shell (asset trong APK, Room là nguồn sự thật, bridge file), cách chạy `verify-web-assets.sh` sau khi sửa web, và ràng buộc "không sửa tay file trong assets/".
+- [x] 5.1 Bằng chứng offline (bắt buộc): bật máy bay **trước** khi cài → cài APK → mở app (đủ tab, 0 điếu) → +1 → `am force-stop` → mở lại (còn 1 điếu); dán output `adb shell settings get global airplane_mode_on`, `logcat -d | grep -c "appassets"`, và xác nhận không có request mạng nào. **Đạt trên emulator-5554 (API 35), APK head `feature/40-s5-acceptance`: airplane_mode_on=1, network=none; 0→+1→force-stop→mở lại = 1 điếu (Room + UI). `appassets` = 0 dòng log.**
+- [x] 5.2 Đo cold start (3 lần) và RAM: ghi số thật vào PR, so với bản Compose nếu còn cài được. **Shell 597/619/622 ms, ~100 MB PSS; Compose `MainActivity` 887/907/913 ms, ~72 MB PSS — cùng APK, cùng máy.**
+- [x] 5.3 `android/README-android.md`: giải thích kiến trúc shell (asset trong APK, Room là nguồn sự thật, bridge file), cách chạy `verify-web-assets.sh` sau khi sửa web, và ràng buộc "không sửa tay file trong assets/". **Thêm mục "Kiến trúc shell (từ 1.2.0)".**
 - [ ] 5.4 **Chỉ sau khi Trung xác nhận trên máy thật**: xoá Compose UI (`TodayScreen`, `StatsScreen`, `SettingsScreen`, `DataScreen`) và các ViewModel UI tương ứng; giữ `data/`, `domain/` và `Theme`/`Color` nếu còn dùng. Xoá xong build vẫn xanh và test không mất coverage của logic đã có.
 - [ ] 5.5 [orchestrator] Bump `versionName "1.2.0"`, `versionCode 3` sau khi mọi PR merge; tag `android-v1.2.0` → CI ký + đính APK; cài đè lên bản 1.1.0, dữ liệu phải còn nguyên.

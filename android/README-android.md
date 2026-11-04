@@ -89,6 +89,44 @@ Khôi phục dữ liệu từ PWA:
 Xuất ngược lại cũng ở tab **Dữ liệu**: **Xuất bản sao JSON** (đúng định dạng PWA) hoặc
 **Xuất CSV (6 cột)**. Cả hai dùng Storage Access Framework, app không xin quyền bộ nhớ.
 
+## Kiến trúc shell (từ 1.2.0)
+
+Ứng dụng này **không vẽ lại giao diện**. Nó chạy chính bộ file của bản web bên trong một `WebView`,
+nên giao diện khớp bản web theo cấu trúc chứ không phải theo lời hứa. Phần native chỉ giữ vòng đời và
+dữ liệu.
+
+- **Asset nằm trong APK.** `android/app/src/main/assets/web/` chứa bản sao **byte-identical** của
+  `index.html`, `app.js`, `styles.css`, `manifest.json`, `icon-192.png`, `icon-512.png` ở repo root.
+  `WebViewAssetLoader` phục vụ chúng dưới origin `https://appassets.androidplatform.net/`, nên
+  `localStorage` và service worker hành xử như trên web thật mà **không cần mạng**: app không khai báo
+  `android.permission.INTERNET`, và mọi điều hướng ra host khác bị chặn trong `shouldOverrideUrlLoading`.
+- **Room là nguồn sự thật.** Shim JS (`WebStoreShim`) chạy **trước** `app.js` (qua
+  `WebViewCompat.addDocumentStartJavaScript`) và đổ dữ liệu Room vào `localStorage`; mọi thay đổi của
+  web ghi ngược lại Room qua bridge allow-list (`WebAppBridge`, `WebFileBridge`). Vì vậy xoá storage
+  của WebView **không** mất dữ liệu — lần mở sau Room lại đổ vào.
+- **File đi qua native.** WebView không tự tải Blob và không mở được SAF, nên `exportCSV`,
+  `exportBackup`, `pickRestoreFile` (và `shareBackup`) được shim chuyển sang native: SAF
+  `CreateDocument`/`OpenDocument` và chooser `ACTION_SEND` qua `FileProvider`. Định dạng file và luật
+  THAY THẾ/GỘP vẫn là của `DataPortability`, không có định dạng thứ hai.
+
+### Sửa bản web thì sửa ở đâu
+
+Nguồn duy nhất là các file ở **repo root**. **Không sửa tay** file trong `assets/web/` — chúng được
+sinh ra và CI sẽ đỏ nếu lệch:
+
+```bash
+# từ repo root, sau khi sửa index.html/app.js/styles.css/...
+bash scripts/verify-web-assets.sh --copy   # đồng bộ root -> assets/web/
+bash scripts/verify-web-assets.sh          # kiểm lại: phải PASS 6/6
+```
+
+Script so `sha256sum` từng cặp và exit 1 khi thiếu file hoặc lệch, in tên cặp lệch. Job APK chạy nó
+**trước** bước build, cho cả nhánh debug và release.
+
+Trong lúc chuyển tiếp, màn Compose cũ (`MainActivity`) vẫn nằm trong APK nhưng **không còn là
+launcher**; nó chỉ mở được bằng intent tường minh (`adb shell am start -n
+vn.dinhtrung.thuocla/.MainActivity`) để so sánh.
+
 ## Sao lưu
 
 App có **ba** đường sao lưu, không đường nào thay thế đường nào:
