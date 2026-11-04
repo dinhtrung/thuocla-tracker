@@ -1,19 +1,15 @@
 package vn.dinhtrung.thuocla.web
 
 import android.content.ActivityNotFoundException
-import android.content.ClipData
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import android.webkit.JavascriptInterface
-import androidx.core.content.FileProvider
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
-import vn.dinhtrung.thuocla.data.BackupSharer
 import vn.dinhtrung.thuocla.data.DataPortability
 
 /**
@@ -34,11 +30,9 @@ import vn.dinhtrung.thuocla.data.DataPortability
  */
 class WebFileBridge(
     private val portability: DataPortability,
-    private val sharer: BackupSharer,
     /** Called on the bridge thread when native needs to open a picker; runs on the UI thread. */
     private val openCreateDocument: (fileName: String, mimeType: String) -> Unit,
     private val openOpenDocument: () -> Unit,
-    private val openShare: (BackupSharer.ShareCopy) -> Boolean,
     /** The WebView, told that a file action finished. Set by the activity once it is created. */
     private val notifyPage: (json: String) -> Unit,
     /**
@@ -73,9 +67,9 @@ class WebFileBridge(
     @JavascriptInterface
     fun exportBackup(): Boolean {
         val text = await { portability.exportJson() }
-        // The page's own wording for this export is "để sao lưu", not "để xuất" — the two buttons
+        // The page's own wording for this export is "để sao lưu", not "để xuất" — the two exports
         // share a code path here but must not share a message.
-        openCreateDocumentFor(text, portability.jsonFileName(), NOTHING_TO_SHARE)
+        openCreateDocumentFor(text, portability.jsonFileName(), NOTHING_TO_BACKUP)
         return text != null
     }
 
@@ -87,28 +81,6 @@ class WebFileBridge(
         Log.e(TAG, "no file picker available", e)
         notifyPage(result(ok = false, message = NO_PICKER))
         false
-    }
-
-    /**
-     * `Chia sẻ bản sao` — writes the cache copy and hands it to the chooser.
-     *
-     * The write is blocking IO, so it happens on the bridge thread; the chooser is opened through the
-     * activity, which owns the UI thread and the share-guard that decides whether anything can receive.
-     */
-    @JavascriptInterface
-    fun shareBackup(): Boolean {
-        val copy = await { sharer.writeShareCopy() } ?: run {
-            notifyPage(result(ok = false, message = NOTHING_TO_SHARE))
-            return false
-        }
-        val started = openShare(copy)
-        notifyPage(
-            result(
-                ok = started,
-                message = if (started) null else NO_RECEIVER,
-            ),
-        )
-        return started
     }
 
     /**
@@ -190,31 +162,11 @@ class WebFileBridge(
         private const val TIMEOUT_SECONDS = 30L
 
         const val NOTHING_TO_EXPORT = "Chưa có dữ liệu để xuất!"
-        const val NOTHING_TO_SHARE = "Chưa có dữ liệu để sao lưu!"
-        const val NO_RECEIVER = "Không có ứng dụng nào nhận được bản sao JSON"
+
+        /** The page's wording for a backup export with nothing to write. */
+        const val NOTHING_TO_BACKUP = "Chưa có dữ liệu để sao lưu!"
         const val READ_FAILED = "Không đọc được file"
         const val NO_PICKER = "Không mở được hộp thoại chọn file"
-
-        /** A receiver that opens the SAF dialogs and the share chooser for [intent]-style actions. */
-        fun shareIntent(context: Context, copy: BackupSharer.ShareCopy): Intent {
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", copy.file)
-            return Intent(Intent.ACTION_SEND).apply {
-                type = "application/json"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_TITLE, copy.fileName)
-                // Some receivers read the name from the clip label rather than EXTRA_TITLE.
-                clipData = ClipData.newUri(context.contentResolver, copy.fileName, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-        }
-
-        /** True when something can receive the backup; false means the caller must not claim a share. */
-        fun canShare(context: Context, copy: BackupSharer.ShareCopy): Boolean = try {
-            shareIntent(context, copy).resolveActivity(context.packageManager) != null
-        } catch (e: ActivityNotFoundException) {
-            Log.e(TAG, "no receiver for the backup", e)
-            false
-        }
 
         /** The file name the page's export would use, so the SAF dialog pre-fills the same one. */
         fun fileNameFor(kind: Kind, portability: DataPortability): String = when (kind) {
@@ -223,8 +175,5 @@ class WebFileBridge(
         }
 
         enum class Kind { CSV, JSON }
-
-        /** Exposed for the activity so both threads agree on the directory. */
-        fun shareDirectory(context: Context): File = File(context.cacheDir, BackupSharer.DIRECTORY_NAME)
     }
 }

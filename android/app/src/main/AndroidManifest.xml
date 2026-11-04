@@ -2,21 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-        Package visibility (API 30+): without this declaration PackageManager filters ACTION_SEND queries,
-        so MainActivity's `send.resolveActivity(...)` guard would see null even when a receiver exists —
-        and would then refuse to share and show "no app accepts JSON". Declaring the intent we query keeps
-        that guard honest. It grants no permission and enables no network; it only makes already-installed
-        receivers visible to the query. The startActivity call is additionally guarded by a try/catch, so a
-        race or a still-filtered result degrades to the same message instead of crashing.
-    -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.SEND" />
-            <data android:mimeType="application/json" />
-        </intent>
-    </queries>
-
-    <!--
         Offline by construction: no android.permission.INTERNET is declared, and the
         app must never add it. Everything lives in the app's own Room database.
     -->
@@ -31,9 +16,9 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.Thuocla">
         <!--
-            Launcher: the web UI served from assets/web/ (issue #37). The Compose activity below keeps
-            all of its code and stays reachable by explicit intent while the shell is being accepted;
-            it just no longer owns MAIN/LAUNCHER, so there is exactly one entry point.
+            The single entry point: the web UI served from assets/web/ (issue #37). The Compose
+            activity that used to sit beside it was deleted in task 5.4 (#55), so there is exactly
+            one activity in the app.
         -->
         <activity
             android:name=".web.WebShellActivity"
@@ -45,24 +30,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Thuocla" />
-        <!--
-            Share-out path (issue #34): the JSON backup copy lives in cacheDir/backups/ and leaves the
-            app only through this provider — content:// + a temporary read grant. Not exported, so no
-            other app can open it without the grant the chooser hands out. See res/xml/file_paths.xml.
-        -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
     </application>
 
 </manifest>

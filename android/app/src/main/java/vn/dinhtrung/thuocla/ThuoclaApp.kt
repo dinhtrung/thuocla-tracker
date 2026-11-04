@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import java.time.Clock
 import vn.dinhtrung.thuocla.data.DataPortability
-import vn.dinhtrung.thuocla.data.BackupSharer
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
 
@@ -29,17 +28,6 @@ class AppContainer(
         DataPortability(database, repository, clock)
     }
 
-    /**
-     * Writes the share copy of the JSON backup into `cacheDir/backups/`, the one root the FileProvider
-     * exposes. Lives beside [dataPortability] so the share path and the SAF export path produce the
-     * same file name and payload.
-     */
-    val backupSharer: BackupSharer by lazy {
-        BackupSharer(
-            portability = dataPortability,
-            directory = java.io.File(appContext.cacheDir, BackupSharer.DIRECTORY_NAME),
-        )
-    }
 }
 
 class ThuoclaApp : Application() {

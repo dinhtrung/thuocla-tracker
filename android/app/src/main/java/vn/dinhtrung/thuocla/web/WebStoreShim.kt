@@ -192,9 +192,6 @@ internal object WebStoreShim {
       // The page's own picker is an <input type=file>; native opens the same SAF dialog instead, then
       // performs the import after the user answers THAY THẾ/GỘP.
       window.pickRestoreFile = function () { safe(function () { files.pickRestoreFile(); }); };
-      // No control in the web UI calls this (the page has no share button); exposed so the native half
-      // exists and the spec's share scenario can be exercised deliberately.
-      window.shareBackup = function () { safe(function () { files.shareBackup(); }); };
     };
 
     applyFileOverrides();

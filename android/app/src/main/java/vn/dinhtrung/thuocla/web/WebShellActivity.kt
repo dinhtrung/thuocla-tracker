@@ -109,10 +109,8 @@ class WebShellActivity : ComponentActivity() {
         // it evaluates against whatever `webView` holds when a file action finishes.
         fileBridge = WebFileBridge(
             portability = container.dataPortability,
-            sharer = container.backupSharer,
             openCreateDocument = ::startExport,
             openOpenDocument = { openDocumentLauncher.launch(arrayOf("application/json")) },
-            openShare = ::startShare,
             notifyPage = { json -> notifyPage(json) },
             afterImport = { resyncPageAfterImport() },
         )
@@ -161,8 +159,8 @@ class WebShellActivity : ComponentActivity() {
             // shim looks for.
             addJavascriptInterface(WebAppBridge(mirror), WebAppBridge.JS_NAME)
 
-            // The page's three file actions (`exportCSV`, `exportBackup`, `pickRestoreFile`) plus
-            // `shareBackup`, routed through SAF/FileProvider because a WebView cannot download a Blob.
+            // The page's three file actions (`exportCSV`, `exportBackup`, `pickRestoreFile`), routed
+            // through SAF because a WebView cannot download a Blob.
             addJavascriptInterface(fileBridge, WebFileBridge.JS_NAME)
         }
 
@@ -208,22 +206,6 @@ class WebShellActivity : ComponentActivity() {
         }
     }
 
-    /** Handles a backup copy to whatever accepts `application/json`, or reports that none does. */
-    private fun startShare(copy: vn.dinhtrung.thuocla.data.BackupSharer.ShareCopy): Boolean {
-        if (!WebFileBridge.canShare(this, copy)) return false
-        return try {
-            startActivity(
-                Intent.createChooser(
-                    WebFileBridge.shareIntent(this, copy),
-                    "Chia sẻ bản sao JSON",
-                ).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-            )
-            true
-        } catch (e: android.content.ActivityNotFoundException) {
-            Log.e(TAG, "no receiver accepted the backup", e)
-            false
-        }
-    }
 
     /**
      * Asks the page whether a restore is THAY THẾ or GỘP.

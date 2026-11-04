@@ -3,7 +3,6 @@ package vn.dinhtrung.thuocla.web
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import java.io.File
 import java.time.Clock
 import java.time.ZoneId
 import kotlinx.coroutines.test.runTest
@@ -11,14 +10,12 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import vn.dinhtrung.thuocla.data.BackupSharer
 import vn.dinhtrung.thuocla.data.DataPortability
 import vn.dinhtrung.thuocla.data.TrackerRepository
 import vn.dinhtrung.thuocla.data.db.AppDatabase
@@ -49,26 +46,10 @@ class WebFileBridgeTest {
 
     private var createdDocument: Pair<String, String>? = null
     private var openDocumentAsked = 0
-    private var shareAsked = 0
-    private var shareAllowed = true
 
     /** How many times the bridge asked the page to adopt the store after an import. */
     private var resynced = 0
 
-    /**
-     * [FileProvider] caches each authority's parsed path strategy in a static map. Robolectric gives
-     * every test method a fresh cache directory, so without this the second method resolves against
-     * the first one's directory and throws "Failed to find configured root". Same Robolectric-only
-     * fix `ShareBackupTest` already applies; no production behaviour is involved.
-     */
-    @Before
-    fun clearProviderPathCache() {
-        val field = androidx.core.content.FileProvider::class.java
-            .getDeclaredField("sCache")
-            .apply { isAccessible = true }
-        @Suppress("UNCHECKED_CAST")
-        (field.get(null) as MutableMap<String, *>).clear()
-    }
 
     @Before
     fun setUp() {
@@ -77,14 +58,10 @@ class WebFileBridgeTest {
             .build()
         repo = TrackerRepository(db)
         portability = DataPortability(db, repo, Clock.system(zone))
-        val sharer = BackupSharer(portability, File(context.cacheDir, BackupSharer.DIRECTORY_NAME))
-
         bridge = WebFileBridge(
             portability = portability,
-            sharer = sharer,
             openCreateDocument = { text, fileName -> createdDocument = text to fileName },
             openOpenDocument = { openDocumentAsked++ },
-            openShare = { shareAsked++; shareAllowed },
             notifyPage = { json -> reported += JSONObject(json) },
             afterImport = { resynced++ },
         )
@@ -198,63 +175,5 @@ class WebFileBridgeTest {
             "File này không có dữ liệu thuốc lá (thiếu \"data\")",
             reported.last().getString("message"),
         )
-    }
-
-    @Test
-    fun shareBackup_writesTheCacheCopyAndOpensTheChooser() = runTest {
-        repo.addRecord(day, 415)
-
-        assertTrue(bridge.shareBackup())
-
-        assertEquals(1, shareAsked)
-        val dir = File(context.cacheDir, BackupSharer.DIRECTORY_NAME)
-        assertEquals(1, dir.listFiles()?.size)
-        assertEquals(portability.jsonFileName(), dir.listFiles()!!.single().name)
-    }
-
-    @Test
-    fun shareBackup_withNoReceiver_reportsItInsteadOfClaimingSuccess() = runTest {
-        repo.addRecord(day, 415)
-        shareAllowed = false
-
-        assertFalse(bridge.shareBackup())
-
-        assertEquals("Không có ứng dụng nào nhận được bản sao JSON", reported.last().getString("message"))
-    }
-
-    @Test
-    fun shareBackup_onAnEmptyStore_reportsNothingToShare() = runTest {
-        assertFalse(bridge.shareBackup())
-        assertEquals("Chưa có dữ liệu để sao lưu!", reported.last().getString("message"))
-        assertEquals("the chooser must not open for an empty share", 0, shareAsked)
-    }
-
-    @Test
-    fun theShareIntent_goesThroughFileProviderWithATemporaryReadGrant() = runTest {
-        // Task 4.4 / design D4: the copy leaves the app only as a content:// URI handed to the chosen
-        // receiver — not as a file path and not as a Blob. A path would be unreadable to the receiver
-        // (scoped storage) and a missing grant would make the receiver open an empty document.
-        repo.addRecord(day, 415)
-        val copy = BackupSharer(portability, File(context.cacheDir, BackupSharer.DIRECTORY_NAME))
-            .writeShareCopy() ?: error("a store with one record has a copy")
-
-        val intent = WebFileBridge.shareIntent(context, copy)
-
-        assertEquals("the receiver must be the chooser", "android.intent.action.SEND", intent.action)
-        assertEquals("the backup is JSON", "application/json", intent.type)
-        val stream = intent.getParcelableExtra<android.net.Uri>(android.content.Intent.EXTRA_STREAM)
-        assertNotNull("the copy must ride EXTRA_STREAM", stream)
-        assertEquals("content", stream!!.scheme)
-        assertEquals(
-            "the authority must be this app's FileProvider",
-            "${context.packageName}.fileprovider",
-            stream.authority,
-        )
-        assertEquals(
-            "without a read grant the receiver cannot open the copy",
-            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            intent.flags and android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
-        )
-        assertEquals("the clip label carries the file name", copy.fileName, intent.clipData?.getDescription()?.label)
     }
 }
