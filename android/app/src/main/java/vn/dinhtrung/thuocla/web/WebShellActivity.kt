@@ -133,7 +133,7 @@ class WebShellActivity : ComponentActivity() {
         pendingFileChooser?.onReceiveValue(null)
         pendingFileChooser = callback
         return try {
-            openDocumentLauncher.launch(params.acceptTypes.flatMap(::mimeTypesFor).toTypedArray())
+            openDocumentLauncher.launch(pickerMimeTypes(params.acceptTypes))
             true
         } catch (e: android.content.ActivityNotFoundException) {
             pendingFileChooser = null
@@ -143,14 +143,27 @@ class WebShellActivity : ComponentActivity() {
     }
 
     /**
-     * `accept` values the picker understands. The page sends extensions (`.json`) and MIME types
-     * together; `OpenDocument` takes MIME types only, so an extension is checked against the ones the
-     * web app actually uses rather than being guessed at.
+     * `accept` values the picker understands.
+     *
+     * The page sends extensions (`.json`) and MIME types together; `OpenDocument` takes MIME types
+     * only. An extension that is not in [EXTENSION_MIME] maps to `application/octet-stream` rather
+     * than to nothing: an empty `EXTRA_MIME_TYPES` makes the picker accept *any* file, which is the
+     * opposite of what the page's `accept` asked for. The page currently sends only `.json`
+     * (`index.html:348`), and the plain MIME type it also lists is what usually decides the filter.
      */
-    private fun mimeTypesFor(accept: String): List<String> = when {
-        accept.startsWith(".") -> listOfNotNull(EXTENSION_MIME[accept.lowercase()])
-        accept.isBlank() -> emptyList()
-        else -> listOf(accept)
+    private fun mimeTypesFor(accept: String): List<String> {
+        val value = accept.trim()
+        return when {
+            value.isEmpty() -> emptyList()
+            value.startsWith(".") -> listOf(EXTENSION_MIME[value.lowercase()] ?: UNKNOWN_MIME)
+            else -> listOf(value)
+        }
+    }
+
+    /** Joins the page's `accept` list into the picker's filter, never empty when the page named one. */
+    private fun pickerMimeTypes(acceptTypes: Array<String>): Array<String> {
+        val types = acceptTypes.flatMap(::mimeTypesFor).distinct()
+        return (types.ifEmpty { listOf(UNKNOWN_MIME) }).toTypedArray()
     }
 
     /**
@@ -199,11 +212,14 @@ class WebShellActivity : ComponentActivity() {
         const val ASSET_ORIGIN = "https://$ASSET_HOST"
         const val INDEX_URL = "$ASSET_ORIGIN/assets/web/index.html"
 
+        /** What an extension [EXTENSION_MIME] does not know is filtered as — see `mimeTypesFor`. */
+        const val UNKNOWN_MIME = "application/octet-stream"
+
         /**
          * The extensions the web app's `accept` attributes use, mapped to the MIME type the system
-         * picker filters on. Only what the page actually asks for is here: the restore input accepts
-         * `.json,application/json`, and nothing in the shell asks for a CSV yet (S4's export half
-         * reuses the page's own button, which writes through the SAF export below, not a picker).
+         * picker filters on. The page's restore input accepts `.json,application/json`
+         * (`index.html:348`); S4 adds nothing to this list, because both of its pickers are opened by
+         * native with a fixed type rather than from an `accept` value.
          */
         val EXTENSION_MIME = mapOf(
             ".json" to "application/json",

@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -65,6 +66,18 @@ class WebStoreShimBehaviourTest {
         return output.trim()
     }
 
+    /** Like [run], but with a caller-supplied harness — used to make one write throw. */
+    private fun runWith(harnessText: String, seed: String, script: String): String {
+        val dir = File.createTempFile("shim", "js").apply { deleteOnExit() }
+        dir.writeText(harnessText.replace("__SEED__", jsString(seed)).replace("__SHIM__", script))
+        val process = ProcessBuilder("node", dir.absolutePath)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        return output.trim()
+    }
+
     private fun nodeAvailable(): Boolean = try {
         ProcessBuilder("node", "--version").start().waitFor() == 0
     } catch (e: Exception) {
@@ -80,7 +93,7 @@ class WebStoreShimBehaviourTest {
 
     @Test
     fun clearAllDataThenReAddingTheSameMinute_stillReachesRoom() {
-        if (!nodeAvailable()) return
+        assumeTrue("node is required for this test", nodeAvailable())
         val script = WebStoreShim.script(seed)
         val probe = """
             store.setItem('smoking_data', JSON.stringify(SEED.data));
@@ -98,7 +111,7 @@ class WebStoreShimBehaviourTest {
 
     @Test
     fun aReplaceRestore_dropsRoomDaysTheFileDoesNotHave() {
-        if (!nodeAvailable()) return
+        assumeTrue("node is required for this test", nodeAvailable())
         val script = WebStoreShim.script(seed)
         // app.js's THAY THẾ branch: out = norm.data; saveData(out).
         val probe = """
@@ -111,7 +124,7 @@ class WebStoreShimBehaviourTest {
 
     @Test
     fun aMergeRestore_keepsDaysItDidNotTouch() {
-        if (!nodeAvailable()) return
+        assumeTrue("node is required for this test", nodeAvailable())
         val script = WebStoreShim.script(seed)
         // app.js's GỘP branch: out = loadData(); merge the file's days in; saveData(out).
         val probe = """
@@ -126,7 +139,7 @@ class WebStoreShimBehaviourTest {
 
     @Test
     fun anUnchangedRewrite_isNotForwardedTwice() {
-        if (!nodeAvailable()) return
+        assumeTrue("node is required for this test", nodeAvailable())
         val script = WebStoreShim.script(seed)
         val probe = """
             store.setItem('smoking_data', JSON.stringify(SEED.data));
@@ -138,10 +151,54 @@ class WebStoreShimBehaviourTest {
 
     @Test
     fun theInjectedScriptIsValidJavaScript() {
-        if (!nodeAvailable()) return
+        assumeTrue("node is required for this test", nodeAvailable())
         val script = WebStoreShim.script(seed)
         val result = run(seed, script + "console.log('PARSED');")
         assertTrue("node rejected the generated script: $result", result.contains("PARSED"))
+    }
+
+    /**
+     * The data-loss path the reviewer found in the first version of the B fix.
+     *
+     * The localStorage seed is wrapped in `safe()`. If that write throws, the cache that decides what
+     * Room is believed to hold must NOT be populated — otherwise the page starts empty while the shim
+     * believes Room's days are already delivered, and the page's first `saveData` (holding only what it
+     * just added) reads as those days being dropped and is forwarded as `writeDay(day, '[]')`, deleting
+     * records from Room. On `ef4e0ac` the same failure only produced an empty page and Room kept its
+     * records, so this asserts the records survive a failing seed write.
+     */
+    @Test
+    fun aFailingSeedWrite_mustNotDeleteRoomRecordsOnTheFirstPageSave() {
+        assumeTrue("node is required for this test", nodeAvailable())
+        val script = WebStoreShim.script(seed)
+        val failingHarness = harness
+            .replace(
+                "Storage.prototype.setItem = function(k,v){ backing[k] = String(v); };",
+                "Storage.prototype.setItem = function(k,v){ if (globalThis.__failSeed) { " +
+                    "globalThis.__failSeed = false; throw new Error('Quota'); } backing[k] = String(v); };",
+            )
+            .replace(
+                "globalThis.localStorage = store;",
+                "globalThis.localStorage = store;\n        globalThis.__failSeed = true;",
+            )
+        // The page saw an empty store, so what it saves first holds only the day it just added.
+        val probe = """
+            store.setItem('smoking_data', JSON.stringify({ "2026-11-04": [ {time:"2026-11-04T08:15:00"} ] }));
+            console.log(JSON.stringify(state.calls.map(c => [c[0], c[1]])));
+            console.log('ROOM:' + JSON.stringify(Object.keys(state.room).sort()));
+        """
+        val result = runWith(failingHarness, seed, script + probe)
+
+        assertEquals(
+            "only the day the page actually wrote may be forwarded",
+            """[["writeDay","2026-11-04"]]""",
+            result.lines().first(),
+        )
+        assertEquals(
+            "the untouched day must survive a failed seed write",
+            """ROOM:["2026-11-01","2026-11-04"]""",
+            result.lines()[1],
+        )
     }
 
     @Test

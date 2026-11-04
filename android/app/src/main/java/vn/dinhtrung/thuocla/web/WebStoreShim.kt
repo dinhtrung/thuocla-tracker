@@ -42,12 +42,33 @@ internal object WebStoreShim {
   }
 
   // ---- 1. Seed from Room, before app.js reads anything ----
+  //
+  // The cache that decides what Room is believed to hold is seeded *inside* the same block as the
+  // writes, and after them, on purpose. If a write throws — quota, storage disabled, a ROM that
+  // refuses WebView storage — the block aborts before `forwarded` is populated. Populating it anyway
+  // would tell the shim that Room's days are already in the page while the page actually starts
+  // empty, so the page's first `saveData` (holding only what it just added) would look like a day
+  // being dropped and would be forwarded as `writeDay(day, '[]')` — deleting records from Room. That
+  // is the one failure this feature exists to prevent, and it is silent.
   var seed = __SEED__;
+  var forwarded = {};
   safe(function () {
     window.localStorage.setItem(DB_KEY, JSON.stringify(seed.data || {}));
     window.localStorage.setItem(CFG_KEY, JSON.stringify(seed.config));
     window.localStorage.setItem(THEME_KEY, seed.theme);
+    seedForwardedCache();
   });
+
+  // What Room is currently believed to hold, per day, so a whole-map rewrite is diffed instead of
+  // re-sent, and so a day Room has that the new payload lacks can be cleared. Seeding it from the
+  // snapshot matters for THAY THẾ: `app.js`'s restore writes the file's days over this map, so without
+  // the starting values a Room day absent from the restored file would be unknown here and survive.
+  function seedForwardedCache() {
+    var initial = seed.data || {};
+    Object.keys(initial).forEach(function (day) {
+      forwarded[day] = JSON.stringify(initial[day]);
+    });
+  }
 
   // ---- 2. Forward every write to Room ----
   var proto = window.Storage && window.Storage.prototype;
@@ -55,20 +76,6 @@ internal object WebStoreShim {
 
   var originalSetItem = proto.setItem;
   var originalRemoveItem = proto.removeItem;
-
-  // What Room is currently believed to hold, per day, so a whole-map rewrite is diffed instead of
-  // re-sent, and so a day Room has that the new payload lacks can be cleared.
-  //
-  // Seeded from the same snapshot that was written above, which matters for THAY THẾ: `app.js`'s
-  // restore writes the file's days over this map, so without the starting values a Room day absent
-  // from the restored file would be unknown here and would survive the replacement.
-  var forwarded = {};
-  safe(function () {
-    var initial = seed.data || {};
-    Object.keys(initial).forEach(function (day) {
-      forwarded[day] = JSON.stringify(initial[day]);
-    });
-  });
 
   function forward(key, value) {
     if (!bridge) return;
