@@ -1,6 +1,7 @@
 package vn.dinhtrung.thuocla.web
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.webkit.WebResourceRequest
@@ -38,16 +39,63 @@ class WebShellActivity : ComponentActivity() {
     internal lateinit var mirror: WebStoreMirror
 
     /**
+     * The page's own file actions, routed through native (tasks 4.1–4.2). Created in [onCreate] once
+     * the WebView exists, because it reports results back through `evaluateJavascript`.
+     */
+    private lateinit var fileBridge: WebFileBridge
+
+    /**
      * The page's waiting `<input type=file>`, held across the system picker. It must be answered
      * exactly once — with the selection or with null — or the page's input never re-enables.
      */
     private var pendingFileChooser: android.webkit.ValueCallback<Array<android.net.Uri>>? = null
 
+    /** Text the export produces before the SAF dialog opens; the dialog's answer decides its fate. */
+    private var pendingExport: PendingExport? = null
+
+    /** Where the page's THAY THẾ/GỘP answer arrives from — the confirm dialog S4 shares with C. */
+    private var pendingImportText: String? = null
+
     private val openDocumentLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
-            pendingFileChooser?.onReceiveValue(uri?.let { arrayOf(it) } ?: emptyArray())
-            pendingFileChooser = null
+            // Two callers use this launcher: the page's own `<input type=file>` and `pickRestoreFile`.
+            val chooser = pendingFileChooser
+            if (chooser != null) {
+                chooser.onReceiveValue(uri?.let { arrayOf(it) } ?: emptyArray())
+                pendingFileChooser = null
+            } else if (uri != null) {
+                startImport(uri)
+            }
         }
+
+    /**
+     * One launcher per content type, because `CreateDocument` fixes the MIME at registration and the
+     * dialog derives the extension from it: with `text/plain` a save of `thuocla_2026-11-04.csv`
+     * landed as `thuocla_2026-11-04.csv.txt` (measured). `text/csv` and `application/json` keep the
+     * name the page produced.
+     */
+    private val createCsvLauncher = createDocumentLauncher(CSV_MIME)
+
+    private val createJsonLauncher = createDocumentLauncher(JSON_MIME)
+
+    private fun createDocumentLauncher(mimeType: String) =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.CreateDocument(mimeType),
+        ) { uri ->
+            val pending = pendingExport
+            pendingExport = null
+            if (uri == null || pending == null) {
+                // The user backed out: nothing was written, and no message is the right answer.
+                return@registerForActivityResult
+            }
+            val written = runCatching {
+                contentResolver.openOutputStream(uri)?.use { it.write(pending.text.toByteArray(Charsets.UTF_8)) }
+            }.isSuccess
+            fileBridge.reportExportFinished(ok = written, fileName = pending.fileName)
+        }
+
+    /** An export that is waiting on the SAF dialog. */
+    private data class PendingExport(val text: String, val fileName: String)
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,6 +103,21 @@ class WebShellActivity : ComponentActivity() {
 
         val container = (application as ThuoclaApp).container
         mirror = WebStoreMirror(container.repository, container.clock)
+
+        // Built before the WebView so `addJavascriptInterface` can register it below. The result
+        // callback is a lambda rather than the WebView itself because the instance does not exist yet;
+        // it evaluates against whatever `webView` holds when a file action finishes.
+        fileBridge = WebFileBridge(
+            portability = container.dataPortability,
+            sharer = container.backupSharer,
+            openCreateDocument = ::startExport,
+            openOpenDocument = { openDocumentLauncher.launch(arrayOf("application/json")) },
+            openShare = ::startShare,
+            notifyPage = { json -> notifyPage(json) },
+            afterImport = { resyncPageAfterImport() },
+        )
+
+
 
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -97,6 +160,10 @@ class WebShellActivity : ComponentActivity() {
             // The page may call exactly the allow-listed methods on WebAppBridge, under the name the
             // shim looks for.
             addJavascriptInterface(WebAppBridge(mirror), WebAppBridge.JS_NAME)
+
+            // The page's three file actions (`exportCSV`, `exportBackup`, `pickRestoreFile`) plus
+            // `shareBackup`, routed through SAF/FileProvider because a WebView cannot download a Blob.
+            addJavascriptInterface(fileBridge, WebFileBridge.JS_NAME)
         }
 
         // Runs after `webView` is assigned: the document-start hook needs the instance, and it must be
@@ -116,6 +183,99 @@ class WebShellActivity : ComponentActivity() {
                 }
             },
         )
+    }
+
+    /**
+     * Opens the SAF "create document" dialog for an export.
+     *
+     * The file name is the page's own (`thuocla_YYYY-MM-DD.csv` / `thuocla_backup_YYYY-MM-DD.json`),
+     * so a file exported from the shell is named exactly as one exported from the browser build.
+     */
+    private fun startExport(text: String?, fileName: String) {
+        if (text == null) {
+            fileBridge.reportNothingToExport()
+            return
+        }
+        pendingExport = PendingExport(text, fileName)
+        runOnUiThread {
+            try {
+                (if (fileName.endsWith(".csv")) createCsvLauncher else createJsonLauncher).launch(fileName)
+            } catch (e: android.content.ActivityNotFoundException) {
+                pendingExport = null
+                Log.e(TAG, "no document picker available", e)
+                fileBridge.reportExportFinished(ok = false, fileName = fileName)
+            }
+        }
+    }
+
+    /** Handles a backup copy to whatever accepts `application/json`, or reports that none does. */
+    private fun startShare(copy: vn.dinhtrung.thuocla.data.BackupSharer.ShareCopy): Boolean {
+        if (!WebFileBridge.canShare(this, copy)) return false
+        return try {
+            startActivity(
+                Intent.createChooser(
+                    WebFileBridge.shareIntent(this, copy),
+                    "Chia sẻ bản sao JSON",
+                ).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+            )
+            true
+        } catch (e: android.content.ActivityNotFoundException) {
+            Log.e(TAG, "no receiver accepted the backup", e)
+            false
+        }
+    }
+
+    /**
+     * Asks the page whether a restore is THAY THẾ or GỘP.
+     *
+     * `app.js` asks this with `confirm()` and acts on the answer itself; the shell cannot see inside
+     * that promise, so it asks the same question through the same dialog and then performs the import
+     * natively (which is where the store actually lives). The wording matches the page's own prompt so
+     * the user is not asked two different questions.
+     */
+    private fun startImport(uri: android.net.Uri) {
+        val text = runCatching {
+            contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull()
+        if (text == null) {
+            fileBridge.reportReadFailure()
+            return
+        }
+        pendingImportText = text
+        android.app.AlertDialog.Builder(this)
+            .setMessage("📥 Phục hồi bản sao?\n\nOK = THAY THẾ toàn bộ dữ liệu đang có\nHuỷ = GỘP thêm (bỏ điếu trùng phút)")
+            .setPositiveButton(android.R.string.ok) { _, _ -> finishImport(replace = true) }
+            .setNegativeButton(android.R.string.cancel) { _, _ -> finishImport(replace = false) }
+            .setOnCancelListener { pendingImportText = null }
+            .show()
+    }
+
+    private fun finishImport(replace: Boolean) {
+        val text = pendingImportText ?: return
+        pendingImportText = null
+        fileBridge.importText(text, replace)
+    }
+
+    /** Tells the page a file action finished, in the shape the shim reads. */
+    private fun notifyPage(json: String) {
+        runOnUiThread {
+            webView.evaluateJavascript("window.__thuoclaFileResult($json);", null)
+        }
+    }
+
+    /**
+     * Hands the page the store's current state and lets it re-render, after a native import.
+     *
+     * The import writes to Room, not to the page, so without this the screen keeps whatever it drew
+     * before the restore. The seed is read here — the store has already changed — and passed to the
+     * shim's `__thuoclaAfterImport`, which re-seeds `localStorage` and calls the page's own
+     * `loadSettingsUI()`/`updateDisplay()`, the same two calls `app.js`'s `restoreFromFile` makes.
+     */
+    private fun resyncPageAfterImport() {
+        val seed = mirror.readSeed()
+        runOnUiThread {
+            webView.evaluateJavascript("window.__thuoclaAfterImport($seed);", null)
+        }
     }
 
     /**
@@ -216,13 +376,21 @@ class WebShellActivity : ComponentActivity() {
         const val UNKNOWN_MIME = "application/octet-stream"
 
         /**
+         * The MIME types the exports are written as. These decide the file extension the SAF dialog
+         * offers: saving `thuocla_2026-11-04.csv` under `text/plain` produced `…csv.txt` (measured), so
+         * each export gets its real type.
+         */
+        const val CSV_MIME = "text/csv"
+        const val JSON_MIME = "application/json"
+
+        /**
          * The extensions the web app's `accept` attributes use, mapped to the MIME type the system
          * picker filters on. The page's restore input accepts `.json,application/json`
          * (`index.html:348`); S4 adds nothing to this list, because both of its pickers are opened by
          * native with a fixed type rather than from an `accept` value.
          */
         val EXTENSION_MIME = mapOf(
-            ".json" to "application/json",
+            ".json" to JSON_MIME,
         )
     }
 }

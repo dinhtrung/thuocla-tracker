@@ -55,6 +55,64 @@ class WebStoreShimBehaviourTest {
     __SHIM__
     """
 
+    /**
+     * Same idea as [harness], but as a *browser page*: `window` is the global object, the shim runs in
+     * true global scope (`vm.runInThisContext`, the way `<script>` does), and `app.js` then declares
+     * its own `function exportCSV(){}` at top level — which is what silently reclaimed the names the
+     * shim had assigned, and why the native file path never ran on the device.
+     */
+    private val pageHarness = """
+        const vm = require('vm');
+        globalThis.window = globalThis;
+        globalThis.calls = [];
+        const listeners = {};
+        globalThis.document = { addEventListener: (n, f) => { (listeners[n] = listeners[n] || []).push(f); } };
+        globalThis.alert = (m) => globalThis.calls.push('alert:' + m);
+        function Storage(){}
+        Storage.prototype.getItem = function(){ return null; };
+        Storage.prototype.setItem = function(){};
+        Storage.prototype.removeItem = function(){};
+        globalThis.Storage = Storage;
+        globalThis.localStorage = new Storage();
+        globalThis.WebStore = null;
+        globalThis.ThuoclaFiles = {
+          exportCsv(){ globalThis.calls.push('native-exportCsv'); return true; },
+          exportBackup(){ globalThis.calls.push('native-exportBackup'); return true; },
+          pickRestoreFile(){ globalThis.calls.push('native-pick'); return true; },
+          shareBackup(){ globalThis.calls.push('native-share'); return true; }
+        };
+        vm.runInThisContext(require('fs').readFileSync(process.argv[2], 'utf8'), { filename: 'shim.js' });
+        // app.js: a classic script, no wrapper — its top-level declarations claim the same names.
+        vm.runInThisContext([
+          "function exportCSV(){ globalThis.calls.push('appjs-blob-csv'); }",
+          "function exportBackup(){ globalThis.calls.push('appjs-blob-backup'); }",
+          "function pickRestoreFile(){ globalThis.calls.push('appjs-input'); }",
+        ].join(String.fromCharCode(10)), { filename: 'app.js' });
+        globalThis.calls = [];
+        window.exportCSV();
+        console.log('BEFORE:' + globalThis.calls.join(','));
+        globalThis.calls = [];
+        (listeners['DOMContentLoaded'] || []).forEach(f => f());
+        window.exportCSV(); window.exportBackup(); window.pickRestoreFile(); window.shareBackup();
+        console.log('AFTER:' + globalThis.calls.join(','));
+    """
+
+    private fun runPage(script: String): String {
+        // The shim text is embedded as a Kotlin string, so escaping it into a JS literal is fragile
+        // (it broke once). Writing it to a file and having the harness read it avoids the whole class
+        // of problem: the harness does `fs.readFileSync(process.argv[2])`.
+        val shimFile = File.createTempFile("shim", "js").apply { deleteOnExit() }
+        shimFile.writeText(script)
+        val dir = File.createTempFile("page", "js").apply { deleteOnExit() }
+        dir.writeText(pageHarness)
+        val process = ProcessBuilder("node", dir.absolutePath, shimFile.absolutePath)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        return output.trim()
+    }
+
     private fun run(seed: String, script: String): String {
         val dir = File.createTempFile("shim", "js").apply { deleteOnExit() }
         dir.writeText(harness.replace("__SEED__", jsString(seed)).replace("__SHIM__", script))
@@ -198,6 +256,31 @@ class WebStoreShimBehaviourTest {
             "the untouched day must survive a failed seed write",
             """ROOM:["2026-11-01","2026-11-04"]""",
             result.lines()[1],
+        )
+    }
+
+    /**
+     * The bug the AVD proof caught: `app.js`'s top-level function declarations reclaim the names the
+     * shim assigned, so the page's Blob handler ran and the native file path never did — no SAF dialog
+     * appeared for `Tải CSV` at all.
+     *
+     * `BEFORE` is `appjs-blob-csv` (the declaration wins, which is real and expected for a classic
+     * script). `AFTER` re-applies the overrides on `DOMContentLoaded`, which fires once every parsing
+     * script has run.
+     */
+    @Test
+    fun appJsFunctionDeclarations_doNotTakeTheFileActionsBack() {
+        assumeTrue("node is required for this test", nodeAvailable())
+        val result = runPage(WebStoreShim.script(seed))
+
+        assertTrue(
+            "the harness should report both stages, got: $result",
+            result.contains("BEFORE:") && result.contains("AFTER:"),
+        )
+        assertEquals(
+            "the native actions must be the ones the page ends up calling",
+            "native-exportCsv,native-exportBackup,native-pick,native-share",
+            result.substringAfter("AFTER:").trim(),
         )
     }
 
