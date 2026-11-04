@@ -8,8 +8,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -62,7 +64,16 @@ class StatsViewModelTest {
 
     @After
     fun tearDown() {
-        viewModel.viewModelScope.cancel()
+        // Cancelling a scope is asynchronous: the `stateIn(WhileSubscribed)` pipeline and the `launch`
+        // blocks in [StatsViewModel] are resumed with `CancellationException` on `Dispatchers.Main`,
+        // and that resume can land *after* this method returns. `MainDispatcherRule.finished()` then
+        // calls `Dispatchers.resetMain()`, and a coroutine still touching Main at that instant trips
+        // the library's "Dispatchers.Main is used concurrently with setting it" guard
+        // (`TestMainDispatcher.kt`). That is the flake, and it is why moving this class onto the shared
+        // rule (#30) could not remove it: the rule fixes how Main is *installed*, not how this test
+        // *dismantles* the scope it started. Joining first makes the teardown complete before the rule
+        // resets Main.
+        runBlocking { viewModel.viewModelScope.coroutineContext[Job]?.cancelAndJoin() }
         db.close()
     }
 
