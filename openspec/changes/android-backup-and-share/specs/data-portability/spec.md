@@ -48,6 +48,17 @@ Tab Dữ liệu SHALL có hành động **Chia sẻ bản sao JSON** đặt cạ
 - **WHEN** app chưa có bản ghi nào
 - **THEN** hành động Chia sẻ không tạo file rỗng và app báo chưa có dữ liệu, giống cách hành động xuất JSON đang xử lý (`DataPortability.exportJson()` trả `null`)
 
+### Requirement: Phạm vi của Chia sẻ theo từng bản build
+
+Ba yêu cầu về Chia sẻ — **"File bản sao để chia sẻ"**, **"Mở hộp chọn ứng dụng để gửi bản sao"** và **"Dọn file tạm của lần chia sẻ trước"** — áp cho **bản Compose 1.1.0**. Từ shell 1.2.0 trở đi, giao diện là bản web đóng băng v1.5.2 (không có nút Chia sẻ), nên shell SHALL NOT cung cấp hành động này và cả ba yêu cầu trên SHALL NOT áp cho shell.
+
+Quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04); regression đã biết so với 1.1.0. Phần native vẫn còn trong APK nhưng không có lối vào.
+
+#### Scenario: Shell không có hành động Chia sẻ
+
+- **WHEN** người dùng mở tab **Cài đặt** trong bản shell 1.2.0
+- **THEN** không có nút Chia sẻ nào; đường chia sẻ duy nhất còn lại là **Xuất bản sao JSON** qua SAF
+
 ### Requirement: Mở hộp chọn ứng dụng để gửi bản sao
 
 App SHALL mở hộp chọn ứng dụng bằng `Intent.ACTION_SEND` với MIME `application/json`, đính file qua `content://` của `FileProvider`, giữ nguyên tên file hiển thị, và cấp quyền đọc tạm thời cho ứng dụng nhận. App SHALL NOT xin quyền bộ nhớ và SHALL NOT dùng mạng cho việc này.

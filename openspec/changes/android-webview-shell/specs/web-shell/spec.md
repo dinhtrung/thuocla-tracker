@@ -59,7 +59,7 @@ Trước khi mã web khởi động, app SHALL nạp dữ liệu từ Room vào 
 
 ### Requirement: Các hành động dữ liệu của bản web chạy được trong shell
 
-Ba hành động mà giao diện web đang có — Xuất CSV, Xuất bản sao JSON, Nhập bản sao JSON — và hành động Chia sẻ bản sao SHALL chạy được trong shell, đi qua SAF/`FileProvider` của native thay vì tải file bằng Blob. Định dạng file, luật THAY THẾ/GỘP và thông báo lỗi SHALL giữ nguyên như capability `data-portability` đã đặc tả.
+Ba hành động mà giao diện web đang có — Xuất CSV, Xuất bản sao JSON, Nhập bản sao JSON — SHALL chạy được trong shell, đi qua SAF/`FileProvider` của native thay vì tải file bằng Blob. Định dạng file, luật THAY THẾ/GỘP và thông báo lỗi SHALL giữ nguyên như capability `data-portability` đã đặc tả.
 
 #### Scenario: Xuất CSV từ shell
 
@@ -75,6 +75,17 @@ Ba hành động mà giao diện web đang có — Xuất CSV, Xuất bản sao 
 
 - **WHEN** người dùng cần nhập file CSV
 - **THEN** app nêu rõ đường nhập CSV chỉ có ở bản native cũ (giao diện web không có nút này), và shell không được tự thêm nút mới — thêm UI là một change khác
+
+### Requirement: Shell không cung cấp hành động Chia sẻ
+
+Shell SHALL NOT cung cấp hành động **Chia sẻ bản sao JSON**. Đây là quyết định có chủ ý của chủ sản phẩm (Trung, 2026-11-04, phương án b), không phải thiếu sót: giao diện web đóng băng ở v1.5.2 không có nút Chia sẻ, và thêm nút là một change giao diện riêng.
+
+Hệ quả SHALL được ghi trong release notes: bản 1.2.0 mất khả năng Chia sẻ đã có ở bản Compose 1.1.0 (`ui/data/DataScreen.kt:94`). Đường **Xuất bản sao JSON** qua SAF vẫn còn, nên người dùng vẫn tự cất được bản sao.
+
+#### Scenario: Shell không có hành động Chia sẻ
+
+- **WHEN** người dùng mở tab **Cài đặt** (nơi bản web đặt các hành động dữ liệu) trong shell
+- **THEN** không có nút Chia sẻ nào, và shell không được tự thêm nút mới; đường chia sẻ duy nhất còn lại là **Xuất bản sao JSON** qua SAF
 
 ### Requirement: Không fork giao diện
 
