@@ -1,6 +1,6 @@
 # Ứng dụng Android — Thuốc Lá Tracker
 
-App native (Kotlin + Jetpack Compose) thay cho PWA: chạy 100% offline, không xin quyền
+App Android bọc bản web đóng băng (v1.5.2) trong `WebView`: chạy 100% offline, không xin quyền
 `android.permission.INTERNET`, dữ liệu nằm trong Room/SQLite của app. APK cài trực tiếp
 (sideload), không lên Google Play.
 
@@ -62,14 +62,14 @@ mkdir -p ~/thuocla-apk
 # Đủ 4 khoá ký -> app-release.apk (đã ký); thiếu khoá -> app-release-unsigned.apk (chưa ký).
 APK=app/build/outputs/apk/release/app-release.apk
 [ -f "$APK" ] || APK=app/build/outputs/apk/release/app-release-unsigned.apk
-cp "$APK" ~/thuocla-apk/thuocla-v1.0.0.apk
+cp "$APK" ~/thuocla-apk/thuocla-v1.2.0.apk
 ```
 
-`versionName` lấy từ `android/app/build.gradle.kts` (hiện là `1.0.0`), nên tên file đổi theo phiên
+`versionName` lấy từ `android/app/build.gradle.kts` (hiện là `1.2.0`, `versionCode` 3), nên tên file đổi theo phiên
 bản. Kiểm tra chữ ký:
 
 ```bash
-$ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs ~/thuocla-apk/thuocla-v1.0.0.apk
+$ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs ~/thuocla-apk/thuocla-v1.2.0.apk
 ```
 
 ## Cài & nhập bản sao
