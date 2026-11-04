@@ -50,9 +50,9 @@ Tab Dữ liệu SHALL có hành động **Chia sẻ bản sao JSON** đặt cạ
 
 ### Requirement: Phạm vi của Chia sẻ theo từng bản build
 
-Yêu cầu "File bản sao để chia sẻ" áp cho **bản Compose 1.1.0**. Từ bản shell 1.2.0 trở đi, giao diện là bản web đóng băng v1.5.2 (không có nút Chia sẻ), nên shell SHALL NOT cung cấp hành động này.
+Ba yêu cầu về Chia sẻ — **"File bản sao để chia sẻ"**, **"Mở hộp chọn ứng dụng để gửi bản sao"** và **"Dọn file tạm của lần chia sẻ trước"** — áp cho **bản Compose 1.1.0**. Từ shell 1.2.0 trở đi, giao diện là bản web đóng băng v1.5.2 (không có nút Chia sẻ), nên shell SHALL NOT cung cấp hành động này và cả ba yêu cầu trên SHALL NOT áp cho shell.
 
-Đây là quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04) và là regression đã biết so với 1.1.0. Phần native vẫn còn trong APK nhưng không có lối vào từ giao diện.
+Quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04); regression đã biết so với 1.1.0. Phần native vẫn còn trong APK nhưng không có lối vào.
 
 #### Scenario: Shell không có hành động Chia sẻ
 
