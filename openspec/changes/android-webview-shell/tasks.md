@@ -31,10 +31,10 @@
 
 ## 4. Cầu file — xuất/nhập/chia sẻ từ shell (task S4)
 
-- [ ] 4.1 Shim override đúng các hàm toàn cục mà UI web gọi: `exportCSV()` (`app.js:1398`), `exportBackup()` (`:1492`), `pickRestoreFile()` (`:1546`) → gọi bridge thay vì Blob/download. **Lưu ý:** bản web **không có** nhập CSV (chỉ có `restoreFromFile` cho JSON, `:1551`) — không tự thêm nút mới, phạm vi shell là ba hành động trên + Chia sẻ.
+- [ ] 4.1 Shim override đúng các hàm toàn cục mà UI web gọi: `exportCSV()` (`app.js:1398`), `exportBackup()` (`:1492`), `pickRestoreFile()` (`:1546`) → gọi bridge thay vì Blob/download. **Lưu ý:** bản web **không có** nhập CSV (chỉ có `restoreFromFile` cho JSON, `:1551`) — không tự thêm nút mới, phạm vi shell là **ba hành động trên**. **Chia sẻ đã bị bỏ khỏi phạm vi** theo quyết định của chủ sản phẩm ngày 2026-11-04 (phương án b): bản web đóng băng không có nút Chia sẻ, và thêm nút là một change giao diện riêng — xem `specs/web-shell/spec.md` requirement "Các hành động dữ liệu của bản web chạy được trong shell".
 - [ ] 4.2 Native: mở SAF `CreateDocument`/`OpenDocument` và chooser `ACTION_SEND` từ `WebShellActivity` (dùng lại `DataPortability`, `FileProvider` và `file_paths.xml` đã có ở task #34), trả kết quả về JS để UI hiện thông báo như bản web.
 - [ ] 4.3 Giữ nguyên định dạng và luật nhập: không đổi `CSV_HEADER`, không đổi schema JSON, không đổi luật THAY THẾ/GỘP.
-- [ ] 4.4 Bằng chứng sống: xuất CSV từ shell → mở file, đúng 6 cột; nhập backup JSON → số điếu đổi đúng; bấm Chia sẻ → chooser mở, chọn được app nhận. Dán ảnh/log từng bước.
+- [ ] 4.4 Bằng chứng sống: xuất CSV từ shell → mở file, đúng 6 cột; nhập backup JSON → số điếu đổi đúng. Dán ảnh/log từng bước. **Chia sẻ không còn là bằng chứng bắt buộc** (xem 4.1): shell không có lối vào, nên không có gì để bấm; phần native `shareBackup()` vẫn tồn tại và có test nhưng không có nút gọi.
 
 ## 5. Nghiệm thu offline + dọn Compose (task S5, có cổng)
 

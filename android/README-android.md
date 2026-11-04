@@ -101,9 +101,12 @@ App có **ba** đường sao lưu, không đường nào thay thế đường n�
    release), mà hệ điều hành vốn đã tự loại `getCacheDir()`/`getNoBackupFilesDir()` khỏi bản sao lưu.
    Đừng thêm lại `<exclude domain="cache">`/`<exclude domain="no_backup">`. App **không** xin quyền nào
    cho việc này: hệ điều hành tự chạy.
-2. **Chia sẻ bản sao JSON** — gửi file `thuocla_backup_YYYY-MM-DD.json` sang Drive/Zalo/Telegram
-   qua `ACTION_SEND` + `FileProvider`. File nằm trong cache của app nên chỉ là bản nháp để gửi đi,
-   không phải kho lưu.
+2. **Chia sẻ bản sao JSON** — **chỉ có ở bản Compose 1.1.0**, không có ở bản shell 1.2.0 trở đi. Ở
+   1.1.0 nó gửi file `thuocla_backup_YYYY-MM-DD.json` sang Drive/Zalo/Telegram qua `ACTION_SEND` +
+   `FileProvider`; file nằm trong cache của app nên chỉ là bản nháp để gửi đi, không phải kho lưu.
+   Từ 1.2.0 giao diện là bản web đóng băng v1.5.2, bản này **không có nút Chia sẻ**, nên shell không
+   mở được đường này — đây là quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04) và là
+   regression đã biết so với 1.1.0. Phần native vẫn nằm trong APK nhưng không có lối vào từ giao diện.
 3. **Xuất file qua SAF** (Storage Access Framework) — **Xuất bản sao JSON** hoặc **Xuất CSV (6 cột)**
    ở tab **Dữ liệu**, người dùng tự chọn chỗ cất. Đường này không xin quyền bộ nhớ.
 
@@ -114,8 +117,8 @@ Giới hạn thật của từng đường:
 - Trên **cùng một máy**, bấm **Xoá dữ liệu** (hoặc `adb shell pm clear`) thì bản sao tự động
   **không** tự quay lại — chỉ `adb shell bmgr restore <token>` mới cứu được. Đây là hành vi của
   hệ điều hành, không phải của app.
-- Đường **chia sẻ** dùng chung thư mục cache của app: hệ điều hành được phép dọn khi máy thiếu chỗ,
-  nên đừng dùng nó làm nơi cất bản sao lâu dài.
+- Đường **chia sẻ** (chỉ ở 1.1.0) dùng chung thư mục cache của app: hệ điều hành được phép dọn khi máy
+  thiếu chỗ, nên đừng dùng nó làm nơi cất bản sao lâu dài.
 
 ## PWA đóng băng
 
