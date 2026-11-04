@@ -19,6 +19,14 @@ on:
         default: debug
   push:
     tags: ["v*", "android-v*"]
+    # main is what the APK is cut from — build it there too, or a broken main goes unnoticed
+    # until someone tags.
+    branches: [main]
+    paths:
+      - "android/**"
+      - "scripts/verify-web-assets.sh"
+      - ".github/workflows/android-apk.yml"
+
   pull_request:
     paths: ["android/**", ".github/workflows/android-apk.yml"]
 
