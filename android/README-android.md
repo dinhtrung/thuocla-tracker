@@ -98,8 +98,13 @@ dữ liệu.
 - **Asset nằm trong APK.** `android/app/src/main/assets/web/` chứa bản sao **byte-identical** của
   `index.html`, `app.js`, `styles.css`, `manifest.json`, `icon-192.png`, `icon-512.png` ở repo root.
   `WebViewAssetLoader` phục vụ chúng dưới origin `https://appassets.androidplatform.net/`, nên
-  `localStorage` và service worker hành xử như trên web thật mà **không cần mạng**: app không khai báo
+  `localStorage` hành xử như trên web thật mà **không cần mạng**: app không khai báo
   `android.permission.INTERNET`, và mọi điều hướng ra host khác bị chặn trong `shouldOverrideUrlLoading`.
+  **Service worker thì không chạy.** `app.js:2163` có gọi `navigator.serviceWorker.register('service-worker.js')`,
+  nhưng `service-worker.js` **không** nằm trong `assets/web/` (script verify chỉ canh 6 cặp file, không có nó),
+  nên lời gọi đó nhận 404 và bị `.catch()` nuốt im lặng. Trong APK, cache do service worker quản lý **không tồn tại**;
+  điều này không sao vì asset đã nằm sẵn trong APK và Room là nguồn sự thật. Đừng viết tài liệu hay test nào
+  dựa vào việc service worker có mặt.
 - **Room là nguồn sự thật.** Shim JS (`WebStoreShim`) chạy **trước** `app.js` (qua
   `WebViewCompat.addDocumentStartJavaScript`) và đổ dữ liệu Room vào `localStorage`; mọi thay đổi của
   web ghi ngược lại Room qua bridge allow-list (`WebAppBridge`, `WebFileBridge`). Vì vậy xoá storage
