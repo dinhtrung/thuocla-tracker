@@ -62,14 +62,14 @@ mkdir -p ~/thuocla-apk
 # Đủ 4 khoá ký -> app-release.apk (đã ký); thiếu khoá -> app-release-unsigned.apk (chưa ký).
 APK=app/build/outputs/apk/release/app-release.apk
 [ -f "$APK" ] || APK=app/build/outputs/apk/release/app-release-unsigned.apk
-cp "$APK" ~/thuocla-apk/thuocla-v1.2.0.apk
+cp "$APK" ~/thuocla-apk/thuocla-v1.2.1.apk
 ```
 
-`versionName` lấy từ `android/app/build.gradle.kts` (hiện là `1.2.0`, `versionCode` 3), nên tên file đổi theo phiên
+`versionName` lấy từ `android/app/build.gradle.kts` (hiện là `1.2.1`, `versionCode` 4), nên tên file đổi theo phiên
 bản. Kiểm tra chữ ký:
 
 ```bash
-$ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs ~/thuocla-apk/thuocla-v1.2.0.apk
+$ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs ~/thuocla-apk/thuocla-v1.2.1.apk
 ```
 
 ## Cài & nhập bản sao
