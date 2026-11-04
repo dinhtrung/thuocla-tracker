@@ -8,7 +8,7 @@ Dữ liệu nhiều tháng của người dùng phải sống sót qua các sự
 
 ### Requirement: Bản sao lưu tự động của hệ điều hành
 
-App SHALL tham gia cơ chế sao lưu của hệ điều hành: manifest SHALL khai báo `android:allowBackup="true"`, `android:fullBackupContent` (áp cho API 26–30) và `android:dataExtractionRules` (áp cho API 31 trở lên). Hai file luật SHALL **include** domain `database` (toàn bộ Room DB: bản ghi điếu và cấu hình) và domain `file`, đồng thời **exclude** `cache` và `no_backup` khỏi cả `cloud-backup` lẫn `device-transfer`.
+App SHALL tham gia cơ chế sao lưu của hệ điều hành: manifest SHALL khai báo `android:allowBackup="true"`, `android:fullBackupContent` (áp cho API 26–30) và `android:dataExtractionRules` (áp cho API 31 trở lên). Hai file luật SHALL **include** domain `database` (toàn bộ Room DB: bản ghi điếu và cấu hình) và domain `file`, cho cả `cloud-backup` lẫn `device-transfer`.
 
 #### Scenario: Cài lại app và dữ liệu về lại
 
@@ -19,6 +19,16 @@ App SHALL tham gia cơ chế sao lưu của hệ điều hành: manifest SHALL k
 
 - **WHEN** người dùng ghi thêm 2 điếu rồi bản sao lưu của hệ điều hành chạy
 - **THEN** lần phục hồi kế tiếp trả về số điếu đã tính cả 2 điếu mới, không phải con số trước đó
+
+
+### Requirement: Luật sao lưu chỉ dùng domain hợp lệ
+
+Hai file luật SHALL NOT khai báo `<exclude>` cho `cache` hay `no_backup`. Hai tên đó không phải domain hợp lệ của `<full-backup-content>`/`<data-extraction-rules>` (tập hợp lệ: `file`, `database`, `sharedpref`, `external`, `root`, `device_file`, `device_database`, `device_sharedpref`, `device_root`), AGP `lintVitalRelease` coi chúng là lỗi fatal, và hệ điều hành vốn đã tự loại `getCacheDir()`/`getNoBackupFilesDir()` khỏi bản sao lưu.
+
+#### Scenario: Luật sao lưu chỉ chứa domain hợp lệ
+
+- **WHEN** build release (`./gradlew :app:assembleRelease`)
+- **THEN** `:app:lintVitalRelease` xanh, và hai file `res/xml/backup_rules.xml` + `res/xml/data_extraction_rules.xml` không chứa phần tử `<exclude>` nào
 
 #### Scenario: Manifest vẫn không có quyền mạng
 

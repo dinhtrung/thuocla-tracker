@@ -7,8 +7,8 @@
 
 ## 1. Manifest + luật sao lưu (deliverable: bản sao lưu tự động của OS)
 
-- [x] 1.1 Thêm `android/app/src/main/res/xml/backup_rules.xml` (dùng cho `android:fullBackupContent`, API 26–30): `<full-backup-content>` với `<include domain="database" path="."/>`, `<include domain="file" path="."/>`, `<exclude domain="cache" path="."/>`, `<exclude domain="no_backup" path="."/>`.
-- [x] 1.2 Thêm `android/app/src/main/res/xml/data_extraction_rules.xml` (API 31+) với **hai** nhánh `cloud-backup` và `device-transfer`, mỗi nhánh include `database` + `file` và exclude `cache` + `no_backup`.
+- [x] 1.1 Thêm `android/app/src/main/res/xml/backup_rules.xml` (dùng cho `android:fullBackupContent`, API 26–30): `<full-backup-content>` với `<include domain="database" path="."/>`, `<include domain="file" path="."/>`. Không có `<exclude>`: `cache`/`no_backup` không phải domain hợp lệ (xem design D2).
+- [x] 1.2 Thêm `android/app/src/main/res/xml/data_extraction_rules.xml` (API 31+) với **hai** nhánh `cloud-backup` và `device-transfer`, mỗi nhánh include `database` + `file`, không có `<exclude>`.
 - [x] 1.3 Sửa `android/app/src/main/AndroidManifest.xml`: `android:allowBackup="true"`, `android:fullBackupContent="@xml/backup_rules"`, `android:dataExtractionRules="@xml/data_extraction_rules"`. Không thêm `uses-permission` nào.
 - [x] 1.4 Bằng chứng tĩnh: `aapt2 dump xmltree app/build/outputs/apk/debug/app-debug.apk --file AndroidManifest.xml | grep -iE "allowBackup|fullBackupContent|dataExtractionRules"` in ra `allowBackup=true` (và hai thuộc tính trỏ đúng file xml); `aapt2 dump permissions` không có INTERNET. Dán cả hai output vào PR.
 
