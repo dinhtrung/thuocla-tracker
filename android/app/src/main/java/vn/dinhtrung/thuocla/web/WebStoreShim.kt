@@ -133,6 +133,33 @@ internal object WebStoreShim {
     }
     return result;
   };
+
+  // ---- 3. Route the page's file actions through native ----
+  //
+  // A WebView cannot download a Blob and cannot open SAF, so the three file entry points the web UI
+  // has are replaced. Each calls native; native opens the system dialog or the chooser and then calls
+  // `window.__thuoclaFileResult`, which this turns into the same `alert()` the browser build showed.
+  // The formats themselves are untouched: the six CSV columns, the JSON schema and the THAY THẾ/GỘP
+  // rules all live in the Kotlin `DataPortability`.
+  var files = window.ThuoclaFiles || null;
+
+  window.__thuoclaFileResult = function (payload) {
+    var message = payload && payload.message ? payload.message : '';
+    if (!message) return;
+    // `alert()` is the page's own feedback channel — reachable now that a WebChromeClient renders it.
+    safe(function () { window.alert(message); });
+  };
+
+  if (files) {
+    window.exportCSV = function () { safe(function () { files.exportCsv(); }); };
+    window.exportBackup = function () { safe(function () { files.exportBackup(); }); };
+    // The page's own picker is an <input type=file>; native opens the same SAF dialog instead, then
+    // performs the import after the user answers THAY THẾ/GỘP.
+    window.pickRestoreFile = function () { safe(function () { files.pickRestoreFile(); }); };
+    // No control in the web UI calls this (the page has no share button); exposed so the native half
+    // exists and the spec's share scenario can be exercised deliberately.
+    window.shareBackup = function () { safe(function () { files.shareBackup(); }); };
+  }
 })();
 """
 
