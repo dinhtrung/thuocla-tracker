@@ -1,7 +1,12 @@
 package vn.dinhtrung.thuocla
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import vn.dinhtrung.thuocla.data.BackupSharer
+import androidx.core.content.FileProvider
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -174,6 +179,9 @@ class MainActivity : ComponentActivity() {
                                 createDocumentLauncher.launch(container.dataPortability.jsonFileName())
                             }
                         },
+                        onShareJson = {
+                            dataViewModel.shareJson { copy -> launchShareChooser(copy) }
+                        },
                         onImportJson = {
                             pendingImportKind = ImportKind.JSON
                             openDocumentLauncher.launch(DOCUMENT_MIME_TYPES)
@@ -215,6 +223,53 @@ class MainActivity : ComponentActivity() {
         }.isSuccess
         if (!written) {
             dataViewModel.reportWriteFailure()
+        }
+    }
+
+    /**
+     * Hands the freshly written share copy to whatever app accepts `application/json`.
+     *
+     * The file leaves the app only as a `content://` URI issued by the [FileProvider] declared in the
+     * manifest: [Intent.FLAG_GRANT_READ_URI_PERMISSION] plus [ClipData] give the chosen receiver a
+     * one-shot read grant without any storage permission. [Intent.createChooser] is used so the user
+     * picks the destination (Drive, Zalo, Telegram…); when nothing resolves, the message slot reports it
+     * instead of throwing `ActivityNotFoundException`, and the return value tells the caller not to claim
+     * a share that never happened.
+     */
+    private fun launchShareChooser(copy: BackupSharer.ShareCopy): Boolean {
+        val uri = FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            copy.file,
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TITLE, copy.fileName)
+            // Some receivers read the name from the clip label rather than EXTRA_TITLE.
+            clipData = ClipData.newUri(contentResolver, copy.fileName, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        // Check the SEND intent, not the chooser: a chooser always resolves to the system chooser activity
+        // even when no app accepts the type, so testing the chooser would never catch "no receiver"
+        // (spec scenario "Không có ứng dụng nào nhận"). This is also what resolveActivity can answer in
+        // Robolectric, where the chooser activity itself is absent.
+        //
+        // On API 30+ resolveActivity is filtered by package visibility; the manifest's <queries> element
+        // declares ACTION_SEND + application/json so this guard sees installed receivers. The try/catch is
+        // the documented belt-and-braces: a receiver vanishing between the check and the start, or a query
+        // still filtered on some device, reports the same message instead of crashing.
+        if (send.resolveActivity(packageManager) == null) {
+            dataViewModel.reportShareUnavailable()
+            return false
+        }
+        return try {
+            startActivity(Intent.createChooser(send, "Chia sẻ bản sao JSON").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            true
+        } catch (_: ActivityNotFoundException) {
+            // Nothing accepted the intent after all: same message slot, no crash.
+            dataViewModel.reportShareUnavailable()
+            false
         }
     }
 
