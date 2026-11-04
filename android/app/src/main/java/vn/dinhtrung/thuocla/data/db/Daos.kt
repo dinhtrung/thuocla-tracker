@@ -41,6 +41,10 @@ interface RecordDao {
     )
     suspend fun updateTrigger(dateKey: String, minuteOfDay: Int, triggerIdx: Int?): Int
 
+    /** Clears one day before the web bridge writes its replacement array (task 3.1). */
+    @Query("DELETE FROM records WHERE dateKey = :dateKey")
+    suspend fun deleteDay(dateKey: String): Int
+
     @Query("SELECT COUNT(*) FROM records WHERE dateKey BETWEEN :from AND :to")
     suspend fun countBetween(from: String, to: String): Int
 

@@ -66,6 +66,18 @@ class WebShellActivityTest {
         assertFalse(webView.settings.allowUniversalAccessFromFileURLs)
     }
 
+    /**
+     * The document-start hook takes origin *rules*, not hosts: passing the bare host throws
+     * `IllegalArgumentException` inside Chromium and, before this was pinned, crashed the app on
+     * launch — invisible to Robolectric, which does not support the feature at all and so skipped
+     * the call. Asserting the constant's shape keeps the two from drifting apart again.
+     */
+    @Test
+    fun theDocumentStartOriginRule_isAnOriginNotAHost() {
+        assertEquals("https://appassets.androidplatform.net", WebShellActivity.ASSET_ORIGIN)
+        assertTrue("must carry the scheme", WebShellActivity.ASSET_ORIGIN.startsWith("https://"))
+    }
+
     @Test
     fun assetLoader_servesTheRealIndexHtml() {
         val activity = Robolectric.buildActivity(WebShellActivity::class.java).setup().get()
