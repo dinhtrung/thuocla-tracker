@@ -41,6 +41,11 @@ class WebFileBridge(
     private val openShare: (BackupSharer.ShareCopy) -> Boolean,
     /** The WebView, told that a file action finished. Set by the activity once it is created. */
     private val notifyPage: (json: String) -> Unit,
+    /**
+     * Re-seeds and re-renders the page after a native import. The store changed underneath it, so the
+     * screen must adopt the new state — see the shim's `__thuoclaAfterImport`.
+     */
+    private val afterImport: () -> Unit,
 ) {
 
     private val executor = Executors.newSingleThreadExecutor { runnable ->
@@ -137,6 +142,9 @@ class WebFileBridge(
     fun importText(text: String, replace: Boolean): Boolean = await {
         when (val outcome = portability.importJson(text, replace)) {
             is DataPortability.ImportOutcome.Imported -> {
+                // The store changed, so the page must adopt the new state before it reports success;
+                // otherwise the screen keeps the pre-restore numbers (see `afterImport`).
+                afterImport()
                 notifyPage(
                     result(
                         ok = true,

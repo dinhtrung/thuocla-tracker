@@ -51,6 +51,9 @@ class WebFileBridgeTest {
     private var shareAsked = 0
     private var shareAllowed = true
 
+    /** How many times the bridge asked the page to adopt the store after an import. */
+    private var resynced = 0
+
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
@@ -67,6 +70,7 @@ class WebFileBridgeTest {
             openOpenDocument = { openDocumentAsked++ },
             openShare = { shareAsked++; shareAllowed },
             notifyPage = { json -> reported += JSONObject(json) },
+            afterImport = { resynced++ },
         )
     }
 
@@ -153,6 +157,18 @@ class WebFileBridgeTest {
         assertEquals(day, repo.allRecords().single().dateKey)
         assertEquals(9, repo.getConfig().goal)
         assertTrue(reported.last().getBoolean("ok"))
+        // Task 4.2/spec: the screen must update at once. The page only does that when it is told to
+        // re-adopt the store, so an import that did not resync would leave the old numbers on screen —
+        // measured on the AVD before this hook existed.
+        assertEquals("each successful import must resync the page", 2, resynced)
+    }
+
+    @Test
+    fun aRejectedBackup_doesNotResyncThePage() = runTest {
+        // Nothing changed in the store, so the page must not be re-rendered — and in particular the
+        // resync must not fire on the failure path where the page still holds the user's old data.
+        assertFalse(bridge.importText("""{"app":"x"}""", replace = true))
+        assertEquals(0, resynced)
     }
 
     @Test

@@ -114,7 +114,9 @@ class WebShellActivity : ComponentActivity() {
             openOpenDocument = { openDocumentLauncher.launch(arrayOf("application/json")) },
             openShare = ::startShare,
             notifyPage = { json -> notifyPage(json) },
+            afterImport = { resyncPageAfterImport() },
         )
+
 
 
         val assetLoader = WebViewAssetLoader.Builder()
@@ -258,6 +260,21 @@ class WebShellActivity : ComponentActivity() {
     private fun notifyPage(json: String) {
         runOnUiThread {
             webView.evaluateJavascript("window.__thuoclaFileResult($json);", null)
+        }
+    }
+
+    /**
+     * Hands the page the store's current state and lets it re-render, after a native import.
+     *
+     * The import writes to Room, not to the page, so without this the screen keeps whatever it drew
+     * before the restore. The seed is read here — the store has already changed — and passed to the
+     * shim's `__thuoclaAfterImport`, which re-seeds `localStorage` and calls the page's own
+     * `loadSettingsUI()`/`updateDisplay()`, the same two calls `app.js`'s `restoreFromFile` makes.
+     */
+    private fun resyncPageAfterImport() {
+        val seed = mirror.readSeed()
+        runOnUiThread {
+            webView.evaluateJavascript("window.__thuoclaAfterImport($seed);", null)
         }
     }
 

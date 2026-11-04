@@ -150,6 +150,36 @@ internal object WebStoreShim {
     safe(function () { window.alert(message); });
   };
 
+  /**
+   * Adopt the store as it now stands and re-render, after a native import.
+   *
+   * `app.js`'s own `restoreFromFile` ends with `loadSettingsUI(); updateDisplay();`, and native cannot
+   * call that function (it is the page's, and it needs a File object). Importing in Kotlin therefore
+   * left the screen showing the values from before the restore while Room held the new ones —
+   * measured: a THAY THẾ that set config to (8,45,30000,22) still rendered 10/60/25000/20, which
+   * spec.md's "màn hình cập nhật ngay" forbids. This re-seeds `localStorage` from the same snapshot
+   * and then calls the page's own render functions, so the screen and Room agree again.
+   */
+  window.__thuoclaAfterImport = function (seed) {
+    // Adopt the new baseline BEFORE re-seeding: the writes below would otherwise look like changes and
+    // echo the whole log back to Room, which the import has already written.
+    forwarded = {};
+    var data = seed.data || {};
+    Object.keys(data).forEach(function (day) { forwarded[day] = JSON.stringify(data[day]); });
+
+    safe(function () {
+      window.localStorage.setItem(DB_KEY, JSON.stringify(data));
+      window.localStorage.setItem(CFG_KEY, JSON.stringify(seed.config));
+      window.localStorage.setItem(THEME_KEY, seed.theme);
+    });
+
+    // The page's own functions, looked up now rather than captured: the shim runs before `app.js`
+    // declares them, but by the time an import finishes they are on `window`.
+    safe(function () { if (window.loadSettingsUI) window.loadSettingsUI(); });
+    safe(function () { if (window.updateDisplay) window.updateDisplay(); });
+    safe(function () { if (window.renderDayDetail && window.selectedDate) window.renderDayDetail(); });
+  };
+
   if (files) {
     // `app.js` is a classic script whose functions are *declarations* (`function exportCSV() {…}`),
     // and a top-level function declaration in a classic script overwrites the matching `window`

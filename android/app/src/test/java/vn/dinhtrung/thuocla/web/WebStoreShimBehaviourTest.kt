@@ -216,7 +216,6 @@ class WebStoreShimBehaviourTest {
     }
 
     /**
-    /**
      * The data-loss path the reviewer found in the first version of the B fix.
      *
      * The localStorage seed is wrapped in `safe()`. If that write throws, the cache that decides what
