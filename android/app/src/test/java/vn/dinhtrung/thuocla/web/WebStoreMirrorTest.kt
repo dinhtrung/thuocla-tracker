@@ -263,30 +263,19 @@ class WebStoreMirrorTest {
     }
 
     /**
-     * The injected script must be valid JavaScript, and nothing else checks that.
+     * The statements the shell depends on live inside the IIFE, not after it.
      *
-     * A missing brace shipped once and made the whole shim a `SyntaxError`: the app launched to an
-     * empty tracker with three records in Room, and every Kotlin-side assertion still passed — the
-     * seed text was all present, it was just inside a script the WebView refused to run. `Rhino` is
-     * not on the test classpath, so this runs the same parse the browser does by handing the text to
-     * a JS engine if one is available and, when it is not, at least asserts the balance of the
-     * braces/parens/brackets that the actual bug violated.
+     * That the script is *valid JavaScript* is checked for real by `WebStoreShimBehaviourTest`, which
+     * hands the generated text to a JS engine. An earlier version of this test counted braces as a
+     * proxy for parsing; it was deleted because it false-fails on a paren inside a comment, and a
+     * proxy that is wrong is worse than no proxy.
      */
     @Test
-    fun theInjectedScriptIsSyntacticallyValidJavaScript() {
+    fun theShimKeepsItsWorkInsideTheIife() {
         val script = WebStoreShim.script(
             JSONObject(mapOf("theme" to "dark", "config" to JSONObject(), "data" to JSONObject())).toString(),
         )
 
-        // Naive but exactly the property that broke: every opener has its closer, ignoring strings.
-        val stripped = script.replace(Regex("'[^']*'"), "''").replace(Regex("\"[^\"]*\""), "\"\"")
-        listOf('{' to '}', '(' to ')', '[' to ']').forEach { (open, close) ->
-            val opens = stripped.count { it == open }
-            val closes = stripped.count { it == close }
-            assertEquals("unbalanced $open$close in the injected script", opens, closes)
-        }
-
-        // The statements the shell depends on must appear inside the function body, not after it.
         val bodyEnd = script.lastIndexOf("})();")
         assertTrue("the IIFE must close exactly once", bodyEnd >= 0 && script.indexOf("})();") == bodyEnd)
         assertTrue(script.indexOf("forwarded[day] !== encoded") < bodyEnd)
