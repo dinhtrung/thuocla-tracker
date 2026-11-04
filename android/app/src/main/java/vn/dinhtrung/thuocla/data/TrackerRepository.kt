@@ -119,6 +119,30 @@ class TrackerRepository(private val db: AppDatabase) {
             recordDao.updateTrigger(dateKey, minuteOfDay, triggerIdx) > 0
         }
 
+    /**
+     * Replaces every cigarette of [dateKey] with [rows] in one transaction (web bridge, task 3.1).
+     *
+     * The web UI edits a day wholesale, so a row-by-row diff would have to infer deletions; delete +
+     * insert inside one transaction is the same observable result and can never leave half a day
+     * applied. Duplicate minutes inside [rows] are impossible by construction — the caller parses them
+     * into a set — but the schema's unique index remains the final guard.
+     */
+    suspend fun replaceDay(dateKey: String, rows: List<RecordEntity>): Int = db.withTransaction {
+        if (!isValidDateKey(dateKey)) return@withTransaction 0
+        if (rows.any { it.minuteOfDay !in MINUTE_RANGE || !isValidTrigger(it.triggerIdx) }) {
+            return@withTransaction 0
+        }
+        recordDao.deleteDay(dateKey)
+        if (rows.isEmpty()) return@withTransaction 0
+        recordDao.insertAll(rows.map { it.copy(dateKey = dateKey) }).count { it != INSERT_IGNORED }
+    }
+
+    /** Every stored cigarette, ordered by date then minute — the web mirror's read path. */
+    suspend fun allRecords(): List<CigRecord> = recordDao.all().map { it.toDomain() }
+
+    /** Empties the log (the page's "Xoá toàn bộ lịch sử"). Config is untouched. */
+    suspend fun clearAllRecords(): Int = db.withTransaction { recordDao.deleteAll() }
+
     suspend fun day(dateKey: String): List<CigRecord> =
         if (!isValidDateKey(dateKey)) emptyList() else recordDao.day(dateKey).map { it.toDomain() }
 

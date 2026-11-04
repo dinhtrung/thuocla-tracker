@@ -23,11 +23,11 @@
 
 ## 3. Cầu lưu trữ — Room là nguồn sự thật (task S3)
 
-- [ ] 3.1 `web/WebStoreMirror.kt`: đọc toàn bộ Room (records theo ngày + config) và serialize đúng shape mà `app.js` đang dùng (`smoking_data` map ngày → mảng record, `smoking_config` object) — **đọc `app.js` để lấy đúng key và shape, không đoán**; ghi lại vào Room theo từng lần web thay đổi.
-- [ ] 3.2 Shim JS tiêm bằng `WebViewCompat.addDocumentStartJavaScript`: đổ dữ liệu mirror vào `localStorage` **trước** khi `app.js` chạy; bọc `setItem`/`removeItem`/`clear` để chuyển tiếp sang `WebStoreMirror` (hàng đợi tuần tự, lỗi ghi Room thì log + không làm hỏng UI).
-- [ ] 3.3 `web/WebAppBridge.kt` với `@JavascriptInterface`, danh sách trắng method: `readAll`, `writeDay`, `writeConfig`, `deleteLast`, và các method file ở task S4. Không nhận SQL, không nhận đường dẫn tuỳ ý.
-- [ ] 3.4 Test JVM: (a) Room có 5 điếu → mirror sinh JSON đúng shape, parse lại ra 5 điếu; (b) ghi qua bridge 1 điếu → Room tăng đúng 1 và không tạo bản ghi trùng phút; (c) config đổi → `smoking_config` phản ánh đúng 4 khoá.
-- [ ] 3.5 Bằng chứng sống trên AVD: dữ liệu đang có trong Room (cài bản 1.1.0 trước, ghi vài điếu) → cài bản shell → **mở app thấy đúng số điếu cũ**; sau đó `adb shell pm clear vn.dinhtrung.thuocla` là ca âm (mất cả Room — dùng để phân biệt), còn ca "xoá WebView storage" thì dùng `adb shell run-as vn.dinhtrung.thuocla rm -rf app_webview` rồi mở lại → dữ liệu vẫn còn.
+- [x] 3.1 `web/WebStoreMirror.kt`: đọc toàn bộ Room (records theo ngày + config) và serialize đúng shape mà `app.js` đang dùng (`smoking_data` map ngày → mảng record, `smoking_config` object) — **đọc `app.js` để lấy đúng key và shape, không đoán**; ghi lại vào Room theo từng lần web thay đổi.
+- [x] 3.2 Shim JS tiêm bằng `WebViewCompat.addDocumentStartJavaScript`: đổ dữ liệu mirror vào `localStorage` **trước** khi `app.js` chạy; bọc `setItem`/`removeItem`/`clear` để chuyển tiếp sang `WebStoreMirror` (hàng đợi tuần tự, lỗi ghi Room thì log + không làm hỏng UI).
+- [x] 3.3 `web/WebAppBridge.kt` với `@JavascriptInterface`, danh sách trắng method: `readAll`, `writeDay`, `writeConfig`, `deleteLast`, và các method file ở task S4. Không nhận SQL, không nhận đường dẫn tuỳ ý.
+- [x] 3.4 Test JVM: (a) Room có 5 điếu → mirror sinh JSON đúng shape, parse lại ra 5 điếu; (b) ghi qua bridge 1 điếu → Room tăng đúng 1 và không tạo bản ghi trùng phút; (c) config đổi → `smoking_config` phản ánh đúng 4 khoá.
+- [x] 3.5 Bằng chứng sống trên AVD: dữ liệu đang có trong Room (cài bản 1.1.0 trước, ghi vài điếu) → cài bản shell → **mở app thấy đúng số điếu cũ**; sau đó `adb shell pm clear vn.dinhtrung.thuocla` là ca âm (mất cả Room — dùng để phân biệt), còn ca "xoá WebView storage" thì dùng `adb shell run-as vn.dinhtrung.thuocla rm -rf app_webview` rồi mở lại → dữ liệu vẫn còn.
 
 ## 4. Cầu file — xuất/nhập/chia sẻ từ shell (task S4)
 

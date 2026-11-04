@@ -4,12 +4,6 @@ import androidx.room.withTransaction
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import vn.dinhtrung.thuocla.data.db.AppDatabase
@@ -106,17 +100,7 @@ class DataPortability(
 
         val data = JSONObject()
         byDay.forEach { (dateKey, rows) ->
-            val array = JSONArray()
-            rows.sortedBy { it.minuteOfDay }.forEach { row ->
-                array.put(
-                    JSONObject().apply {
-                        put("time", localIsoTime(dateKey, row.minuteOfDay))
-                        row.triggerIdx?.let { put("trigger", it) }
-                        row.note?.takeIf { it.isNotBlank() }?.let { put("note", it) }
-                    },
-                )
-            }
-            data.put(dateKey, array)
+            data.put(dateKey, RecordJson.dayRecords(dateKey, rows.map { Triple(it.minuteOfDay, it.triggerIdx, it.note) }))
         }
 
         val config = repository.getConfig()
@@ -124,15 +108,7 @@ class DataPortability(
             put("app", "thuocla-tracker")
             put("format", 1)
             put("exportedAt", Instant.now(clock).toString())
-            put(
-                "config",
-                JSONObject().apply {
-                    put("goal", config.goal)
-                    put("intervalGoal", config.intervalGoal)
-                    put("pricePerPack", config.pricePerPack)
-                    put("cigsPerPack", config.cigsPerPack)
-                },
-            )
+            put("config", RecordJson.config(config))
             put("data", data)
         }
         // The PWA writes JSON.stringify(payload, null, 1); matching the indent keeps diffs readable.
@@ -398,31 +374,12 @@ class DataPortability(
      * Only the time of day is kept; the record stays under the day key it was filed under, which is
      * how the PWA renders it too (`formatTime` reads the instant in local time).
      */
-    private fun parseBackupTime(raw: String): Int? {
-        val value = raw.trim()
-        if (value.isEmpty()) return null
-        if ('T' !in value) return parseHhMm(value)
+    private fun parseBackupTime(raw: String): Int? = RecordJson.parseRecordTime(raw, clock.zone)
 
-        // OffsetDateTime covers both "…Z" and "…+07:00"; LocalDateTime covers a bare local stamp.
-        val zoned = runCatching { OffsetDateTime.parse(value) }.getOrNull()
-        if (zoned != null) {
-            val local = zoned.atZoneSameInstant(clock.zone).toLocalTime()
-            return local.hour * 60 + local.minute
-        }
-        val plain = runCatching { LocalDateTime.parse(value) }.getOrNull()
-        if (plain != null) return plain.hour * 60 + plain.minute
-        return null
-    }
+    private fun isRealDateKey(dateKey: String): Boolean = RecordJson.isRealDateKey(dateKey)
 
-    private fun isRealDateKey(dateKey: String): Boolean =
-        DATE_KEY_REGEX.matches(dateKey) &&
-            runCatching { LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE) }.isSuccess
-
-    private fun localIsoTime(dateKey: String, minuteOfDay: Int): String {
-        val date = LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE)
-        val time = LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)
-        return LocalDateTime.of(date, time).format(LOCAL_ISO_SECONDS)
-    }
+    private fun localIsoTime(dateKey: String, minuteOfDay: Int): String =
+        RecordJson.localIsoTime(dateKey, minuteOfDay)
 
     private fun formatHhMm(minuteOfDay: Int): String =
         "%02d:%02d".format(minuteOfDay / 60, minuteOfDay % 60)
@@ -441,8 +398,5 @@ class DataPortability(
         private const val INSERT_IGNORED = -1L
         private const val UTF8_BOM = "\uFEFF"
         private val CRLF = Regex("\r\n|\r|\n")
-        private val DATE_KEY_REGEX = Regex("""\d{4}-\d{2}-\d{2}""")
-        private val LOCAL_ISO_SECONDS: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
     }
 }
