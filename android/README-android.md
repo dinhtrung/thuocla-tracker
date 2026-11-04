@@ -128,13 +128,12 @@ bash scripts/verify-web-assets.sh          # kiểm lại: phải PASS 6/6
 Script so `sha256sum` từng cặp và exit 1 khi thiếu file hoặc lệch, in tên cặp lệch. Job APK chạy nó
 **trước** bước build, cho cả nhánh debug và release.
 
-Trong lúc chuyển tiếp, màn Compose cũ (`MainActivity`) vẫn nằm trong APK nhưng **không còn là
-launcher**; nó chỉ mở được bằng intent tường minh (`adb shell am start -n
-vn.dinhtrung.thuocla/.MainActivity`) để so sánh.
+Compose UI đã bị **xoá** ở bản 1.2.0 (task 5.4): `MainActivity` và toàn bộ `ui/` không còn trong APK,
+nên không có màn thứ hai để mở. Chỉ còn một activity là `web.WebShellActivity`.
 
 ## Sao lưu
 
-App có **ba** đường sao lưu, không đường nào thay thế đường nào:
+App có **hai** đường sao lưu, không đường nào thay thế đường nào:
 
 1. **Tự động của hệ điều hành** (bật từ bản 1.1.0). Manifest khai báo
    `android:allowBackup="true"`, `android:fullBackupContent="@xml/backup_rules"` (API 26–30) và
@@ -144,13 +143,13 @@ App có **ba** đường sao lưu, không đường nào thay thế đường n�
    release), mà hệ điều hành vốn đã tự loại `getCacheDir()`/`getNoBackupFilesDir()` khỏi bản sao lưu.
    Đừng thêm lại `<exclude domain="cache">`/`<exclude domain="no_backup">`. App **không** xin quyền nào
    cho việc này: hệ điều hành tự chạy.
-2. **Chia sẻ bản sao JSON** — **chỉ có ở bản Compose 1.1.0**, không có ở bản shell 1.2.0 trở đi. Ở
-   1.1.0 nó gửi file `thuocla_backup_YYYY-MM-DD.json` sang Drive/Zalo/Telegram qua `ACTION_SEND` +
-   `FileProvider`; file nằm trong cache của app nên chỉ là bản nháp để gửi đi, không phải kho lưu.
-   Từ 1.2.0 giao diện là bản web đóng băng v1.5.2, bản này **không có nút Chia sẻ**, nên shell không
-   mở được đường này — đây là quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04) và là
-   regression đã biết so với 1.1.0. Phần native vẫn nằm trong APK nhưng không có lối vào từ giao diện.
-3. **Xuất file qua SAF** (Storage Access Framework) — **Xuất bản sao JSON** hoặc **Xuất CSV (6 cột)**
+
+> **Chia sẻ bản sao JSON** (có ở 1.1.0) **đã bị xoá ở 1.2.0**, cùng Compose UI (task 5.4): bản shell
+> dùng giao diện web đóng băng v1.5.2, không có nút Chia sẻ, nên code native của nó (`BackupSharer`,
+> FileProvider, `<queries>`, `file_paths.xml`) cũng đã bị xoá. Đây là quyết định có chủ ý của chủ sản
+> phẩm (phương án b, 2026-11-04) và là regression đã biết so với 1.1.0.
+
+2. **Xuất file qua SAF** (Storage Access Framework) — **Xuất bản sao JSON** hoặc **Xuất CSV (6 cột)**
    ở tab **Dữ liệu**, người dùng tự chọn chỗ cất. Đường này không xin quyền bộ nhớ.
 
 Giới hạn thật của từng đường:
@@ -160,8 +159,7 @@ Giới hạn thật của từng đường:
 - Trên **cùng một máy**, bấm **Xoá dữ liệu** (hoặc `adb shell pm clear`) thì bản sao tự động
   **không** tự quay lại — chỉ `adb shell bmgr restore <token>` mới cứu được. Đây là hành vi của
   hệ điều hành, không phải của app.
-- Đường **chia sẻ** (chỉ ở 1.1.0) dùng chung thư mục cache của app: hệ điều hành được phép dọn khi máy
-  thiếu chỗ, nên đừng dùng nó làm nơi cất bản sao lâu dài.
+- Đường **chia sẻ** không còn từ 1.2.0; ai cần bản sao rời máy thì dùng **Xuất bản sao JSON** ở đường 2.
 
 ## PWA đóng băng
 

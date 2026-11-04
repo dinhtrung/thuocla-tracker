@@ -78,8 +78,7 @@ class WebStoreShimBehaviourTest {
         globalThis.ThuoclaFiles = {
           exportCsv(){ globalThis.calls.push('native-exportCsv'); return true; },
           exportBackup(){ globalThis.calls.push('native-exportBackup'); return true; },
-          pickRestoreFile(){ globalThis.calls.push('native-pick'); return true; },
-          shareBackup(){ globalThis.calls.push('native-share'); return true; }
+          pickRestoreFile(){ globalThis.calls.push('native-pick'); return true; }
         };
         vm.runInThisContext(require('fs').readFileSync(process.argv[2], 'utf8'), { filename: 'shim.js' });
         // app.js: a classic script, no wrapper — its top-level declarations claim the same names.
@@ -93,7 +92,7 @@ class WebStoreShimBehaviourTest {
         console.log('BEFORE:' + globalThis.calls.join(','));
         globalThis.calls = [];
         (listeners['DOMContentLoaded'] || []).forEach(f => f());
-        window.exportCSV(); window.exportBackup(); window.pickRestoreFile(); window.shareBackup();
+        window.exportCSV(); window.exportBackup(); window.pickRestoreFile();
         console.log('AFTER:' + globalThis.calls.join(','));
     """
 
@@ -279,7 +278,7 @@ class WebStoreShimBehaviourTest {
         )
         assertEquals(
             "the native actions must be the ones the page ends up calling",
-            "native-exportCsv,native-exportBackup,native-pick,native-share",
+            "native-exportCsv,native-exportBackup,native-pick",
             result.substringAfter("AFTER:").trim(),
         )
     }

@@ -52,12 +52,21 @@ Tab Dữ liệu SHALL có hành động **Chia sẻ bản sao JSON** đặt cạ
 
 Ba yêu cầu về Chia sẻ — **"File bản sao để chia sẻ"**, **"Mở hộp chọn ứng dụng để gửi bản sao"** và **"Dọn file tạm của lần chia sẻ trước"** — áp cho **bản Compose 1.1.0**. Từ shell 1.2.0 trở đi, giao diện là bản web đóng băng v1.5.2 (không có nút Chia sẻ), nên shell SHALL NOT cung cấp hành động này và cả ba yêu cầu trên SHALL NOT áp cho shell.
 
-Quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04); regression đã biết so với 1.1.0. Phần native vẫn còn trong APK nhưng không có lối vào.
+Quyết định có chủ ý của chủ sản phẩm (phương án b, 2026-11-04); regression đã biết so với 1.1.0.
 
 #### Scenario: Shell không có hành động Chia sẻ
 
 - **WHEN** người dùng mở tab **Cài đặt** trong bản shell 1.2.0
 - **THEN** không có nút Chia sẻ nào; đường chia sẻ duy nhất còn lại là **Xuất bản sao JSON** qua SAF
+
+### Requirement: Chia sẻ không còn trong codebase từ 1.2.0
+
+Từ bản 1.2.0, capability chia sẻ SHALL NOT còn tồn tại trong codebase: `BackupSharer`, `<provider>` FileProvider, `<queries>` và `res/xml/file_paths.xml` đã bị xoá cùng Compose UI ở task 5.4 (#55). Đường duy nhất còn lại để người dùng cất bản sao là **Xuất bản sao JSON** qua SAF.
+
+#### Scenario: Không còn provider hay receiver chia sẻ
+
+- **WHEN** kiểm tra APK 1.2.0 (`aapt2 dump permissions`, `aapt2 dump xmltree`) hoặc `grep` mã nguồn
+- **THEN** không có `<provider>` FileProvider, không có `res/xml/file_paths.xml`, và không còn lớp nào nhắc tới `ACTION_SEND`
 
 ### Requirement: Mở hộp chọn ứng dụng để gửi bản sao
 
