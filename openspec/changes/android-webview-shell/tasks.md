@@ -15,11 +15,11 @@
 
 ## 2. Web shell (task S2)
 
-- [ ] 2.1 Thêm dependency `androidx.webkit:webkit` vào `gradle/libs.versions.toml` + `app/build.gradle.kts` (cần cho `WebViewAssetLoader` và `addDocumentStartJavaScript`).
-- [ ] 2.2 `web/WebShellActivity.kt`: `WebView` + `WebViewAssetLoader` với `AssetsPathHandler("/assets/")`; load `https://appassets.androidplatform.net/assets/web/index.html`; bật `javaScriptEnabled`, `domStorageEnabled`; **không** bật `allowFileAccess`/`allowUniversalAccessFromFileURLs`; chặn điều hướng ra ngoài origin `appassets.androidplatform.net` (`shouldOverrideUrlLoading` → nuốt hoặc mở bằng intent ngoài, không load trong WebView).
-- [ ] 2.3 `AndroidManifest.xml`: activity `WebShellActivity` với `MAIN`/`LAUNCHER`, `android:configChanges` hợp lý, `android:exported="true"`. `MainActivity` (Compose cũ) **giữ nguyên code**, chỉ bỏ `MAIN`/`LAUNCHER` → mở được bằng intent tường minh trong lúc chuyển tiếp.
-- [ ] 2.4 Back button: `OnBackPressedCallback` — web có `history.length > 1` thì `goBack()`, ngược lại thoát app; không để back trắng màn hình.
-- [ ] 2.5 Bằng chứng tĩnh: `aapt2 dump badging` → launcher là `vn.dinhtrung.thuocla/.web.WebShellActivity`; `aapt2 dump permissions` không có INTERNET; `unzip -l app-debug.apk | grep assets/web` liệt kê đủ 6 file.
+- [x] 2.1 Thêm dependency `androidx.webkit:webkit` vào `gradle/libs.versions.toml` + `app/build.gradle.kts` (cần cho `WebViewAssetLoader` và `addDocumentStartJavaScript`).
+- [x] 2.2 `web/WebShellActivity.kt`: `WebView` + `WebViewAssetLoader` với `AssetsPathHandler("/assets/")`; load `https://appassets.androidplatform.net/assets/web/index.html`; bật `javaScriptEnabled`, `domStorageEnabled`; **không** bật `allowFileAccess`/`allowUniversalAccessFromFileURLs`; chặn điều hướng ra ngoài origin `appassets.androidplatform.net` (`shouldOverrideUrlLoading` → nuốt hoặc mở bằng intent ngoài, không load trong WebView).
+- [x] 2.3 `AndroidManifest.xml`: activity `WebShellActivity` với `MAIN`/`LAUNCHER`, `android:configChanges` hợp lý, `android:exported="true"`. `MainActivity` (Compose cũ) **giữ nguyên code**, chỉ bỏ `MAIN`/`LAUNCHER` → mở được bằng intent tường minh trong lúc chuyển tiếp.
+- [x] 2.4 Back button: `OnBackPressedCallback` — web có `history.length > 1` thì `goBack()`, ngược lại thoát app; không để back trắng màn hình.
+- [x] 2.5 Bằng chứng tĩnh: `aapt2 dump badging` → launcher là `vn.dinhtrung.thuocla/.web.WebShellActivity`; `aapt2 dump permissions` không có INTERNET; `unzip -l app-debug.apk | grep assets/web` liệt kê đủ 6 file.
 
 ## 3. Cầu lưu trữ — Room là nguồn sự thật (task S3)
 
