@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Auto Backup scope for API 26-30 (android:fullBackupContent).
+
+    Include the Room database (cigarettes + settings) and app files. There is deliberately no
+    <exclude> element: "cache" and "no_backup" are NOT valid domains here (the valid set is file,
+    database, sharedpref, external, root, device_file, device_database, device_sharedpref,
+    device_root), and naming them makes :app:lintVitalRelease fail the release build. The platform
+    already keeps getCacheDir() and getNoBackupFilesDir() out of backup on its own, so an explicit
+    exclusion would be both illegal and redundant.
+    API 31+ uses res/xml/data_extraction_rules.xml instead; both files are
+    required because minSdk is 26. See openspec design.md D2.
+-->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="." />
+</full-backup-content>

@@ -89,6 +89,34 @@ Khôi phục dữ liệu từ PWA:
 Xuất ngược lại cũng ở tab **Dữ liệu**: **Xuất bản sao JSON** (đúng định dạng PWA) hoặc
 **Xuất CSV (6 cột)**. Cả hai dùng Storage Access Framework, app không xin quyền bộ nhớ.
 
+## Sao lưu
+
+App có **ba** đường sao lưu, không đường nào thay thế đường nào:
+
+1. **Tự động của hệ điều hành** (bật từ bản 1.1.0). Manifest khai báo
+   `android:allowBackup="true"`, `android:fullBackupContent="@xml/backup_rules"` (API 26–30) và
+   `android:dataExtractionRules="@xml/data_extraction_rules"` (API 31+). Hai file luật **chỉ include**
+   domain `database` + `file`, cho cả `cloud-backup` lẫn `device-transfer`, và **không có `<exclude>`**:
+   `cache` và `no_backup` không phải domain hợp lệ của hai file này (AGP `lintVitalRelease` sẽ đỏ build
+   release), mà hệ điều hành vốn đã tự loại `getCacheDir()`/`getNoBackupFilesDir()` khỏi bản sao lưu.
+   Đừng thêm lại `<exclude domain="cache">`/`<exclude domain="no_backup">`. App **không** xin quyền nào
+   cho việc này: hệ điều hành tự chạy.
+2. **Chia sẻ bản sao JSON** — gửi file `thuocla_backup_YYYY-MM-DD.json` sang Drive/Zalo/Telegram
+   qua `ACTION_SEND` + `FileProvider`. File nằm trong cache của app nên chỉ là bản nháp để gửi đi,
+   không phải kho lưu.
+3. **Xuất file qua SAF** (Storage Access Framework) — **Xuất bản sao JSON** hoặc **Xuất CSV (6 cột)**
+   ở tab **Dữ liệu**, người dùng tự chọn chỗ cất. Đường này không xin quyền bộ nhớ.
+
+Giới hạn thật của từng đường:
+
+- Bản sao tự động của OS **chỉ về khi cài mới hoặc đổi máy**, và chỉ khi máy có bật sao lưu
+  (tài khoản Google, hoặc chuyển máy trực tiếp bằng cáp). Nó không phải nút "khôi phục" trong app.
+- Trên **cùng một máy**, bấm **Xoá dữ liệu** (hoặc `adb shell pm clear`) thì bản sao tự động
+  **không** tự quay lại — chỉ `adb shell bmgr restore <token>` mới cứu được. Đây là hành vi của
+  hệ điều hành, không phải của app.
+- Đường **chia sẻ** dùng chung thư mục cache của app: hệ điều hành được phép dọn khi máy thiếu chỗ,
+  nên đừng dùng nó làm nơi cất bản sao lâu dài.
+
 ## PWA đóng băng
 
 PWA đã **đóng băng tính năng ở v1.5.2**; app Android này là hướng phát triển tiếp theo.
