@@ -25,6 +25,35 @@ với cache sẵn có. Nếu **không có mạng** và Gradle home rỗng thì b
 
 Kiểm thử: `./gradlew :app:testDebugUnitTest`.
 
+### Test Robolectric cần tải `android-all` — kể cả khi Gradle đang `--offline`
+
+Robolectric tải các jar `android-all-instrumented` (~350 MB) từ Maven Central **lúc chạy test**, bằng
+HTTP client riêng của nó — không qua Gradle. Hệ quả:
+
+- `./gradlew --offline` **không** chặn được lần tải này; `--offline` chỉ áp cho Gradle.
+- Cache của Gradle (`~/.gradle`) cũng không che nó. Chỗ nó cất là
+  `~/.m2/repository/org/robolectric/android-all-instrumented/`.
+- Nếu lần tải hỏng, **không test nào chạy được**: cả suite báo fail (`MavenArtifactFetcher` /
+  `HttpURLConnection`), trông như hàng trăm test hỏng trong khi thân test chưa hề chạy.
+
+CI đã xử lý hai việc này trong `.github/workflows/android-apk.yml`:
+
+1. **Cache** `~/.m2/repository/org/robolectric`, key theo `libs.versions.toml` — lần đầu tải, các lần sau
+   dùng lại. Chỉ cần chạy lại job một lần là cache ấm.
+2. **Một thông báo rõ ràng**: nếu job đỏ và trong kết quả test có dấu hiệu tải jar hỏng, log in
+   `::error::Robolectric could not download its android-all jars — infrastructure failure, NOT a test
+   failure`, thay vì để người đọc đoán từ 100+ stack trace.
+
+Muốn chạy test **hoàn toàn không cần mạng**, đặt hai system property cho JVM của test (qua
+`tasks.withType<Test>`, không phải `-D` trên dòng lệnh Gradle — `-D` ở đó chỉ tới JVM của Gradle):
+
+```
+-Drobolectric.offline=true -Drobolectric.dependency.dir=<thư mục chứa jar>
+```
+
+và thư mục đó phải chứa jar **phẳng**, tên đúng `android-all-instrumented-<sdk>-robolectric-<build>-i7.jar`.
+Thiếu một trong hai SDK mà suite dùng (`34` và `35`) là vẫn hỏng.
+
 ## Release (ký bằng keystore local, không commit)
 
 Keystore nằm **ngoài repo**, không bao giờ được commit:

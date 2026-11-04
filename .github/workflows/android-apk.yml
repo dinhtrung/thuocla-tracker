@@ -57,6 +57,28 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Robolectric downloads `android-all-instrumented` jars (~350 MB) from Maven Central at test
+      # time, through its own HTTP client — not through Gradle, so setup-gradle's cache does not
+      # cover it and `--offline` does not stop it. When that fetch fails the run reports 100+
+      # test failures with `MavenArtifactFetcher`/`HttpURLConnection` and no test body ran (issue
+      # #58: 102/164 on PR #56, 162 on main 86fad58). Caching the directory removes the steady-state
+      # download; the key carries the Robolectric version so a bump invalidates it automatically.
+      - name: Cache Robolectric android-all jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-android-all-${{ runner.os }}-${{ hashFiles('android/gradle/libs.versions.toml') }}
+          restore-keys: |
+            robolectric-android-all-${{ runner.os }}-
+          # Save even when a later step fails: a red run that did download the jars should still warm
+          # the cache, so the next run does not pay the download again.
+          #
+          # Note on the empty cache on #59's first head: the save itself ran at job end (18:11:44Z,
+          # after the tests finished at 18:11:42Z), so timing was not the problem. The directory did
+          # not exist because `:app:testDebugUnitTest` came `FROM-CACHE` — no test executed, so
+          # Robolectric never downloaded anything. That is why the warm-up step below exists.
+          save-always: true
+
       # Runs for BOTH paths (debug and release/tag): a drifted asset copy must red the job.
       # The job defaults to working-directory: android, but the script lives at the repo root,
       # so this step overrides it back to '.'.
@@ -64,10 +86,47 @@ jobs:
         working-directory: .
         run: bash scripts/verify-web-assets.sh
 
+      # Materials the Robolectric jars before the real test run, so two things hold that did not:
+      #
+      # 1. The directory exists when the cache's save runs. On #59's first head `:app:testDebugUnitTest`
+      #    came FROM-CACHE, so no test executed, nothing downloaded, and the cache had nothing to save.
+      #    `--rerun-tasks` on one small Robolectric class forces the sandbox to start.
+      # 2. A 429/502 from Maven Central is retried instead of failing the job. Measured locally on a
+      #    cold cache: `HTTP response code: 429 for URL: https://repo1.maven.org/.../android-all-instrumented`.
+      #    That is what makes the failure intermittent rather than deterministic.
+      #
+      # Failure here is not fatal: the test step below still runs and remains the source of truth.
+      - name: Warm Robolectric android-all jars
+        if: github.ref_type != 'tag'
+        continue-on-error: true
+        run: |
+          for attempt in 1 2 3; do
+            echo "::group::warm-up attempt $attempt"
+            if ./gradlew --no-daemon :app:testDebugUnitTest --tests '*ThemeConfigStoreTest' --rerun-tasks; then
+              echo "::endgroup::"
+              echo "Robolectric sandbox started; jars are cached for the test step."
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "attempt $attempt failed, retrying in $((attempt * 10))s"
+            sleep $((attempt * 10))
+          done
+          echo "::warning::Robolectric warm-up failed after 3 attempts; the test step will try again and the failure annotation will name it if the fetch is the cause."
+
       # ---- debug path: every PR / push / manual dispatch -------------------------------
       - name: Unit tests + debug build
         if: github.ref_type != 'tag'
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: |
+          set +e
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+          status=$?
+          # Both resolvers mean the same thing: the android-all jar was not available. MavenArtifactFetcher
+          # is the download path CI hits; LocalDependencyResolver is the same failure when a dependency
+          # dir is configured. Either way no test body ran (issue #58).
+          if [ "$status" -ne 0 ] && grep -rqsE 'MavenArtifactFetcher|LocalDependencyResolver|Could not (resolve|fetch) android-all' app/build/test-results/testDebugUnitTest/; then
+            echo "::error::Robolectric could not download its android-all jars — this is an infrastructure failure, NOT a test failure. Every failing test above failed before its body ran. Fix: re-run the job; the ~/.m2/repository/org/robolectric cache makes it a no-op once warm. See issue #58."
+          fi
+          exit "$status"
 
       - name: Verify debug APK (must not request INTERNET)
         if: github.ref_type != 'tag'
@@ -117,7 +176,17 @@ jobs:
       - name: Unit tests + signed release build
         if: github.ref_type == 'tag' || inputs.variant == 'release'
         run: |
+          set +e
           ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+          status=$?
+          # Both resolvers mean the same thing: the android-all jar was not available. MavenArtifactFetcher
+          # is the download path CI hits; LocalDependencyResolver is the same failure when a dependency
+          # dir is configured. Either way no test body ran (issue #58).
+          if [ "$status" -ne 0 ] && grep -rqsE 'MavenArtifactFetcher|LocalDependencyResolver|Could not (resolve|fetch) android-all' app/build/test-results/testDebugUnitTest/; then
+            echo "::error::Robolectric could not download its android-all jars — infrastructure failure, NOT a test failure. Re-run the job; see issue #58."
+            exit "$status"
+          fi
+          [ "$status" -eq 0 ] || exit "$status"
           AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
           APK=app/build/outputs/apk/release/app-release.apk
           if [ ! -f "$APK" ]; then
